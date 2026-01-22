@@ -3,7 +3,7 @@
 import { SWRConfig } from 'swr'
 import type { ReactNode } from 'react'
 import { AuthProvider } from './auth-context'
-import { TimerProvider } from './timer-context'
+import { ToastProvider } from '@/components/ui/toast'
 import { ApiClientError } from '@/lib/api/client'
 
 export function Providers({ children }: { children: ReactNode }) {
@@ -31,9 +31,11 @@ export function Providers({ children }: { children: ReactNode }) {
         },
       }}
     >
-      <AuthProvider>
-        <TimerProvider>{children}</TimerProvider>
-      </AuthProvider>
+      <ToastProvider>
+        <AuthProvider>
+          {children}
+        </AuthProvider>
+      </ToastProvider>
     </SWRConfig>
   )
 }

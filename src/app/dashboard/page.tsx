@@ -74,7 +74,7 @@ function StatCard({
 }) {
   return (
     <Card>
-      <CardContent className="pt-6">
+      <CardContent>
         <p className="text-sm text-muted-foreground">{title}</p>
         <p className="mt-1 text-2xl font-semibold">{primary}</p>
         <p className="mt-0.5 text-sm text-muted-foreground">{secondary}</p>

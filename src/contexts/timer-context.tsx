@@ -9,12 +9,12 @@ import {
   useRef,
   type ReactNode,
 } from 'react'
-import { timerApi } from '@/lib/api'
-import { useAuthContext } from './auth-context'
-import type { Project } from '@/types'
+import { timerApi, isApiError } from '@/lib/api'
+import { toastManager } from '@/components/ui/toast'
+import { formatDurationHuman } from '@/lib/utils/date'
+import type { Project, ActiveTimer } from '@/types'
 
-const TIMER_STORAGE_KEY = 'billmint_timer'
-const SYNC_INTERVAL = 30000
+type TimerStateValue = 'idle' | 'running' | 'paused'
 
 interface TimerState {
   isRunning: boolean
@@ -28,6 +28,7 @@ interface TimerState {
 }
 
 interface TimerContextType {
+  timerState: TimerStateValue
   isRunning: boolean
   isPaused: boolean
   displayTime: number
@@ -36,6 +37,8 @@ interface TimerContextType {
   project: Pick<Project, 'id' | 'name' | 'color'> | null
   isBillable: boolean
   isSubmitting: boolean
+  descriptionInputRef: React.RefObject<HTMLInputElement | null>
+  projectSelectRef: React.RefObject<HTMLButtonElement | null>
   startTimer: (options?: {
     description?: string
     projectId?: string | null
@@ -52,75 +55,115 @@ interface TimerContextType {
 
 const TimerContext = createContext<TimerContextType | null>(null)
 
-function getStoredTimer(): TimerState | null {
-  if (typeof window === 'undefined') return null
-  const stored = localStorage.getItem(TIMER_STORAGE_KEY)
-  return stored ? JSON.parse(stored) : null
+// Initial data passed from server
+export interface InitialTimerData {
+  timer: ActiveTimer | null
+  project: Pick<Project, 'id' | 'name' | 'color'> | null
 }
 
-function storeTimer(timer: Partial<TimerState> | null) {
-  if (typeof window === 'undefined') return
-  if (timer && timer.isRunning) {
-    localStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify(timer))
-  } else {
-    localStorage.removeItem(TIMER_STORAGE_KEY)
+function serverTimerToState(data: InitialTimerData | null): TimerState {
+  if (!data?.timer) {
+    return {
+      isRunning: false,
+      isPaused: false,
+      startTime: null,
+      elapsedSeconds: 0,
+      description: '',
+      projectId: null,
+      project: null,
+      isBillable: true,
+    }
+  }
+
+  return {
+    isRunning: true, // Timer exists, so it's in a "started" state
+    isPaused: data.timer.is_paused,
+    startTime: data.timer.start_time,
+    elapsedSeconds: data.timer.elapsed_seconds,
+    description: data.timer.description || '',
+    projectId: data.timer.project_id,
+    project: data.project,
+    isBillable: data.timer.is_billable,
   }
 }
 
-export function TimerProvider({ children }: { children: ReactNode }) {
-  const { isAuthenticated, isLoading: authLoading } = useAuthContext()
+interface TimerProviderProps {
+  children: ReactNode
+  initialData?: InitialTimerData | null
+}
 
-  const [timer, setTimer] = useState<TimerState>({
-    isRunning: false,
-    isPaused: false,
-    startTime: null,
-    elapsedSeconds: 0,
-    description: '',
-    projectId: null,
-    project: null,
-    isBillable: true,
-  })
-
+export function TimerProvider({ children, initialData }: TimerProviderProps) {
+  const [timer, setTimer] = useState<TimerState>(() => serverTimerToState(initialData ?? null))
   const [displayTime, setDisplayTime] = useState(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const isInitialized = useRef(false)
+  const descriptionDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const descriptionInputRef = useRef<HTMLInputElement | null>(null)
+  const projectSelectRef = useRef<HTMLButtonElement | null>(null)
 
-  // Initialize from localStorage and server
+  // Fetch timer from server
+  const fetchTimer = useCallback(async () => {
+    try {
+      const response = await timerApi.getTimer()
+      if (response.timer) {
+        setTimer({
+          isRunning: true, // Timer exists, so it's in a "started" state
+          isPaused: response.timer.is_paused,
+          startTime: response.timer.start_time,
+          elapsedSeconds: response.timer.elapsed_seconds,
+          description: response.timer.description || '',
+          projectId: response.timer.project_id,
+          project: response.project,
+          isBillable: response.timer.is_billable,
+        })
+      } else {
+        // No active timer on server - only reset if we had one locally
+        setTimer((prev) => {
+          if (prev.isRunning) {
+            return {
+              isRunning: false,
+              isPaused: false,
+              startTime: null,
+              elapsedSeconds: 0,
+              description: '',
+              projectId: null,
+              project: null,
+              isBillable: true,
+            }
+          }
+          return prev
+        })
+      }
+    } catch (error) {
+      console.error('Failed to fetch timer:', error)
+    }
+  }, [])
+
+  // Refetch timer on visibility change (tab becomes visible)
   useEffect(() => {
-    // Don't initialize until we know auth state
-    if (authLoading) return
-    if (isInitialized.current) return
-    isInitialized.current = true
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        fetchTimer()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [fetchTimer])
 
-    const stored = getStoredTimer()
-    if (stored) {
-      setTimer(stored)
+  // Update tab title when timer is running
+  useEffect(() => {
+    const formatTime = (seconds: number) => {
+      const h = Math.floor(seconds / 3600)
+      const m = Math.floor((seconds % 3600) / 60)
+      const s = seconds % 60
+      return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
     }
 
-    // Only fetch from server if authenticated
-    if (!isAuthenticated) return
-
-    timerApi
-      .getTimer()
-      .then((response) => {
-        if (response.timer) {
-          setTimer({
-            isRunning: !response.timer.is_paused,
-            isPaused: response.timer.is_paused,
-            startTime: response.timer.start_time,
-            elapsedSeconds: response.timer.elapsed_seconds,
-            description: response.timer.description || '',
-            projectId: response.timer.project_id,
-            project: response.project,
-            isBillable: response.timer.is_billable,
-          })
-        }
-      })
-      .catch((error) => {
-        console.error('Failed to fetch timer:', error)
-      })
-  }, [authLoading, isAuthenticated])
+    if (timer.isRunning && !timer.isPaused) {
+      document.title = `${formatTime(displayTime)} - BillMint`
+    } else {
+      document.title = 'BillMint'
+    }
+  }, [displayTime, timer.isRunning, timer.isPaused])
 
   // Calculate display time
   useEffect(() => {
@@ -128,6 +171,11 @@ export function TimerProvider({ children }: { children: ReactNode }) {
       setDisplayTime(timer.elapsedSeconds)
       return
     }
+
+    // Calculate initial display time immediately
+    const start = new Date(timer.startTime!).getTime()
+    const now = Date.now()
+    setDisplayTime(timer.elapsedSeconds + Math.floor((now - start) / 1000))
 
     const interval = setInterval(() => {
       const start = new Date(timer.startTime!).getTime()
@@ -139,53 +187,41 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(interval)
   }, [timer.isRunning, timer.isPaused, timer.startTime, timer.elapsedSeconds])
 
-  // Sync with server periodically
-  useEffect(() => {
-    if (!timer.isRunning || !isAuthenticated) return
-
-    const sync = async () => {
-      try {
-        await timerApi.syncTimer({
-          description: timer.description,
-          project_id: timer.projectId,
-          is_billable: timer.isBillable,
-          start_time: timer.startTime!,
-          elapsed_seconds: displayTime,
-        })
-      } catch (error) {
-        console.error('Failed to sync timer:', error)
-      }
-    }
-
-    syncTimeoutRef.current = setTimeout(sync, SYNC_INTERVAL)
-
-    return () => {
-      if (syncTimeoutRef.current) {
-        clearTimeout(syncTimeoutRef.current)
-      }
-    }
-  }, [timer, displayTime, isAuthenticated])
-
-  // Store timer state
-  useEffect(() => {
-    storeTimer(timer)
-  }, [timer])
-
+  // Optimistic start timer
   const startTimer = useCallback(
     async (options?: {
       description?: string
       projectId?: string | null
       isBillable?: boolean
     }) => {
+      if (isSubmitting) return
       setIsSubmitting(true)
+
+      const startedAt = new Date().toISOString()
+      const desc = options?.description ?? timer.description
+      const projId = options?.projectId !== undefined ? options.projectId : timer.projectId
+      const billable = options?.isBillable ?? timer.isBillable
+
+      // Optimistic update
+      setTimer((prev) => ({
+        ...prev,
+        isRunning: true,
+        isPaused: false,
+        startTime: startedAt,
+        elapsedSeconds: 0,
+        description: desc,
+        projectId: projId,
+        isBillable: billable,
+      }))
 
       try {
         const response = await timerApi.startTimer({
-          description: options?.description || timer.description,
-          project_id: options?.projectId !== undefined ? options.projectId : timer.projectId,
-          is_billable: options?.isBillable ?? timer.isBillable,
+          description: desc,
+          project_id: projId,
+          is_billable: billable,
         })
 
+        // Sync with server response
         const serverTimer = response.timer!
         setTimer({
           isRunning: true,
@@ -197,100 +233,216 @@ export function TimerProvider({ children }: { children: ReactNode }) {
           project: response.project,
           isBillable: serverTimer.is_billable,
         })
+      } catch (error: unknown) {
+        // On conflict (409), fetch the existing timer instead of reverting to idle
+        if (isApiError(error) && error.statusCode === 409) {
+          // Fetch the existing timer from server
+          await fetchTimer()
+          toastManager.add({ type: 'info', title: 'Timer already running' })
+        } else {
+          // Revert on other errors
+          setTimer({
+            isRunning: false,
+            isPaused: false,
+            startTime: null,
+            elapsedSeconds: 0,
+            description: desc,
+            projectId: projId,
+            project: timer.project,
+            isBillable: billable,
+          })
+          toastManager.add({ type: 'error', title: 'Failed to start timer' })
+        }
       } finally {
         setIsSubmitting(false)
       }
     },
-    [timer.description, timer.projectId, timer.isBillable]
+    [timer.description, timer.projectId, timer.project, timer.isBillable, isSubmitting, fetchTimer]
   )
 
+  // Optimistic stop timer
   const stopTimer = useCallback(async () => {
+    if (isSubmitting) return
     setIsSubmitting(true)
+
+    const prevTimer = { ...timer }
+    const savedDuration = displayTime
+
+    // Optimistic update
+    setTimer({
+      isRunning: false,
+      isPaused: false,
+      startTime: null,
+      elapsedSeconds: 0,
+      description: '',
+      projectId: null,
+      project: null,
+      isBillable: true,
+    })
 
     try {
       await timerApi.stopTimer()
-
-      setTimer({
-        isRunning: false,
-        isPaused: false,
-        startTime: null,
-        elapsedSeconds: 0,
-        description: '',
-        projectId: null,
-        project: null,
-        isBillable: true,
+      toastManager.add({
+        type: 'success',
+        title: `Entry saved: ${formatDurationHuman(savedDuration)}`,
       })
+    } catch (error) {
+      // Revert on error
+      setTimer(prevTimer)
+      toastManager.add({ type: 'error', title: 'Failed to stop timer' })
     } finally {
       setIsSubmitting(false)
     }
-  }, [])
+  }, [timer, displayTime, isSubmitting])
 
+  // Optimistic pause timer
   const pauseTimer = useCallback(async () => {
+    if (isSubmitting) return
     setIsSubmitting(true)
+
+    const currentDisplayTime = displayTime
+
+    // Optimistic update
+    setTimer((prev) => ({
+      ...prev,
+      isPaused: true,
+      elapsedSeconds: currentDisplayTime,
+    }))
 
     try {
       await timerApi.pauseTimer()
-
+    } catch (error) {
+      // Revert on error
       setTimer((prev) => ({
         ...prev,
-        isPaused: true,
-        elapsedSeconds: displayTime,
+        isPaused: false,
       }))
+      toastManager.add({ type: 'error', title: 'Failed to pause timer' })
     } finally {
       setIsSubmitting(false)
     }
-  }, [displayTime])
+  }, [displayTime, isSubmitting])
 
+  // Optimistic resume timer
   const resumeTimer = useCallback(async () => {
+    if (isSubmitting) return
     setIsSubmitting(true)
+
+    const resumedAt = new Date().toISOString()
+
+    // Optimistic update
+    setTimer((prev) => ({
+      ...prev,
+      isPaused: false,
+      startTime: resumedAt,
+    }))
 
     try {
       await timerApi.resumeTimer()
-
+    } catch (error) {
+      // Revert on error
       setTimer((prev) => ({
         ...prev,
-        isPaused: false,
-        startTime: new Date().toISOString(),
+        isPaused: true,
       }))
+      toastManager.add({ type: 'error', title: 'Failed to resume timer' })
     } finally {
       setIsSubmitting(false)
     }
-  }, [])
+  }, [isSubmitting])
 
+  // Optimistic discard timer
   const discardTimer = useCallback(async () => {
+    if (isSubmitting) return
     setIsSubmitting(true)
+
+    const prevTimer = { ...timer }
+
+    // Optimistic update
+    setTimer({
+      isRunning: false,
+      isPaused: false,
+      startTime: null,
+      elapsedSeconds: 0,
+      description: '',
+      projectId: null,
+      project: null,
+      isBillable: true,
+    })
 
     try {
       await timerApi.discardTimer()
-
-      setTimer({
-        isRunning: false,
-        isPaused: false,
-        startTime: null,
-        elapsedSeconds: 0,
-        description: '',
-        projectId: null,
-        project: null,
-        isBillable: true,
-      })
+      toastManager.add({ type: 'info', title: 'Timer discarded' })
+    } catch (error) {
+      // Revert on error
+      setTimer(prevTimer)
+      toastManager.add({ type: 'error', title: 'Failed to discard timer' })
     } finally {
       setIsSubmitting(false)
     }
-  }, [])
+  }, [timer, isSubmitting])
 
-  const setDescription = useCallback((description: string) => {
-    setTimer((prev) => ({ ...prev, description }))
-  }, [])
+  // Debounced description update
+  const setDescription = useCallback(
+    (description: string) => {
+      setTimer((prev) => ({ ...prev, description }))
 
-  const setProjectId = useCallback((projectId: string | null) => {
-    setTimer((prev) => ({ ...prev, projectId }))
-  }, [])
+      // Clear existing debounce
+      if (descriptionDebounceRef.current) {
+        clearTimeout(descriptionDebounceRef.current)
+      }
 
-  const setIsBillable = useCallback((isBillable: boolean) => {
-    setTimer((prev) => ({ ...prev, isBillable }))
-  }, [])
+      // Only sync to server if timer is running
+      if (timer.isRunning) {
+        descriptionDebounceRef.current = setTimeout(() => {
+          timerApi.updateTimer({ description }).catch((error) => {
+            console.error('Failed to update description:', error)
+          })
+        }, 500)
+      }
+    },
+    [timer.isRunning]
+  )
+
+  // Immediate project update
+  const setProjectId = useCallback(
+    (projectId: string | null) => {
+      setTimer((prev) => ({ ...prev, projectId }))
+
+      // Immediate sync to server if timer is running
+      if (timer.isRunning) {
+        timerApi.updateTimer({ project_id: projectId }).catch((error) => {
+          console.error('Failed to update project:', error)
+        })
+      }
+    },
+    [timer.isRunning]
+  )
+
+  // Immediate billable update
+  const setIsBillable = useCallback(
+    (isBillable: boolean) => {
+      setTimer((prev) => ({ ...prev, isBillable }))
+
+      // Immediate sync to server if timer is running
+      if (timer.isRunning) {
+        timerApi.updateTimer({ is_billable: isBillable }).catch((error) => {
+          console.error('Failed to update billable status:', error)
+        })
+      }
+    },
+    [timer.isRunning]
+  )
+
+  // Compute timer state
+  const timerState: TimerStateValue = timer.isRunning
+    ? timer.isPaused
+      ? 'paused'
+      : 'running'
+    : 'idle'
 
   const value: TimerContextType = {
+    timerState,
     isRunning: timer.isRunning,
     isPaused: timer.isPaused,
     displayTime,
@@ -299,6 +451,8 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     project: timer.project,
     isBillable: timer.isBillable,
     isSubmitting,
+    descriptionInputRef,
+    projectSelectRef,
     startTimer,
     stopTimer,
     pauseTimer,

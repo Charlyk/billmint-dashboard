@@ -10,7 +10,8 @@
       "Bash(supabase init:*)",
       "Bash(supabase link:*)",
       "Bash(supabase db push:*)",
-      "Bash(supabase db lint:*)"
+      "Bash(supabase db lint:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }
