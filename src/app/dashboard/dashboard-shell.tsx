@@ -46,22 +46,23 @@ interface DashboardShellProps {
   user: User;
 }
 
-function getInitialDarkMode() {
-  if (typeof window === "undefined") return false;
-  const stored = localStorage.getItem("theme");
-  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-  return stored === "dark" || (!stored && prefersDark);
-}
-
 export function DashboardShell({ children, user }: DashboardShellProps) {
   const pathname = usePathname();
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(getInitialDarkMode);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
-  // Sync dark mode class with state
+  // Initialize dark mode after hydration to avoid mismatch
+  /* eslint-disable react-hooks/set-state-in-effect -- legitimate use for hydration safety */
   useEffect(() => {
-    document.documentElement.classList.toggle("dark", isDarkMode);
-  }, [isDarkMode]);
+    const stored = localStorage.getItem("theme");
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const shouldBeDark = stored === "dark" || (!stored && prefersDark);
+    setIsDarkMode(shouldBeDark);
+    setMounted(true);
+    document.documentElement.classList.toggle("dark", shouldBeDark);
+  }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const toggleDarkMode = () => {
     const newValue = !isDarkMode;
@@ -117,7 +118,7 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
                 onClick={toggleDarkMode}
                 className="flex items-center justify-center rounded-xl p-2.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               >
-                {isDarkMode ? <Sun className="size-5" /> : <Moon className="size-5" />}
+                {mounted && isDarkMode ? <Sun className="size-5" /> : <Moon className="size-5" />}
               </button>
               <Link
                 href="/dashboard/settings"
@@ -226,7 +227,7 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
                   onClick={toggleDarkMode}
                   className="flex items-center justify-center rounded-xl p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 >
-                  {isDarkMode ? <Sun className="size-5" /> : <Moon className="size-5" />}
+                  {mounted && isDarkMode ? <Sun className="size-5" /> : <Moon className="size-5" />}
                 </button>
                 <Link
                   href="/dashboard/settings"
