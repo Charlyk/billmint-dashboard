@@ -46,18 +46,22 @@ interface DashboardShellProps {
   user: User;
 }
 
+function getInitialDarkMode() {
+  if (typeof window === "undefined") return false;
+  const stored = localStorage.getItem("theme");
+  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  return stored === "dark" || (!stored && prefersDark);
+}
+
 export function DashboardShell({ children, user }: DashboardShellProps) {
   const pathname = usePathname();
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(getInitialDarkMode);
 
+  // Sync dark mode class with state
   useEffect(() => {
-    const stored = localStorage.getItem("theme");
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const shouldBeDark = stored === "dark" || (!stored && prefersDark);
-    setIsDarkMode(shouldBeDark);
-    document.documentElement.classList.toggle("dark", shouldBeDark);
-  }, []);
+    document.documentElement.classList.toggle("dark", isDarkMode);
+  }, [isDarkMode]);
 
   const toggleDarkMode = () => {
     const newValue = !isDarkMode;
