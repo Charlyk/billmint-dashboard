@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -203,17 +203,39 @@ export default function TimeEntriesPage() {
     entry: null,
   });
 
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const [allEntries, setAllEntries] = useState<TimeEntryWithDetails[]>([]);
+
   // Get date range for API query
   const dateRangeFilter = useMemo(() => getDateRange(dateRange), [dateRange]);
 
   // Fetch time entries with filters
   const { entries, pagination, isLoading, mutate } = useTimeEntries({
-    page: 1,
+    page,
     limit: 100,
     ...dateRangeFilter,
     project_id: projectFilter !== "all" ? projectFilter : undefined,
     client_id: clientFilter !== "all" ? clientFilter : undefined,
   });
+
+  // Accumulate entries when new data loads
+  useEffect(() => {
+    if (entries.length > 0) {
+      if (page === 1) {
+        setAllEntries(entries);
+      } else {
+        setAllEntries((prev) => [...prev, ...entries]);
+      }
+    } else if (page === 1) {
+      setAllEntries([]);
+    }
+  }, [entries, page]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [dateRange, projectFilter, clientFilter]);
 
   // Fetch projects and clients for filter dropdowns
   const { projects } = useProjects({ limit: 100 });
@@ -223,21 +245,21 @@ export default function TimeEntriesPage() {
   const { createTimeEntry, updateTimeEntry, deleteTimeEntry } = useTimeEntryMutations();
 
   // Group entries by date
-  const groupedEntries = useMemo(() => groupEntriesByDate(entries), [entries]);
+  const groupedEntries = useMemo(() => groupEntriesByDate(allEntries), [allEntries]);
 
   // Calculate summary
   const summary = useMemo(() => {
-    const totalSeconds = entries.reduce((acc, e) => acc + e.duration_seconds, 0);
-    const totalBillable = entries
+    const totalSeconds = allEntries.reduce((acc, e) => acc + e.duration_seconds, 0);
+    const totalBillable = allEntries
       .filter((e) => e.is_billable)
       .reduce((acc, e) => acc + (e.amount || 0), 0);
 
     return {
-      count: pagination?.total ?? entries.length,
+      count: pagination?.total ?? allEntries.length,
       totalTime: formatDurationHuman(totalSeconds),
       totalBillable: formatCurrency(totalBillable, defaultCurrency),
     };
-  }, [entries, pagination, defaultCurrency]);
+  }, [allEntries, pagination, defaultCurrency]);
 
   const handleOpenAddModal = () => {
     setModalMode("add");
@@ -295,6 +317,7 @@ export default function TimeEntriesPage() {
         await createTimeEntry(entryData);
       }
 
+      setPage(1);
       mutate();
       setIsModalOpen(false);
       setFormData(defaultFormData);
@@ -312,6 +335,7 @@ export default function TimeEntriesPage() {
   const handleToggleBillable = async (entry: TimeEntryWithDetails) => {
     try {
       await updateTimeEntry(entry.id, { is_billable: !entry.is_billable });
+      setPage(1);
       mutate();
     } catch (error) {
       console.error("Failed to toggle billable:", error);
@@ -328,6 +352,7 @@ export default function TimeEntriesPage() {
         end_time: new Date(now.getTime() + entry.duration_seconds * 1000).toISOString(),
         is_billable: entry.is_billable,
       });
+      setPage(1);
       mutate();
     } catch (error) {
       console.error("Failed to duplicate entry:", error);
@@ -343,6 +368,7 @@ export default function TimeEntriesPage() {
 
     try {
       await deleteTimeEntry(deleteConfirm.entry.id);
+      setPage(1);
       mutate();
       setDeleteConfirm({ open: false, entry: null });
     } catch (error) {
@@ -551,9 +577,29 @@ export default function TimeEntriesPage() {
         </CardContent>
       </Card>
 
+      {/* Load More Button */}
+      {pagination && pagination.page < pagination.totalPages && (
+        <div className="flex justify-center">
+          <Button
+            variant="outline"
+            onClick={() => setPage((p) => p + 1)}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 size-4 animate-spin" />
+                Loading...
+              </>
+            ) : (
+              "Load More"
+            )}
+          </Button>
+        </div>
+      )}
+
       {/* Summary Footer */}
       <div className="text-center text-sm text-muted-foreground">
-        Showing {entries.length} of {summary.count} entries • {summary.totalTime} total •{" "}
+        Showing {allEntries.length} of {summary.count} entries • {summary.totalTime} total •{" "}
         {summary.totalBillable} billable
       </div>
 

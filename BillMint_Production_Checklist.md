@@ -23,8 +23,8 @@ This checklist covers everything needed before launching BillMint to real users.
 ### Time Entries
 - [x] **[MUST]** List entries grouped by day
 - [x] **[MUST]** Create manual entry
-- [ ] **[MUST]** Edit entry (description, project, duration, billable)
-- [ ] **[MUST]** Delete entry
+- [x] **[MUST]** Edit entry (description, project, duration, billable)
+- [x] **[MUST]** Delete entry
 - [ ] **[MUST]** Filter by date range
 - [ ] **[NICE]** Filter by project/client
 - [ ] **[NICE]** Duplicate entry
