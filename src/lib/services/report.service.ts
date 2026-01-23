@@ -12,184 +12,41 @@ export async function generateTimeReport(options: {
   const currentUser = await requirePaidUser()
   const supabase = await createClient()
 
-  let query = supabase
-    .from('time_entries')
-    .select(
-      `
-      *,
-      project:projects(id, name, color, client_id, client:clients(id, name))
-    `
-    )
-    .eq('user_id', currentUser.id)
-    .gte('start_time', options.start_date)
-    .lte('start_time', options.end_date)
-    .order('start_time', { ascending: true })
-
-  if (options.project_id) {
-    query = query.eq('project_id', options.project_id)
-  }
-
-  interface EntryWithProject {
-    id: string
-    user_id: string
-    project_id: string | null
-    description: string | null
-    start_time: string
-    end_time: string | null
-    duration_seconds: number
-    hourly_rate: number | null
-    is_billable: boolean
-    is_invoiced: boolean
-    invoice_id: string | null
-    project: {
-      id: string
-      name: string
-      color: string
-      client_id: string | null
-      hourly_rate: number | null
-      client: { id: string; name: string } | null
-    } | null
-  }
-
-  const { data: entries, error } = await query as { data: EntryWithProject[] | null; error: Error | null }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)('generate_time_report', {
+    p_user_id: currentUser.id,
+    p_start_date: options.start_date,
+    p_end_date: options.end_date,
+    p_project_id: options.project_id || null,
+    p_client_id: options.client_id || null,
+  }) as { data: TimeReport | null; error: Error | null }
 
   if (error) {
+    console.error('[Report] generate_time_report RPC error:', error)
     throw new ValidationError('Failed to generate report')
   }
 
-  // Filter by client if specified
-  let filteredEntries = entries || []
-  if (options.client_id) {
-    filteredEntries = filteredEntries.filter(
-      (e) => e.project?.client_id === options.client_id
-    )
-  }
-
-  // Calculate summary
-  let totalSeconds = 0
-  let billableSeconds = 0
-  let totalAmount = 0
-  let billableAmount = 0
-
-  for (const entry of filteredEntries) {
-    const duration = entry.duration_seconds || 0
-    const rate = entry.hourly_rate || entry.project?.hourly_rate || 0
-    const amount = (duration / 3600) * rate
-
-    totalSeconds += duration
-
-    if (entry.is_billable) {
-      billableSeconds += duration
-      billableAmount += amount
-    }
-
-    totalAmount += amount
-  }
-
-  // Group by project
-  const projectMap = new Map<
-    string,
-    { project: { id: string; name: string; color: string }; hours: number; amount: number }
-  >()
-
-  for (const entry of filteredEntries) {
-    if (!entry.project) continue
-
-    const key = entry.project.id
-    if (!projectMap.has(key)) {
-      projectMap.set(key, {
-        project: {
-          id: entry.project.id,
-          name: entry.project.name,
-          color: entry.project.color,
-        },
-        hours: 0,
-        amount: 0,
-      })
-    }
-
-    const group = projectMap.get(key)!
-    const rate = entry.hourly_rate || entry.project?.hourly_rate || 0
-    group.hours += entry.duration_seconds / 3600
-    if (entry.is_billable) {
-      group.amount += (entry.duration_seconds / 3600) * rate
+  if (!data) {
+    // Return empty report if no data
+    return {
+      period: {
+        start: options.start_date,
+        end: options.end_date,
+      },
+      summary: {
+        total_hours: 0,
+        total_amount: 0,
+        billable_hours: 0,
+        billable_amount: 0,
+        non_billable_hours: 0,
+      },
+      by_project: [],
+      by_client: [],
+      by_day: [],
     }
   }
 
-  // Group by client
-  const clientMap = new Map<
-    string | null,
-    { client: { id: string; name: string } | null; hours: number; amount: number }
-  >()
-
-  for (const entry of filteredEntries) {
-    const client = entry.project?.client || null
-    const key = client?.id || null
-
-    if (!clientMap.has(key)) {
-      clientMap.set(key, {
-        client: client ? { id: client.id, name: client.name } : null,
-        hours: 0,
-        amount: 0,
-      })
-    }
-
-    const group = clientMap.get(key)!
-    const rate = entry.hourly_rate || entry.project?.hourly_rate || 0
-    group.hours += entry.duration_seconds / 3600
-    if (entry.is_billable) {
-      group.amount += (entry.duration_seconds / 3600) * rate
-    }
-  }
-
-  // Group by day
-  const dayMap = new Map<string, { hours: number; amount: number }>()
-
-  for (const entry of filteredEntries) {
-    const date = new Date(entry.start_time).toISOString().split('T')[0]
-
-    if (!dayMap.has(date)) {
-      dayMap.set(date, { hours: 0, amount: 0 })
-    }
-
-    const group = dayMap.get(date)!
-    const rate = entry.hourly_rate || entry.project?.hourly_rate || 0
-    group.hours += entry.duration_seconds / 3600
-    if (entry.is_billable) {
-      group.amount += (entry.duration_seconds / 3600) * rate
-    }
-  }
-
-  return {
-    period: {
-      start: options.start_date,
-      end: options.end_date,
-    },
-    summary: {
-      total_hours: Math.round((totalSeconds / 3600) * 100) / 100,
-      total_amount: Math.round(totalAmount * 100) / 100,
-      billable_hours: Math.round((billableSeconds / 3600) * 100) / 100,
-      billable_amount: Math.round(billableAmount * 100) / 100,
-      non_billable_hours: Math.round(((totalSeconds - billableSeconds) / 3600) * 100) / 100,
-    },
-    by_project: Array.from(projectMap.values()).map((p) => ({
-      project: p.project,
-      hours: Math.round(p.hours * 100) / 100,
-      amount: Math.round(p.amount * 100) / 100,
-    })),
-    by_client: Array.from(clientMap.values()).map((c) => ({
-      client: c.client,
-      hours: Math.round(c.hours * 100) / 100,
-      amount: Math.round(c.amount * 100) / 100,
-    })),
-    by_day: Array.from(dayMap.entries())
-      .map(([date, data]) => ({
-        date,
-        hours: Math.round(data.hours * 100) / 100,
-        amount: Math.round(data.amount * 100) / 100,
-      }))
-      .sort((a, b) => a.date.localeCompare(b.date)),
-  }
+  return data
 }
 
 export async function exportTimeReport(

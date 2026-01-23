@@ -15,24 +15,17 @@ function getSupabase(): SupabaseClient<Database> {
   return supabaseInstance
 }
 
-interface StaleTimer {
-  id: string
-  user_id: string
+// Type for the result returned by the autopause_stale_timers Supabase function
+interface PausedTimerResult {
+  timer_id: string
+  user_email: string
+  user_full_name: string | null
   description: string | null
-  project_id: string | null
+  project_name: string | null
   start_time: string
-  elapsed_seconds: number
-  is_paused: boolean
-  user: {
-    email: string
-    full_name: string | null
-  }
-  user_settings: {
-    max_timer_hours: number | null
-  } | null
-  project: {
-    name: string
-  } | null
+  max_timer_hours: number
+  paused_at: string
+  capped_elapsed_seconds: number
 }
 
 export interface AutoPauseResult {
@@ -43,7 +36,7 @@ export interface AutoPauseResult {
 
 /**
  * Finds and pauses all timers that have exceeded their user's max_timer_hours setting.
- * Sends email notifications to affected users.
+ * Uses a Supabase function for atomic operation, then sends email notifications.
  */
 export async function autopauseStaleTimers(): Promise<AutoPauseResult> {
   const result: AutoPauseResult = {
@@ -54,111 +47,54 @@ export async function autopauseStaleTimers(): Promise<AutoPauseResult> {
 
   const supabase = getSupabase()
 
-  // Fetch all running (non-paused) timers with user settings
-  const { data: timers, error: fetchError } = await supabase
-    .from('active_timers')
-    .select(`
-      id,
-      user_id,
-      description,
-      project_id,
-      start_time,
-      elapsed_seconds,
-      is_paused,
-      user:users!inner(email, full_name),
-      user_settings(max_timer_hours),
-      project:projects(name)
-    `)
-    .eq('is_paused', false) as { data: StaleTimer[] | null; error: Error | null }
+  // Call the Supabase function that atomically finds and pauses stale timers
+  const { data: pausedTimers, error: rpcError } = await supabase
+    .rpc('autopause_stale_timers') as { data: PausedTimerResult[] | null; error: Error | null }
 
-  if (fetchError) {
-    result.errors.push(`Failed to fetch timers: ${fetchError.message}`)
+  if (rpcError) {
+    result.errors.push(`Failed to execute autopause function: ${rpcError.message}`)
+    console.error('[Cron] RPC error:', rpcError)
     return result
   }
 
-  if (!timers || timers.length === 0) {
+  if (!pausedTimers || pausedTimers.length === 0) {
     return result
   }
 
-  const now = Date.now()
+  result.paused = pausedTimers.length
+  result.processed = pausedTimers.length
 
-  for (const timer of timers) {
-    result.processed++
-
-    // Get user's max timer hours setting (default to 8 if not set)
-    const maxTimerHours = timer.user_settings?.max_timer_hours ?? 8
-
-    // Skip if no limit is set (null means unlimited)
-    if (maxTimerHours === null) {
-      continue
-    }
-
-    // Calculate total elapsed time
-    const startTime = new Date(timer.start_time).getTime()
-    const runningSeconds = Math.floor((now - startTime) / 1000)
-    const totalSeconds = timer.elapsed_seconds + runningSeconds
-    const totalHours = totalSeconds / 3600
-
-    // Check if timer exceeds the limit
-    if (totalHours < maxTimerHours) {
-      continue
-    }
-
-    // Calculate the exact pause time (when the limit was reached)
-    const maxSeconds = maxTimerHours * 3600
-    const secondsUntilLimit = maxSeconds - timer.elapsed_seconds
-    const pausedAt = new Date(startTime + secondsUntilLimit * 1000).toISOString()
-
+  // Send email notifications for each paused timer
+  for (const timer of pausedTimers) {
     try {
-      // Pause the timer
-      const { error: updateError } = await supabase
-        .from('active_timers')
-        .update({
-          is_paused: true,
-          paused_at: pausedAt,
-          elapsed_seconds: maxSeconds,
-          updated_at: new Date().toISOString(),
-        } as never)
-        .eq('id', timer.id)
+      // Format duration as "Xh Ym"
+      const hours = Math.floor(timer.max_timer_hours)
+      const minutes = Math.round((timer.max_timer_hours - hours) * 60)
+      const duration = `${hours}h ${minutes.toString().padStart(2, '0')}m`
 
-      if (updateError) {
-        result.errors.push(`Failed to pause timer ${timer.id}: ${updateError.message}`)
-        continue
-      }
+      // Format start time as "Jan 20 at 9:00 AM"
+      const startDate = new Date(timer.start_time)
+      const startedAt = startDate.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+      }) + ' at ' + startDate.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+      })
 
-      // Send email notification
-      try {
-        // Format duration as "Xh Ym"
-        const hours = Math.floor(maxTimerHours)
-        const minutes = Math.round((maxTimerHours - hours) * 60)
-        const duration = `${hours}h ${minutes.toString().padStart(2, '0')}m`
-
-        // Format start time as "Jan 20 at 9:00 AM"
-        const startDate = new Date(timer.start_time)
-        const startedAt = startDate.toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric',
-        }) + ' at ' + startDate.toLocaleTimeString('en-US', {
-          hour: 'numeric',
-          minute: '2-digit',
-        })
-
-        await sendTimerAutoPausedEmail({
-          to: timer.user.email,
-          maxHours: maxTimerHours,
-          description: timer.description || 'No description',
-          projectName: timer.project?.name || 'No project',
-          duration,
-          startedAt,
-        })
-      } catch (emailError) {
-        // Log email error but don't fail the whole operation
-        result.errors.push(`Failed to send email for timer ${timer.id}: ${emailError}`)
-      }
-
-      result.paused++
-    } catch (error) {
-      result.errors.push(`Error processing timer ${timer.id}: ${error}`)
+      await sendTimerAutoPausedEmail({
+        to: timer.user_email,
+        maxHours: timer.max_timer_hours,
+        description: timer.description || 'No description',
+        projectName: timer.project_name || 'No project',
+        duration,
+        startedAt,
+      })
+    } catch (emailError) {
+      // Log email error but don't fail the whole operation
+      const errorMessage = emailError instanceof Error ? emailError.message : String(emailError)
+      console.error(`[Cron] Failed to send email for timer ${timer.timer_id}:`, emailError)
+      result.errors.push(`Failed to send email for timer ${timer.timer_id}: ${errorMessage}`)
     }
   }
 

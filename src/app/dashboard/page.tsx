@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowRight, Loader2 } from "lucide-react";
-import { useDashboardStats, useRecentActivity } from "@/lib/hooks/use-dashboard";
+import { useDashboard } from "@/lib/hooks/use-dashboard";
 import { useUserSettings } from "@/contexts/user-settings-context";
 import type { AmountByCurrency } from "@/types/api";
 
@@ -115,8 +115,7 @@ function StatCard({
 export default function DashboardPage() {
   const { settings } = useUserSettings();
   const defaultCurrency = settings?.default_currency ?? "USD";
-  const { stats, isLoading: statsLoading } = useDashboardStats();
-  const { groupedByDate, isLoading: activityLoading } = useRecentActivity(10);
+  const { stats, groupedByDate, isLoading } = useDashboard(10);
 
   return (
     <div className="space-y-8">
@@ -128,19 +127,19 @@ export default function DashboardPage() {
           title="Today"
           primary={stats ? formatHours(stats.today.hours) : "0h 00m"}
           secondary={stats ? formatAmounts(stats.today.amounts, defaultCurrency) : formatCurrency(0, defaultCurrency)}
-          isLoading={statsLoading}
+          isLoading={isLoading}
         />
         <StatCard
           title="This Week"
           primary={stats ? formatHours(stats.this_week.hours) : "0h 00m"}
           secondary={stats ? formatAmounts(stats.this_week.amounts, defaultCurrency) : formatCurrency(0, defaultCurrency)}
-          isLoading={statsLoading}
+          isLoading={isLoading}
         />
         <StatCard
           title="Unbilled"
           primary={stats ? formatAmounts(stats.unbilled.amounts, defaultCurrency) : formatCurrency(0, defaultCurrency)}
           secondary={stats ? `${formatHours(stats.unbilled.hours)} tracked` : "0h 00m tracked"}
-          isLoading={statsLoading}
+          isLoading={isLoading}
         />
       </div>
 
@@ -159,7 +158,7 @@ export default function DashboardPage() {
 
         <Card className="mt-4">
           <CardContent className="p-0">
-            {activityLoading ? (
+            {isLoading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="size-6 animate-spin text-muted-foreground" />
               </div>

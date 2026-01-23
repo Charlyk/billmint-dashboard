@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from './auth.service'
 import { NotFoundError, ValidationError } from '@/lib/utils/errors'
-import type { Project, InsertProject, UpdateProject } from '@/types/database'
+import type { Project, UpdateProject } from '@/types/database'
 import type { ProjectWithStats, ProjectListResponse } from '@/types/api'
 
 export async function listProjects(options?: {
@@ -14,117 +14,92 @@ export async function listProjects(options?: {
   const currentUser = await requireAuth()
   const supabase = await createClient()
 
-  const page = options?.page || 1
-  const limit = options?.limit || 20
-  const offset = (page - 1) * limit
-
-  // Fetch user settings to get default hourly rate
-  const { data: userSettings } = await supabase
-    .from('user_settings')
-    .select('default_hourly_rate')
-    .eq('user_id', currentUser.id)
-    .single() as { data: { default_hourly_rate: number | null } | null }
-
-  const defaultHourlyRate = userSettings?.default_hourly_rate ?? null
-
-  let query = supabase
-    .from('projects')
-    .select('*, client:clients(id, name)', { count: 'exact' })
-    .eq('user_id', currentUser.id)
-    .order('name', { ascending: true })
-
-  if (options?.clientId) {
-    query = query.eq('client_id', options.clientId)
-  }
-
-  if (!options?.includeArchived) {
-    query = query.eq('is_archived', false)
-  }
-
-  if (options?.search) {
-    query = query.ilike('name', `%${options.search}%`)
-  }
-
-  type ProjectWithClient = Project & { client: { id: string; name: string } | null }
-  const result = await query.range(offset, offset + limit - 1) as { data: ProjectWithClient[] | null; error: Error | null; count: number | null }
-  const { data, error, count } = result
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)('list_projects', {
+    p_user_id: currentUser.id,
+    p_page: options?.page || 1,
+    p_limit: options?.limit || 20,
+    p_client_id: options?.clientId || null,
+    p_include_archived: options?.includeArchived || false,
+    p_search: options?.search || null,
+  }) as { data: ProjectListResponse | null; error: Error | null }
 
   if (error) {
+    console.error('[Project] list_projects RPC error:', error)
     throw new ValidationError('Failed to fetch projects')
   }
 
-  // Get stats for each project (use project rate, falling back to user's default rate)
-  const projectsWithStats = await Promise.all(
-    (data || []).map(async (project) => {
-      const effectiveRate = project.hourly_rate ?? defaultHourlyRate
-      const stats = await getProjectStats(project.id, effectiveRate)
-      return {
-        ...project,
-        ...stats,
-      }
-    })
-  )
-
-  return {
-    data: projectsWithStats,
-    pagination: {
-      page,
-      limit,
-      total: count || 0,
-      totalPages: Math.ceil((count || 0) / limit),
-    },
+  if (!data) {
+    return {
+      data: [],
+      pagination: {
+        page: options?.page || 1,
+        limit: options?.limit || 20,
+        total: 0,
+        totalPages: 0,
+      },
+    }
   }
+
+  return data
 }
 
 export async function getProjectById(id: string): Promise<ProjectWithStats> {
   const currentUser = await requireAuth()
   const supabase = await createClient()
 
-  type ProjectWithClient = Project & { client: { id: string; name: string } | null }
-  const { data, error } = await supabase
-    .from('projects')
-    .select('*, client:clients(id, name)')
-    .eq('id', id)
-    .eq('user_id', currentUser.id)
-    .single() as { data: ProjectWithClient | null; error: Error | null }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)('get_project_with_stats', {
+    p_user_id: currentUser.id,
+    p_project_id: id,
+  }) as { data: ProjectWithStats | null; error: Error | null }
 
-  if (error || !data) {
+  if (error) {
+    console.error('[Project] get_project_with_stats RPC error:', error)
+    throw new ValidationError('Failed to fetch project')
+  }
+
+  if (!data) {
     throw new NotFoundError('Project')
   }
 
-  const stats = await getProjectStats(id, data.hourly_rate)
-
-  return {
-    ...data,
-    ...stats,
-  } as ProjectWithStats
+  return data
 }
 
 export async function createProject(
-  input: Omit<InsertProject, 'id' | 'user_id' | 'created_at' | 'updated_at'>
+  input: {
+    name: string
+    client_id?: string | null
+    color?: string
+    hourly_rate?: number | null
+    currency?: string
+    is_billable?: boolean
+    is_default?: boolean
+    notes?: string | null
+  }
 ): Promise<Project> {
   const currentUser = await requireAuth()
   const supabase = await createClient()
 
-  // If this project is set as default, unset other defaults
-  if (input.is_default) {
-    await supabase
-      .from('projects')
-      .update({ is_default: false } as never)
-      .eq('user_id', currentUser.id)
-      .eq('is_default', true)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)('create_project', {
+    p_user_id: currentUser.id,
+    p_name: input.name,
+    p_client_id: input.client_id || null,
+    p_color: input.color || '#6366f1',
+    p_hourly_rate: input.hourly_rate || null,
+    p_currency: input.currency || 'USD',
+    p_is_billable: input.is_billable ?? true,
+    p_is_default: input.is_default || false,
+    p_notes: input.notes || null,
+  }) as { data: Project | null; error: Error | null }
+
+  if (error) {
+    console.error('[Project] create_project RPC error:', error)
+    throw new ValidationError('Failed to create project')
   }
 
-  const { data, error } = await supabase
-    .from('projects')
-    .insert({
-      ...input,
-      user_id: currentUser.id,
-    } as never)
-    .select()
-    .single() as { data: Project | null; error: Error | null }
-
-  if (error || !data) {
+  if (!data) {
     throw new ValidationError('Failed to create project')
   }
 
@@ -170,29 +145,14 @@ export async function deleteProject(id: string): Promise<void> {
   const currentUser = await requireAuth()
   const supabase = await createClient()
 
-  // Check if project has any time entries
-  const { count: entryCount } = await supabase
-    .from('time_entries')
-    .select('*', { count: 'exact', head: true })
-    .eq('project_id', id)
-
-  if ((entryCount || 0) > 0) {
-    // Archive instead of delete
-    await supabase
-      .from('projects')
-      .update({ is_archived: true, updated_at: new Date().toISOString() } as never)
-      .eq('id', id)
-      .eq('user_id', currentUser.id)
-    return
-  }
-
-  const { error } = await supabase
-    .from('projects')
-    .delete()
-    .eq('id', id)
-    .eq('user_id', currentUser.id)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.rpc as any)('delete_project', {
+    p_user_id: currentUser.id,
+    p_project_id: id,
+  })
 
   if (error) {
+    console.error('[Project] delete_project RPC error:', error)
     throw new ValidationError('Failed to delete project')
   }
 }
@@ -218,62 +178,6 @@ export async function getDefaultProject(): Promise<Project | null> {
     .single()
 
   return data || null
-}
-
-async function getProjectStats(
-  projectId: string,
-  projectHourlyRate: number | null
-): Promise<{
-  total_hours: number
-  total_amount: number
-  unbilled_hours: number
-  unbilled_amount: number
-}> {
-  const supabase = await createClient()
-
-  type EntryStats = { duration_seconds: number; hourly_rate: number | null; is_billable: boolean; invoice_id: string | null }
-  const { data: entries } = await supabase
-    .from('time_entries')
-    .select('duration_seconds, hourly_rate, is_billable, invoice_id')
-    .eq('project_id', projectId) as { data: EntryStats[] | null }
-
-  if (!entries || entries.length === 0) {
-    return {
-      total_hours: 0,
-      total_amount: 0,
-      unbilled_hours: 0,
-      unbilled_amount: 0,
-    }
-  }
-
-  let totalSeconds = 0
-  let totalAmount = 0
-  let unbilledSeconds = 0
-  let unbilledAmount = 0
-
-  for (const entry of entries) {
-    const duration = entry.duration_seconds || 0
-    // Use entry's rate if set, otherwise fall back to project rate
-    const rate = entry.hourly_rate ?? projectHourlyRate ?? 0
-    const amount = (duration / 3600) * rate
-
-    totalSeconds += duration
-    if (entry.is_billable) {
-      totalAmount += amount
-    }
-
-    if (!entry.invoice_id && entry.is_billable) {
-      unbilledSeconds += duration
-      unbilledAmount += amount
-    }
-  }
-
-  return {
-    total_hours: Math.round((totalSeconds / 3600) * 100) / 100,
-    total_amount: Math.round(totalAmount * 100) / 100,
-    unbilled_hours: Math.round((unbilledSeconds / 3600) * 100) / 100,
-    unbilled_amount: Math.round(unbilledAmount * 100) / 100,
-  }
 }
 
 export async function getProjectEntries(

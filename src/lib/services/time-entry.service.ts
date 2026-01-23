@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from './auth.service'
 import { NotFoundError, ValidationError } from '@/lib/utils/errors'
-import type { TimeEntry, InsertTimeEntry, UpdateTimeEntry } from '@/types/database'
+import type { TimeEntry, UpdateTimeEntry } from '@/types/database'
 import type {
   TimeEntryWithDetails,
   TimeEntryListResponse,
@@ -15,181 +15,38 @@ export async function listTimeEntries(
   const currentUser = await requireAuth()
   const supabase = await createClient()
 
-  const page = options?.page || 1
-  const limit = options?.limit || 20
-  const offset = (page - 1) * limit
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)('list_time_entries', {
+    p_user_id: currentUser.id,
+    p_page: options?.page || 1,
+    p_limit: options?.limit || 20,
+    p_project_id: options?.project_id || null,
+    p_client_id: options?.client_id || null,
+    p_is_billable: options?.is_billable ?? null,
+    p_is_invoiced: options?.is_invoiced ?? null,
+    p_start_date: options?.start_date || null,
+    p_end_date: options?.end_date || null,
+    p_search: options?.search || null,
+  }) as { data: TimeEntryListResponse | null; error: Error | null }
 
-  let query = supabase
-    .from('time_entries')
-    .select(
-      `
-      *,
-      project:projects(id, name, color, hourly_rate, currency, client_id, client:clients(id, name))
-    `,
-      { count: 'exact' }
-    )
-    .eq('user_id', currentUser.id)
-    .order('start_time', { ascending: false })
-
-  if (options?.project_id) {
-    query = query.eq('project_id', options.project_id)
+  if (error) {
+    console.error('[TimeEntry] list_time_entries RPC error:', error)
+    throw new ValidationError('Failed to fetch time entries')
   }
 
-  if (options?.is_billable !== undefined) {
-    query = query.eq('is_billable', options.is_billable)
-  }
-
-  if (options?.is_invoiced !== undefined) {
-    if (options.is_invoiced) {
-      query = query.not('invoice_id', 'is', null)
-    } else {
-      query = query.is('invoice_id', null)
-    }
-  }
-
-  if (options?.start_date) {
-    query = query.gte('start_time', options.start_date)
-  }
-
-  if (options?.end_date) {
-    query = query.lte('start_time', options.end_date)
-  }
-
-  if (options?.search) {
-    query = query.ilike('description', `%${options.search}%`)
-  }
-
-  interface EntryWithProject {
-    id: string
-    user_id: string
-    project_id: string | null
-    description: string | null
-    start_time: string
-    end_time: string | null
-    duration_seconds: number
-    hourly_rate: number | null
-    is_billable: boolean
-    is_invoiced: boolean
-    invoice_id: string | null
-    created_at: string
-    updated_at: string
-    project: {
-      id: string
-      name: string
-      color: string | null
-      hourly_rate: number | null
-      currency: string
-      client_id: string | null
-      client: { id: string; name: string } | null
-    } | null
-  }
-
-  // For client_id filtering, we need to get all matching entries first
-  // then filter and paginate manually (since Supabase doesn't support filtering on nested relations easily)
-  if (options?.client_id) {
-    // Fetch all entries matching other filters
-    const allQuery = supabase
-      .from('time_entries')
-      .select(
-        `
-        *,
-        project:projects(id, name, color, hourly_rate, currency, client_id, client:clients(id, name))
-      `
-      )
-      .eq('user_id', currentUser.id)
-      .order('start_time', { ascending: false })
-
-    if (options?.project_id) {
-      allQuery.eq('project_id', options.project_id)
-    }
-    if (options?.is_billable !== undefined) {
-      allQuery.eq('is_billable', options.is_billable)
-    }
-    if (options?.is_invoiced !== undefined) {
-      if (options.is_invoiced) {
-        allQuery.not('invoice_id', 'is', null)
-      } else {
-        allQuery.is('invoice_id', null)
-      }
-    }
-    if (options?.start_date) {
-      allQuery.gte('start_time', options.start_date)
-    }
-    if (options?.end_date) {
-      allQuery.lte('start_time', options.end_date)
-    }
-    if (options?.search) {
-      allQuery.ilike('description', `%${options.search}%`)
-    }
-
-    const { data: allData, error: allError } = await allQuery as { data: EntryWithProject[] | null; error: Error | null }
-
-    if (allError) {
-      throw new ValidationError('Failed to fetch time entries')
-    }
-
-    // Filter by client_id
-    const filteredEntries = (allData || []).filter(
-      (entry) => entry.project?.client_id === options.client_id
-    )
-
-    // Manual pagination
-    const total = filteredEntries.length
-    const paginatedEntries = filteredEntries.slice(offset, offset + limit)
-
-    const entriesWithDetails = paginatedEntries.map((entry) => {
-      const rate = entry.hourly_rate || entry.project?.hourly_rate || 0
-      const amount = entry.is_billable
-        ? Math.round((entry.duration_seconds / 3600) * rate * 100) / 100
-        : 0
-
-      return {
-        ...entry,
-        client: entry.project?.client || null,
-        amount,
-      }
-    })
-
+  if (!data) {
     return {
-      data: entriesWithDetails as unknown as TimeEntryWithDetails[],
+      data: [],
       pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
+        page: options?.page || 1,
+        limit: options?.limit || 20,
+        total: 0,
+        totalPages: 0,
       },
     }
   }
 
-  const result = await query.range(offset, offset + limit - 1) as { data: EntryWithProject[] | null; error: Error | null; count: number | null }
-  const { data, error, count } = result
-
-  if (error) {
-    throw new ValidationError('Failed to fetch time entries')
-  }
-
-  const entriesWithDetails = (data || []).map((entry) => {
-    const rate = entry.hourly_rate || entry.project?.hourly_rate || 0
-    const amount = entry.is_billable
-      ? Math.round((entry.duration_seconds / 3600) * rate * 100) / 100
-      : 0
-
-    return {
-      ...entry,
-      client: entry.project?.client || null,
-      amount,
-    }
-  })
-
-  return {
-    data: entriesWithDetails as unknown as TimeEntryWithDetails[],
-    pagination: {
-      page,
-      limit,
-      total: count || 0,
-      totalPages: Math.ceil((count || 0) / limit),
-    },
-  }
+  return data
 }
 
 export async function getTimeEntryById(id: string): Promise<TimeEntryWithDetails> {
@@ -249,55 +106,39 @@ export async function getTimeEntryById(id: string): Promise<TimeEntryWithDetails
 }
 
 export async function createTimeEntry(
-  input: Omit<InsertTimeEntry, 'id' | 'user_id' | 'created_at' | 'updated_at'>
+  input: {
+    start_time: string
+    project_id?: string | null
+    description?: string | null
+    end_time?: string | null
+    duration_seconds?: number | null
+    is_billable?: boolean
+    hourly_rate?: number | null
+    notes?: string | null
+  }
 ): Promise<TimeEntry> {
   const currentUser = await requireAuth()
   const supabase = await createClient()
 
-  // Calculate duration if end_time is provided
-  let durationSeconds = input.duration_seconds || 0
-  if (input.end_time && input.start_time) {
-    const start = new Date(input.start_time).getTime()
-    const end = new Date(input.end_time).getTime()
-    durationSeconds = Math.floor((end - start) / 1000)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)('create_time_entry', {
+    p_user_id: currentUser.id,
+    p_start_time: input.start_time,
+    p_project_id: input.project_id || null,
+    p_description: input.description || null,
+    p_end_time: input.end_time || null,
+    p_duration_seconds: input.duration_seconds || null,
+    p_is_billable: input.is_billable ?? true,
+    p_hourly_rate: input.hourly_rate || null,
+    p_notes: input.notes || null,
+  }) as { data: TimeEntry | null; error: Error | null }
+
+  if (error) {
+    console.error('[TimeEntry] create_time_entry RPC error:', error)
+    throw new ValidationError('Failed to create time entry')
   }
 
-  // Get hourly rate: input rate → project rate → user default rate
-  let hourlyRate = input.hourly_rate
-  if (hourlyRate === undefined || hourlyRate === null) {
-    // Try to get rate from project
-    if (input.project_id) {
-      const { data: project } = await supabase
-        .from('projects')
-        .select('hourly_rate')
-        .eq('id', input.project_id)
-        .single() as { data: { hourly_rate: number | null } | null }
-      hourlyRate = project?.hourly_rate
-    }
-
-    // If still no rate, fall back to user's default rate
-    if (hourlyRate === undefined || hourlyRate === null) {
-      const { data: userSettings } = await supabase
-        .from('user_settings')
-        .select('default_hourly_rate')
-        .eq('user_id', currentUser.id)
-        .single() as { data: { default_hourly_rate: number | null } | null }
-      hourlyRate = userSettings?.default_hourly_rate ?? null
-    }
-  }
-
-  const { data, error } = await supabase
-    .from('time_entries')
-    .insert({
-      ...input,
-      user_id: currentUser.id,
-      duration_seconds: durationSeconds,
-      hourly_rate: hourlyRate,
-    } as never)
-    .select()
-    .single() as { data: TimeEntry | null; error: Error | null }
-
-  if (error || !data) {
+  if (!data) {
     throw new ValidationError('Failed to create time entry')
   }
 
@@ -384,79 +225,26 @@ export async function getUnbilledTimeEntries(
   const currentUser = await requireAuth()
   const supabase = await createClient()
 
-  const query = supabase
-    .from('time_entries')
-    .select(
-      `
-      *,
-      project:projects(id, name, color, hourly_rate, currency, client_id, client:clients(id, name))
-    `
-    )
-    .eq('user_id', currentUser.id)
-    .eq('is_billable', true)
-    .is('invoice_id', null)
-    .order('start_time', { ascending: false })
-
-  interface EntryWithProject {
-    id: string
-    user_id: string
-    project_id: string | null
-    description: string | null
-    start_time: string
-    end_time: string | null
-    duration_seconds: number
-    hourly_rate: number | null
-    is_billable: boolean
-    is_invoiced: boolean
-    invoice_id: string | null
-    created_at: string
-    updated_at: string
-    project: {
-      id: string
-      name: string
-      color: string | null
-      hourly_rate: number | null
-      currency: string
-      client_id: string | null
-      client: { id: string; name: string } | null
-    } | null
-  }
-
-  const { data, error } = await query as { data: EntryWithProject[] | null; error: Error | null }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)('get_unbilled_time_entries', {
+    p_user_id: currentUser.id,
+    p_client_id: clientId || null,
+  }) as { data: UnbilledTimeEntriesResponse | null; error: Error | null }
 
   if (error) {
+    console.error('[TimeEntry] get_unbilled_time_entries RPC error:', error)
     throw new ValidationError('Failed to fetch unbilled time entries')
   }
 
-  // Filter by client if specified
-  let entries = data || []
-  if (clientId) {
-    entries = entries.filter((e) => e.project?.client_id === clientId)
-  }
-
-  let totalHours = 0
-  let totalAmount = 0
-
-  const entriesWithDetails = entries.map((entry) => {
-    const rate = entry.hourly_rate || entry.project?.hourly_rate || 0
-    const hours = entry.duration_seconds / 3600
-    const amount = Math.round(hours * rate * 100) / 100
-
-    totalHours += hours
-    totalAmount += amount
-
+  if (!data) {
     return {
-      ...entry,
-      client: entry.project?.client || null,
-      amount,
+      entries: [],
+      total_hours: 0,
+      total_amount: 0,
     }
-  })
-
-  return {
-    entries: entriesWithDetails as unknown as TimeEntryWithDetails[],
-    total_hours: Math.round(totalHours * 100) / 100,
-    total_amount: Math.round(totalAmount * 100) / 100,
   }
+
+  return data
 }
 
 export async function markEntriesAsInvoiced(

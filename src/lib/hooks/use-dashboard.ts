@@ -4,31 +4,28 @@ import useSWR from 'swr'
 import { dashboardApi } from '@/lib/api'
 import type { DashboardStats, RecentActivity } from '@/types/api'
 
-export function useDashboardStats() {
-  const { data, error, isLoading, mutate } = useSWR<DashboardStats>(
-    'dashboard-stats',
-    () => dashboardApi.getDashboardStats()
-  )
-
-  return {
-    stats: data,
-    isLoading,
-    isError: !!error,
-    error,
-    mutate,
-  }
+interface DashboardData {
+  stats: DashboardStats
+  recentActivity: RecentActivity
 }
 
-export function useRecentActivity(limit?: number) {
-  const { data, error, isLoading, mutate } = useSWR<RecentActivity>(
-    ['recent-activity', limit],
-    () => dashboardApi.getRecentActivity(limit)
+export function useDashboard(recentLimit: number = 10) {
+  const { data, error, isLoading, mutate } = useSWR<DashboardData>(
+    ['dashboard', recentLimit],
+    async () => {
+      const response = await dashboardApi.getDashboardData(recentLimit)
+      return {
+        stats: response.stats,
+        recentActivity: response.recent_activity,
+      }
+    }
   )
 
   return {
-    activity: data,
-    entries: data?.entries || [],
-    groupedByDate: data?.grouped_by_date || [],
+    stats: data?.stats,
+    recentActivity: data?.recentActivity,
+    entries: data?.recentActivity?.entries || [],
+    groupedByDate: data?.recentActivity?.grouped_by_date || [],
     isLoading,
     isError: !!error,
     error,

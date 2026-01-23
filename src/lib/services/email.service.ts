@@ -1,6 +1,18 @@
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+// Lazy initialization to avoid issues with missing API key at module load time
+let resendInstance: Resend | null = null
+
+function getResend(): Resend {
+  if (!resendInstance) {
+    const apiKey = process.env.RESEND_API_KEY
+    if (!apiKey) {
+      throw new Error('RESEND_API_KEY environment variable is not set')
+    }
+    resendInstance = new Resend(apiKey)
+  }
+  return resendInstance
+}
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://billmint.io'
 const FROM_EMAIL = process.env.EMAIL_FROM || 'Eduard from BillMint <noreply@billmint.io>'
@@ -138,7 +150,7 @@ Questions? Just reply to this email — we read everything.
 Happy tracking!
 The BillMint team`
 
-  const { error } = await resend.emails.send({
+  const { error } = await getResend().emails.send({
     from: FROM_EMAIL,
     to,
     subject: 'Welcome to BillMint 🌿',
@@ -227,7 +239,7 @@ Here's how your time tracking looked last week (${weekStart} – ${weekEnd}).
 ${unbilledText}
 Keep up the great work!`
 
-  const { error } = await resend.emails.send({
+  const { error } = await getResend().emails.send({
     from: FROM_EMAIL,
     to,
     subject: `Your week in review: ${totalHours} tracked`,
@@ -316,7 +328,7 @@ Review Timer: ${APP_URL}/time
 
 You can change the auto-pause duration in Settings: ${APP_URL}/settings`
 
-  const { error } = await resend.emails.send({
+  const { error } = await getResend().emails.send({
     from: FROM_EMAIL,
     to,
     subject: 'Your timer was automatically paused',
@@ -400,7 +412,7 @@ View Timer: ${APP_URL}
 
 Your timer will auto-pause after ${maxHours} hours. Change this setting: ${APP_URL}/settings`
 
-  const { error } = await resend.emails.send({
+  const { error } = await getResend().emails.send({
     from: FROM_EMAIL,
     to,
     subject: `⏱️ Your timer is still running (${duration})`,
@@ -491,7 +503,7 @@ Email Client: mailto:${clientEmail}?subject=Following up on invoice ${invoiceNum
 
 Already paid? Mark as paid: ${APP_URL}/invoices/${invoiceId}`
 
-  const { error } = await resend.emails.send({
+  const { error } = await getResend().emails.send({
     from: FROM_EMAIL,
     to,
     subject: `Invoice ${invoiceNumber} is overdue`,
@@ -612,7 +624,7 @@ Here's your monthly summary.
 ${unbilledText}${overdueText}
 Here's to a great ${nextMonthName}!`
 
-  const { error } = await resend.emails.send({
+  const { error } = await getResend().emails.send({
     from: FROM_EMAIL,
     to,
     subject: `Your ${monthName} recap: ${totalHours} tracked, ${totalInvoiced} invoiced`,

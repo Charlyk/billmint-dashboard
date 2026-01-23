@@ -1,14 +1,15 @@
 import { fetcher } from './client'
 import type { DashboardStats, RecentActivity } from '@/types/api'
 
-export async function getDashboardStats(): Promise<DashboardStats> {
-  return fetcher<DashboardStats>('/api/dashboard/stats')
+interface DashboardResponse {
+  stats: DashboardStats
+  recent_activity: RecentActivity
 }
 
-export async function getRecentActivity(
-  limit?: number
-): Promise<RecentActivity> {
-  return fetcher<RecentActivity>('/api/dashboard/recent', {
-    params: { limit },
+export async function getDashboardData(
+  recentLimit?: number
+): Promise<DashboardResponse> {
+  return fetcher<DashboardResponse>('/api/dashboard', {
+    params: { recent_limit: recentLimit },
   })
 }

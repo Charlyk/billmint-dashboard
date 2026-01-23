@@ -8,40 +8,21 @@ export async function getProfile(): Promise<UserWithSettings> {
   const currentUser = await requireAuth()
   const supabase = await createClient()
 
-  const { data: user, error: userError } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', currentUser.id)
-    .single() as { data: User | null; error: Error | null }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)('get_user_profile', {
+    p_user_id: currentUser.id,
+  }) as { data: UserWithSettings | null; error: Error | null }
 
-  if (userError || !user) {
+  if (error) {
+    console.error('[User] get_user_profile RPC error:', error)
+    throw new ValidationError('Failed to fetch profile')
+  }
+
+  if (!data) {
     throw new NotFoundError('User profile')
   }
 
-  const { data: settings, error: settingsError } = await supabase
-    .from('user_settings')
-    .select('*')
-    .eq('user_id', currentUser.id)
-    .single() as { data: UserSettings | null; error: Error | null }
-
-  if (settingsError || !settings) {
-    // Create default settings if they don't exist
-    const { data: newSettings } = await supabase
-      .from('user_settings')
-      .insert({ user_id: currentUser.id } as never)
-      .select()
-      .single() as { data: UserSettings | null }
-
-    return {
-      ...user,
-      settings: newSettings || getDefaultSettings(currentUser.id),
-    }
-  }
-
-  return {
-    ...user,
-    settings,
-  }
+  return data
 }
 
 export async function updateProfile(data: UpdateUser): Promise<User> {
@@ -69,25 +50,18 @@ export async function getSettings(): Promise<UserSettings> {
   const currentUser = await requireAuth()
   const supabase = await createClient()
 
-  const { data, error } = await supabase
-    .from('user_settings')
-    .select('*')
-    .eq('user_id', currentUser.id)
-    .single() as { data: UserSettings | null; error: Error | null }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)('get_user_settings', {
+    p_user_id: currentUser.id,
+  }) as { data: UserSettings | null; error: Error | null }
 
-  if (error || !data) {
-    // Create default settings if they don't exist
-    const { data: newSettings, error: createError } = await supabase
-      .from('user_settings')
-      .insert({ user_id: currentUser.id } as never)
-      .select()
-      .single() as { data: UserSettings | null; error: Error | null }
+  if (error) {
+    console.error('[User] get_user_settings RPC error:', error)
+    throw new ValidationError('Failed to fetch settings')
+  }
 
-    if (createError || !newSettings) {
-      return getDefaultSettings(currentUser.id)
-    }
-
-    return newSettings
+  if (!data) {
+    return getDefaultSettings(currentUser.id)
   }
 
   return data
@@ -99,51 +73,43 @@ export async function updateSettings(
   const currentUser = await requireAuth()
   const supabase = await createClient()
 
-  const { data: settings, error } = await supabase
-    .from('user_settings')
-    .update({
-      ...data,
-      updated_at: new Date().toISOString(),
-    } as never)
-    .eq('user_id', currentUser.id)
-    .select()
-    .single() as { data: UserSettings | null; error: Error | null }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: settings, error } = await (supabase.rpc as any)('upsert_user_settings', {
+    p_user_id: currentUser.id,
+    p_default_currency: data.default_currency || null,
+    p_default_hourly_rate: data.default_hourly_rate ?? null,
+    p_week_starts_on: data.week_starts_on ?? null,
+    p_time_format: data.time_format || null,
+    p_date_format: data.date_format || null,
+    p_invoice_prefix: data.invoice_prefix || null,
+    p_invoice_notes: data.invoice_notes ?? null,
+    p_invoice_terms: data.invoice_terms ?? null,
+    p_max_timer_hours: data.max_timer_hours ?? null,
+  }) as { data: UserSettings | null; error: Error | null }
 
   if (error) {
-    // If settings don't exist, create them with the provided data
-    const { data: newSettings, error: createError } = await supabase
-      .from('user_settings')
-      .insert({
-        user_id: currentUser.id,
-        ...data,
-      } as never)
-      .select()
-      .single() as { data: UserSettings | null; error: Error | null }
-
-    if (createError || !newSettings) {
-      throw new ValidationError('Failed to update settings')
-    }
-
-    return newSettings
+    console.error('[User] upsert_user_settings RPC error:', error)
+    throw new ValidationError('Failed to update settings')
   }
 
-  return settings as UserSettings
+  if (!settings) {
+    throw new ValidationError('Failed to update settings')
+  }
+
+  return settings
 }
 
 export async function deleteAccount(): Promise<void> {
   const currentUser = await requireAuth()
   const supabase = await createClient()
 
-  // Delete user settings
-  await supabase.from('user_settings').delete().eq('user_id', currentUser.id)
-
-  // Delete user profile (this should cascade to other data via RLS policies)
-  const { error } = await supabase
-    .from('users')
-    .delete()
-    .eq('id', currentUser.id)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.rpc as any)('delete_user_account', {
+    p_user_id: currentUser.id,
+  })
 
   if (error) {
+    console.error('[User] delete_user_account RPC error:', error)
     throw new ValidationError('Failed to delete account')
   }
 
@@ -172,7 +138,7 @@ function getDefaultSettings(userId: string): UserSettings {
     invoice_prefix: 'INV-',
     invoice_notes: null,
     invoice_terms: null,
-    max_timer_hours: 8, // Default to 8 hours auto-pause
+    max_timer_hours: 8,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   }

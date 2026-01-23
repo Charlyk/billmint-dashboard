@@ -15,7 +15,8 @@
       "Bash(npx eslint:*)",
       "Bash(npm run lint:*)",
       "Bash(supabase --version:*)",
-      "Bash(supabase migration:*)"
+      "Bash(supabase migration:*)",
+      "Bash(npx supabase:*)"
     ]
   }
 }

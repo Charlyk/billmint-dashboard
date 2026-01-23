@@ -1,9 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireAuth, requirePaidUser } from './auth.service'
 import { NotFoundError, ValidationError } from '@/lib/utils/errors'
-import { markEntriesAsInvoiced, unmarkEntriesFromInvoice } from './time-entry.service'
-import { calculateSubtotal, calculateTax, calculateTotal } from '@/lib/utils/currency'
-import type { Invoice, InvoiceLineItem } from '@/types/database'
+import type { Invoice } from '@/types/database'
 import type {
   InvoiceWithDetails,
   InvoiceListResponse,
@@ -36,50 +34,26 @@ export async function listInvoices(
 
   const page = options?.page || 1
   const limit = options?.limit || 20
-  const offset = (page - 1) * limit
 
-  let query = supabase
-    .from('invoices')
-    .select(
-      `
-      *,
-      client:clients(id, name, email)
-    `,
-      { count: 'exact' }
-    )
-    .eq('user_id', currentUser.id)
-    .order('issue_date', { ascending: false })
-
-  if (options?.client_id) {
-    query = query.eq('client_id', options.client_id)
-  }
-
-  if (options?.status) {
-    query = query.eq('status', options.status)
-  }
-
-  if (options?.start_date) {
-    query = query.gte('issue_date', options.start_date)
-  }
-
-  if (options?.end_date) {
-    query = query.lte('issue_date', options.end_date)
-  }
-
-  const { data, error, count } = await query.range(offset, offset + limit - 1)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)('list_invoices', {
+    p_user_id: currentUser.id,
+    p_page: page,
+    p_limit: limit,
+    p_client_id: options?.client_id || null,
+    p_status: options?.status || null,
+    p_start_date: options?.start_date || null,
+    p_end_date: options?.end_date || null,
+  }) as { data: InvoiceListResponse | null; error: Error | null }
 
   if (error) {
+    console.error('[Invoice] list_invoices RPC error:', error)
     throw new ValidationError('Failed to fetch invoices')
   }
 
-  return {
-    data: data || [],
-    pagination: {
-      page,
-      limit,
-      total: count || 0,
-      totalPages: Math.ceil((count || 0) / limit),
-    },
+  return data || {
+    data: [],
+    pagination: { page, limit, total: 0, totalPages: 0 },
   }
 }
 
@@ -88,32 +62,25 @@ export async function getInvoiceById(id: string): Promise<InvoiceWithDetails> {
   const currentUser = await requireAuth()
   const supabase = await createClient()
 
-  const { data: invoice, error } = await supabase
-    .from('invoices')
-    .select(
-      `
-      *,
-      client:clients(id, name, email)
-    `
-    )
-    .eq('id', id)
-    .eq('user_id', currentUser.id)
-    .single() as { data: Invoice & { client: { id: string; name: string; email: string | null } | null } | null; error: Error | null }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)('get_invoice_with_details', {
+    p_user_id: currentUser.id,
+    p_invoice_id: id,
+  }) as { data: InvoiceWithDetails | null; error: { message: string } | null }
 
-  if (error || !invoice) {
+  if (error) {
+    if (error.message?.includes('NOT_FOUND')) {
+      throw new NotFoundError('Invoice')
+    }
+    console.error('[Invoice] get_invoice_with_details RPC error:', error)
+    throw new ValidationError('Failed to fetch invoice')
+  }
+
+  if (!data) {
     throw new NotFoundError('Invoice')
   }
 
-  const { data: lineItems } = await supabase
-    .from('invoice_line_items')
-    .select('*')
-    .eq('invoice_id', id)
-    .order('sort_order') as { data: InvoiceLineItem[] | null }
-
-  return {
-    ...invoice,
-    line_items: lineItems || [],
-  } as InvoiceWithDetails
+  return data
 }
 
 export async function createInvoice(input: {
@@ -131,110 +98,30 @@ export async function createInvoice(input: {
   const currentUser = await requireAuth()
   const supabase = await createClient()
 
-  // Generate invoice number if not provided
-  let invoiceNumber = input.invoice_number
-  if (!invoiceNumber) {
-    const { data: settings } = await supabase
-      .from('user_settings')
-      .select('invoice_prefix')
-      .eq('user_id', currentUser.id)
-      .single() as { data: { invoice_prefix: string } | null }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)('create_invoice', {
+    p_user_id: currentUser.id,
+    p_client_id: input.client_id,
+    p_invoice_number: input.invoice_number || null,
+    p_issue_date: input.issue_date || new Date().toISOString(),
+    p_due_date: input.due_date,
+    p_notes: input.notes || null,
+    p_terms: input.terms || null,
+    p_tax_rate: input.tax_rate || 0,
+    p_discount_amount: input.discount_amount || 0,
+    p_line_items: JSON.stringify(input.line_items),
+  }) as { data: InvoiceWithDetails | null; error: Error | null }
 
-    const { count } = await supabase
-      .from('invoices')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', currentUser.id)
-
-    const prefix = settings?.invoice_prefix || 'INV-'
-    invoiceNumber = `${prefix}${String((count || 0) + 1).padStart(4, '0')}`
-  }
-
-  // Calculate totals
-  const subtotal = calculateSubtotal(input.line_items)
-  const taxRate = input.tax_rate || 0
-  const taxAmount = calculateTax(subtotal, taxRate)
-  const discountAmount = input.discount_amount || 0
-  const total = calculateTotal(subtotal, taxRate, discountAmount)
-
-  // Generate public token
-  const publicToken = generateToken()
-
-  // Get client currency
-  const { data: clientProjects } = await supabase
-    .from('projects')
-    .select('currency')
-    .eq('client_id', input.client_id)
-    .limit(1) as { data: { currency: string }[] | null }
-
-  const currency = clientProjects?.[0]?.currency || 'USD'
-
-  // Create invoice
-  const { data: invoice, error } = await supabase
-    .from('invoices')
-    .insert({
-      user_id: currentUser.id,
-      client_id: input.client_id,
-      invoice_number: invoiceNumber,
-      issue_date: input.issue_date || new Date().toISOString(),
-      due_date: input.due_date,
-      notes: input.notes,
-      terms: input.terms,
-      tax_rate: taxRate,
-      tax_amount: taxAmount,
-      discount_amount: discountAmount,
-      subtotal,
-      total,
-      currency,
-      public_token: publicToken,
-      status: 'draft',
-    } as never)
-    .select(
-      `
-      *,
-      client:clients(id, name, email)
-    `
-    )
-    .single() as { data: Invoice & { client: { id: string; name: string; email: string | null } } | null; error: Error | null }
-
-  if (error || !invoice) {
+  if (error) {
+    console.error('[Invoice] create_invoice RPC error:', error)
     throw new ValidationError('Failed to create invoice')
   }
 
-  // Create line items
-  const lineItemsToInsert = input.line_items.map((item, index) => ({
-    invoice_id: invoice.id,
-    description: item.description,
-    quantity: item.quantity,
-    unit_price: item.unit_price,
-    amount: item.quantity * item.unit_price,
-    time_entry_id: item.time_entry_id || null,
-    sort_order: index,
-  }))
-
-  const { data: lineItems, error: lineItemsError } = await supabase
-    .from('invoice_line_items')
-    .insert(lineItemsToInsert as never)
-    .select() as { data: InvoiceLineItem[] | null; error: Error | null }
-
-  if (lineItemsError) {
-    // Rollback invoice creation
-    await supabase.from('invoices').delete().eq('id', invoice.id)
-    throw new ValidationError('Failed to create invoice line items')
+  if (!data) {
+    throw new ValidationError('Failed to create invoice')
   }
 
-  // Mark time entries as invoiced
-  const timeEntryIds = input.line_items
-    .filter((item) => item.time_entry_id)
-    .map((item) => item.time_entry_id!)
-
-  if (timeEntryIds.length > 0) {
-    await markEntriesAsInvoiced(timeEntryIds, invoice.id)
-  }
-
-  return {
-    ...invoice,
-    line_items: lineItems || [],
-  } as InvoiceWithDetails
+  return data
 }
 
 export async function updateInvoice(
@@ -254,111 +141,36 @@ export async function updateInvoice(
   const currentUser = await requireAuth()
   const supabase = await createClient()
 
-  // Verify ownership and get current invoice
-  const { data: existingInvoice } = await supabase
-    .from('invoices')
-    .select('*')
-    .eq('id', id)
-    .eq('user_id', currentUser.id)
-    .single() as { data: Invoice | null }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)('update_invoice', {
+    p_user_id: currentUser.id,
+    p_invoice_id: id,
+    p_invoice_number: input.invoice_number || null,
+    p_issue_date: input.issue_date || null,
+    p_due_date: input.due_date || null,
+    p_notes: input.notes || null,
+    p_terms: input.terms || null,
+    p_tax_rate: input.tax_rate ?? null,
+    p_discount_amount: input.discount_amount ?? null,
+    p_line_items: input.line_items ? JSON.stringify(input.line_items) : null,
+  }) as { data: InvoiceWithDetails | null; error: { message: string } | null }
 
-  if (!existingInvoice) {
-    throw new NotFoundError('Invoice')
-  }
-
-  if (existingInvoice.status !== 'draft') {
-    throw new ValidationError('Only draft invoices can be edited')
-  }
-
-  // Recalculate totals if line items are being updated
-  let subtotal = existingInvoice.subtotal
-  let taxAmount = existingInvoice.tax_amount
-  let total = existingInvoice.total
-
-  if (input.line_items) {
-    subtotal = calculateSubtotal(input.line_items)
-    const taxRate = input.tax_rate ?? existingInvoice.tax_rate
-    taxAmount = calculateTax(subtotal, taxRate)
-    const discountAmount = input.discount_amount ?? existingInvoice.discount_amount
-    total = calculateTotal(subtotal, taxRate, discountAmount)
-  } else if (input.tax_rate !== undefined || input.discount_amount !== undefined) {
-    const taxRate = input.tax_rate ?? existingInvoice.tax_rate
-    taxAmount = calculateTax(subtotal, taxRate)
-    const discountAmount = input.discount_amount ?? existingInvoice.discount_amount
-    total = calculateTotal(subtotal, taxRate, discountAmount)
-  }
-
-  // Update invoice
-  const { data: invoice, error } = await supabase
-    .from('invoices')
-    .update({
-      invoice_number: input.invoice_number,
-      issue_date: input.issue_date,
-      due_date: input.due_date,
-      notes: input.notes,
-      terms: input.terms,
-      tax_rate: input.tax_rate,
-      tax_amount: taxAmount,
-      discount_amount: input.discount_amount,
-      subtotal,
-      total,
-      updated_at: new Date().toISOString(),
-    } as never)
-    .eq('id', id)
-    .select(
-      `
-      *,
-      client:clients(id, name, email)
-    `
-    )
-    .single() as { data: Invoice & { client: { id: string; name: string; email: string | null } } | null; error: Error | null }
-
-  if (error || !invoice) {
+  if (error) {
+    if (error.message?.includes('NOT_FOUND')) {
+      throw new NotFoundError('Invoice')
+    }
+    if (error.message?.includes('VALIDATION')) {
+      throw new ValidationError(error.message.replace('VALIDATION: ', ''))
+    }
+    console.error('[Invoice] update_invoice RPC error:', error)
     throw new ValidationError('Failed to update invoice')
   }
 
-  // Update line items if provided
-  if (input.line_items) {
-    // Unmark old time entries
-    await unmarkEntriesFromInvoice(id)
-
-    // Delete old line items
-    await supabase.from('invoice_line_items').delete().eq('invoice_id', id)
-
-    // Create new line items
-    const lineItemsToInsert = input.line_items.map((item, index) => ({
-      invoice_id: id,
-      description: item.description,
-      quantity: item.quantity,
-      unit_price: item.unit_price,
-      amount: item.quantity * item.unit_price,
-      time_entry_id: item.time_entry_id || null,
-      sort_order: index,
-    }))
-
-    await supabase.from('invoice_line_items').insert(lineItemsToInsert as never)
-
-    // Mark new time entries as invoiced
-    const timeEntryIds = input.line_items
-      .filter((item) => item.time_entry_id)
-      .map((item) => item.time_entry_id!)
-
-    if (timeEntryIds.length > 0) {
-      await markEntriesAsInvoiced(timeEntryIds, id)
-    }
+  if (!data) {
+    throw new ValidationError('Failed to update invoice')
   }
 
-  // Fetch updated line items
-  const { data: lineItems } = await supabase
-    .from('invoice_line_items')
-    .select('*')
-    .eq('invoice_id', id)
-    .order('sort_order') as { data: InvoiceLineItem[] | null }
-
-  return {
-    ...invoice,
-    line_items: lineItems || [],
-  } as InvoiceWithDetails
+  return data
 }
 
 export async function deleteInvoice(id: string): Promise<void> {
@@ -366,33 +178,41 @@ export async function deleteInvoice(id: string): Promise<void> {
   const currentUser = await requireAuth()
   const supabase = await createClient()
 
-  // Verify ownership and status
-  const { data: invoice } = await supabase
-    .from('invoices')
-    .select('status')
-    .eq('id', id)
-    .eq('user_id', currentUser.id)
-    .single() as { data: { status: string } | null }
-
-  if (!invoice) {
-    throw new NotFoundError('Invoice')
-  }
-
-  if (invoice.status !== 'draft') {
-    throw new ValidationError('Only draft invoices can be deleted')
-  }
-
-  // Unmark time entries
-  await unmarkEntriesFromInvoice(id)
-
-  // Delete line items
-  await supabase.from('invoice_line_items').delete().eq('invoice_id', id)
-
-  // Delete invoice
-  const { error } = await supabase.from('invoices').delete().eq('id', id)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.rpc as any)('delete_invoice', {
+    p_user_id: currentUser.id,
+    p_invoice_id: id,
+  }) as { error: { message: string } | null }
 
   if (error) {
+    if (error.message?.includes('NOT_FOUND')) {
+      throw new NotFoundError('Invoice')
+    }
+    if (error.message?.includes('VALIDATION')) {
+      throw new ValidationError(error.message.replace('VALIDATION: ', ''))
+    }
+    console.error('[Invoice] delete_invoice RPC error:', error)
     throw new ValidationError('Failed to delete invoice')
+  }
+}
+
+interface InvoiceEmailData {
+  invoice: {
+    id: string
+    invoice_number: string
+    total: number
+    due_date: string
+    status: string
+    public_token: string
+  }
+  client: {
+    name: string
+    email: string | null
+  }
+  user: {
+    full_name: string | null
+    company_name: string | null
+    email: string
   }
 }
 
@@ -401,33 +221,43 @@ export async function sendInvoice(id: string): Promise<Invoice> {
   const currentUser = await requireAuth()
   const supabase = await createClient()
 
-  const invoice = await getInvoiceById(id)
+  // Get invoice data for email in a single call
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: emailData, error: fetchError } = await (supabase.rpc as any)('get_invoice_for_email', {
+    p_user_id: currentUser.id,
+    p_invoice_id: id,
+  }) as { data: InvoiceEmailData | null; error: { message: string } | null }
 
-  if (!invoice.client.email) {
+  if (fetchError) {
+    if (fetchError.message?.includes('NOT_FOUND')) {
+      throw new NotFoundError('Invoice')
+    }
+    console.error('[Invoice] get_invoice_for_email RPC error:', fetchError)
+    throw new ValidationError('Failed to fetch invoice')
+  }
+
+  if (!emailData) {
+    throw new NotFoundError('Invoice')
+  }
+
+  if (!emailData.client.email) {
     throw new ValidationError('Client does not have an email address')
   }
 
-  // Get user info for email
-  const { data: user } = await supabase
-    .from('users')
-    .select('full_name, company_name, email')
-    .eq('id', currentUser.id)
-    .single() as { data: { full_name: string | null; company_name: string | null; email: string } | null }
-
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-  const invoiceUrl = `${appUrl}/invoice/${invoice.public_token}`
+  const invoiceUrl = `${appUrl}/invoice/${emailData.invoice.public_token}`
 
   // Send email
   try {
     await getResend().emails.send({
       from: 'BillMint <noreply@billmint.app>',
-      to: invoice.client.email,
-      subject: `Invoice ${invoice.invoice_number} from ${user?.company_name || user?.full_name || 'BillMint'}`,
+      to: emailData.client.email,
+      subject: `Invoice ${emailData.invoice.invoice_number} from ${emailData.user.company_name || emailData.user.full_name || 'BillMint'}`,
       html: `
         <h1>You have a new invoice</h1>
-        <p>Invoice #${invoice.invoice_number}</p>
-        <p>Amount: $${invoice.total.toFixed(2)}</p>
-        <p>Due date: ${new Date(invoice.due_date).toLocaleDateString()}</p>
+        <p>Invoice #${emailData.invoice.invoice_number}</p>
+        <p>Amount: $${emailData.invoice.total.toFixed(2)}</p>
+        <p>Due date: ${new Date(emailData.invoice.due_date).toLocaleDateString()}</p>
         <p><a href="${invoiceUrl}">View Invoice</a></p>
       `,
     })
@@ -437,18 +267,15 @@ export async function sendInvoice(id: string): Promise<Invoice> {
   }
 
   // Update invoice status
-  const { data: updatedInvoice, error } = await supabase
-    .from('invoices')
-    .update({
-      status: 'sent',
-      sent_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    } as never)
-    .eq('id', id)
-    .select()
-    .single() as { data: Invoice | null; error: Error | null }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: updatedInvoice, error } = await (supabase.rpc as any)('update_invoice_status', {
+    p_user_id: currentUser.id,
+    p_invoice_id: id,
+    p_action: 'send',
+  }) as { data: Invoice | null; error: Error | null }
 
   if (error || !updatedInvoice) {
+    console.error('[Invoice] update_invoice_status RPC error:', error)
     throw new ValidationError('Failed to update invoice status')
   }
 
@@ -460,35 +287,46 @@ export async function sendReminder(id: string): Promise<Invoice> {
   const currentUser = await requireAuth()
   const supabase = await createClient()
 
-  const invoice = await getInvoiceById(id)
+  // Get invoice data for email
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: emailData, error: fetchError } = await (supabase.rpc as any)('get_invoice_for_email', {
+    p_user_id: currentUser.id,
+    p_invoice_id: id,
+  }) as { data: InvoiceEmailData | null; error: { message: string } | null }
 
-  if (!['sent', 'overdue'].includes(invoice.status)) {
+  if (fetchError) {
+    if (fetchError.message?.includes('NOT_FOUND')) {
+      throw new NotFoundError('Invoice')
+    }
+    console.error('[Invoice] get_invoice_for_email RPC error:', fetchError)
+    throw new ValidationError('Failed to fetch invoice')
+  }
+
+  if (!emailData) {
+    throw new NotFoundError('Invoice')
+  }
+
+  if (!['sent', 'overdue'].includes(emailData.invoice.status)) {
     throw new ValidationError('Can only send reminders for sent or overdue invoices')
   }
 
-  if (!invoice.client.email) {
+  if (!emailData.client.email) {
     throw new ValidationError('Client does not have an email address')
   }
 
-  const { data: user } = await supabase
-    .from('users')
-    .select('full_name, company_name')
-    .eq('id', currentUser.id)
-    .single() as { data: { full_name: string | null; company_name: string | null } | null }
-
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-  const invoiceUrl = `${appUrl}/invoice/${invoice.public_token}`
+  const invoiceUrl = `${appUrl}/invoice/${emailData.invoice.public_token}`
 
   try {
     await getResend().emails.send({
       from: 'BillMint <noreply@billmint.app>',
-      to: invoice.client.email,
-      subject: `Reminder: Invoice ${invoice.invoice_number} from ${user?.company_name || user?.full_name || 'BillMint'}`,
+      to: emailData.client.email,
+      subject: `Reminder: Invoice ${emailData.invoice.invoice_number} from ${emailData.user.company_name || emailData.user.full_name || 'BillMint'}`,
       html: `
         <h1>Payment Reminder</h1>
-        <p>This is a friendly reminder that invoice #${invoice.invoice_number} is ${invoice.status === 'overdue' ? 'overdue' : 'due soon'}.</p>
-        <p>Amount: $${invoice.total.toFixed(2)}</p>
-        <p>Due date: ${new Date(invoice.due_date).toLocaleDateString()}</p>
+        <p>This is a friendly reminder that invoice #${emailData.invoice.invoice_number} is ${emailData.invoice.status === 'overdue' ? 'overdue' : 'due soon'}.</p>
+        <p>Amount: $${emailData.invoice.total.toFixed(2)}</p>
+        <p>Due date: ${new Date(emailData.invoice.due_date).toLocaleDateString()}</p>
         <p><a href="${invoiceUrl}">View Invoice</a></p>
       `,
     })
@@ -497,17 +335,16 @@ export async function sendReminder(id: string): Promise<Invoice> {
     throw new ValidationError('Failed to send reminder email')
   }
 
-  const { data: updatedInvoice, error } = await supabase
-    .from('invoices')
-    .update({
-      reminder_sent_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    } as never)
-    .eq('id', id)
-    .select()
-    .single() as { data: Invoice | null; error: Error | null }
+  // Update reminder_sent_at
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: updatedInvoice, error } = await (supabase.rpc as any)('update_invoice_status', {
+    p_user_id: currentUser.id,
+    p_invoice_id: id,
+    p_action: 'reminder',
+  }) as { data: Invoice | null; error: Error | null }
 
   if (error || !updatedInvoice) {
+    console.error('[Invoice] update_invoice_status RPC error:', error)
     throw new ValidationError('Failed to update invoice')
   }
 
@@ -519,37 +356,29 @@ export async function markInvoiceAsPaid(id: string): Promise<Invoice> {
   const currentUser = await requireAuth()
   const supabase = await createClient()
 
-  const { data: invoice } = await supabase
-    .from('invoices')
-    .select('status')
-    .eq('id', id)
-    .eq('user_id', currentUser.id)
-    .single() as { data: { status: string } | null }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)('update_invoice_status', {
+    p_user_id: currentUser.id,
+    p_invoice_id: id,
+    p_action: 'paid',
+  }) as { data: Invoice | null; error: { message: string } | null }
 
-  if (!invoice) {
-    throw new NotFoundError('Invoice')
-  }
-
-  if (!['sent', 'overdue'].includes(invoice.status)) {
-    throw new ValidationError('Can only mark sent or overdue invoices as paid')
-  }
-
-  const { data: updatedInvoice, error } = await supabase
-    .from('invoices')
-    .update({
-      status: 'paid',
-      paid_date: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    } as never)
-    .eq('id', id)
-    .select()
-    .single() as { data: Invoice | null; error: Error | null }
-
-  if (error || !updatedInvoice) {
+  if (error) {
+    if (error.message?.includes('NOT_FOUND')) {
+      throw new NotFoundError('Invoice')
+    }
+    if (error.message?.includes('VALIDATION')) {
+      throw new ValidationError(error.message.replace('VALIDATION: ', ''))
+    }
+    console.error('[Invoice] update_invoice_status RPC error:', error)
     throw new ValidationError('Failed to mark invoice as paid')
   }
 
-  return updatedInvoice
+  if (!data) {
+    throw new ValidationError('Failed to mark invoice as paid')
+  }
+
+  return data
 }
 
 export async function voidInvoice(id: string): Promise<Invoice> {
@@ -557,85 +386,50 @@ export async function voidInvoice(id: string): Promise<Invoice> {
   const currentUser = await requireAuth()
   const supabase = await createClient()
 
-  const { data: invoice } = await supabase
-    .from('invoices')
-    .select('status')
-    .eq('id', id)
-    .eq('user_id', currentUser.id)
-    .single() as { data: { status: string } | null }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)('update_invoice_status', {
+    p_user_id: currentUser.id,
+    p_invoice_id: id,
+    p_action: 'void',
+  }) as { data: Invoice | null; error: { message: string } | null }
 
-  if (!invoice) {
-    throw new NotFoundError('Invoice')
-  }
-
-  if (invoice.status === 'void') {
-    throw new ValidationError('Invoice is already void')
-  }
-
-  // Unmark time entries
-  await unmarkEntriesFromInvoice(id)
-
-  const { data: updatedInvoice, error } = await supabase
-    .from('invoices')
-    .update({
-      status: 'void',
-      updated_at: new Date().toISOString(),
-    } as never)
-    .eq('id', id)
-    .select()
-    .single() as { data: Invoice | null; error: Error | null }
-
-  if (error || !updatedInvoice) {
+  if (error) {
+    if (error.message?.includes('NOT_FOUND')) {
+      throw new NotFoundError('Invoice')
+    }
+    if (error.message?.includes('VALIDATION')) {
+      throw new ValidationError(error.message.replace('VALIDATION: ', ''))
+    }
+    console.error('[Invoice] update_invoice_status RPC error:', error)
     throw new ValidationError('Failed to void invoice')
   }
 
-  return updatedInvoice
+  if (!data) {
+    throw new ValidationError('Failed to void invoice')
+  }
+
+  return data
 }
 
 export async function getPublicInvoice(token: string): Promise<PublicInvoiceResponse> {
   const supabase = await createClient()
 
-  const { data: invoice, error } = await supabase
-    .from('invoices')
-    .select(
-      `
-      *,
-      client:clients(id, name, email)
-    `
-    )
-    .eq('public_token', token)
-    .single() as { data: Invoice & { client: { id: string; name: string; email: string | null } | null } | null; error: Error | null }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)('get_public_invoice', {
+    p_token: token,
+  }) as { data: PublicInvoiceResponse | null; error: { message: string } | null }
 
-  if (error || !invoice) {
+  if (error) {
+    if (error.message?.includes('NOT_FOUND')) {
+      throw new NotFoundError('Invoice')
+    }
+    console.error('[Invoice] get_public_invoice RPC error:', error)
+    throw new ValidationError('Failed to fetch invoice')
+  }
+
+  if (!data) {
     throw new NotFoundError('Invoice')
   }
 
-  const { data: lineItems } = await supabase
-    .from('invoice_line_items')
-    .select('*')
-    .eq('invoice_id', invoice.id)
-    .order('sort_order') as { data: InvoiceLineItem[] | null }
-
-  const { data: user } = await supabase
-    .from('users')
-    .select('full_name, company_name, email')
-    .eq('id', invoice.user_id)
-    .single() as { data: { full_name: string | null; company_name: string | null; email: string } | null }
-
-  return {
-    invoice: {
-      ...invoice,
-      line_items: lineItems || [],
-    } as InvoiceWithDetails,
-    user: user || { full_name: null, company_name: null, email: '' },
-  }
-}
-
-function generateToken(): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
-  let token = ''
-  for (let i = 0; i < 32; i++) {
-    token += chars.charAt(Math.floor(Math.random() * chars.length))
-  }
-  return token
+  return data
 }
