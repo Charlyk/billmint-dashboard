@@ -320,7 +320,16 @@ export default function TimeEntriesPage() {
           <span className="text-sm text-muted-foreground">Filters:</span>
           <Select value={dateRange} onValueChange={(value) => setDateRange(value || "this-week")}>
             <SelectTrigger className="w-36">
-              <SelectValue />
+              <SelectValue>
+                {{
+                  "today": "Today",
+                  "yesterday": "Yesterday",
+                  "this-week": "This Week",
+                  "last-week": "Last Week",
+                  "this-month": "This Month",
+                  "last-month": "Last Month",
+                }[dateRange] || "This Week"}
+              </SelectValue>
             </SelectTrigger>
             <SelectPopup>
               <SelectItem value="today">Today</SelectItem>
@@ -334,7 +343,11 @@ export default function TimeEntriesPage() {
 
           <Select value={projectFilter} onValueChange={(value) => setProjectFilter(value || "all")}>
             <SelectTrigger className="w-40">
-              <SelectValue />
+              <SelectValue placeholder="All Projects">
+                {projectFilter === "all"
+                  ? "All Projects"
+                  : projects.find((p) => p.id === projectFilter)?.name || "All Projects"}
+              </SelectValue>
             </SelectTrigger>
             <SelectPopup>
               <SelectItem value="all">All Projects</SelectItem>
@@ -348,7 +361,11 @@ export default function TimeEntriesPage() {
 
           <Select value={clientFilter} onValueChange={(value) => setClientFilter(value || "all")}>
             <SelectTrigger className="w-40">
-              <SelectValue />
+              <SelectValue placeholder="All Clients">
+                {clientFilter === "all"
+                  ? "All Clients"
+                  : clients.find((c) => c.id === clientFilter)?.name || "All Clients"}
+              </SelectValue>
             </SelectTrigger>
             <SelectPopup>
               <SelectItem value="all">All Clients</SelectItem>
@@ -507,7 +524,11 @@ export default function TimeEntriesPage() {
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select project (optional)" />
+                    <SelectValue placeholder="Select project (optional)">
+                      {formData.project_id
+                        ? projects.find((p) => p.id === formData.project_id)?.name || "Select project"
+                        : "No project"}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectPopup>
                     <SelectItem value="">No project</SelectItem>
