@@ -278,31 +278,6 @@ export default function TimeEntriesPage() {
       return;
     }
 
-    // Validation: Check for overlapping entries
-    const overlappingEntry = entries.find((entry) => {
-      // Skip the entry being edited
-      if (modalMode === "edit" && entry.id === formData.id) return false;
-
-      const entryStart = new Date(entry.start_time);
-      const entryEnd = entry.end_time
-        ? new Date(entry.end_time)
-        : new Date(entryStart.getTime() + entry.duration_seconds * 1000);
-
-      // Check if ranges overlap
-      // Two ranges overlap if one starts before the other ends AND ends after the other starts
-      return startDateTime < entryEnd && endDateTime > entryStart;
-    });
-
-    if (overlappingEntry) {
-      const overlapStart = new Date(overlappingEntry.start_time);
-      toastManager.add({
-        type: "error",
-        title: "Overlapping entry",
-        description: `This time range overlaps with "${overlappingEntry.description || "Untitled"}" on ${overlapStart.toLocaleDateString()}`,
-      });
-      return;
-    }
-
     setIsSubmitting(true);
 
     try {

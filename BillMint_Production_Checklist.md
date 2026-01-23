@@ -17,12 +17,12 @@ This checklist covers everything needed before launching BillMint to real users.
 - [x] **[MUST]** Description/project editable while running
 - [x] **[MUST]** Billable toggle works
 - [x] **[NICE]** Keyboard shortcuts
-- [ ] **[NICE]** Auto-pause after X hours
+- [x] **[NICE]** Auto-pause after X hours
 - [x] **[NICE]** Tab title shows running time
 
 ### Time Entries
-- [ ] **[MUST]** List entries grouped by day
-- [ ] **[MUST]** Create manual entry
+- [x] **[MUST]** List entries grouped by day
+- [x] **[MUST]** Create manual entry
 - [ ] **[MUST]** Edit entry (description, project, duration, billable)
 - [ ] **[MUST]** Delete entry
 - [ ] **[MUST]** Filter by date range
