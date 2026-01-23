@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
       is_invoiced: searchParams.get('is_invoiced'),
       start_date: searchParams.get('start_date'),
       end_date: searchParams.get('end_date'),
+      search: searchParams.get('search'),
     })
 
     const options = parsed.success ? parsed.data : { page: 1, limit: 20 }

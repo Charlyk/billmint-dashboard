@@ -30,6 +30,7 @@ export function TimerControls({ variant }: TimerControlsProps) {
     displayTime,
     description,
     projectId,
+    project,
     isBillable,
     isSubmitting,
     descriptionInputRef,
@@ -74,6 +75,7 @@ export function TimerControls({ variant }: TimerControlsProps) {
           <ProjectPicker
             value={projectId}
             onChange={setProjectId}
+            selectedProject={project}
             variant="mobile"
           />
         </div>
@@ -84,7 +86,7 @@ export function TimerControls({ variant }: TimerControlsProps) {
             size="icon-sm"
             onClick={() => setIsBillable(!isBillable)}
             className={cn(
-              isBillable && "bg-teal-500 hover:!bg-teal-600 border-teal-500"
+              isBillable && "bg-teal-500 hover:bg-teal-600! border-teal-500"
             )}
           >
             <DollarSign className="size-4" />
@@ -103,7 +105,7 @@ export function TimerControls({ variant }: TimerControlsProps) {
                 onClick={handleStart}
                 size="sm"
                 disabled={isSubmitting}
-                className="bg-teal-500 hover:!bg-teal-600 border-teal-500"
+                className="bg-teal-500 hover:bg-teal-600! border-teal-500"
               >
                 <Play className="mr-1 size-4" />
                 Start
@@ -137,7 +139,7 @@ export function TimerControls({ variant }: TimerControlsProps) {
                   onClick={handleResume}
                   size="sm"
                   disabled={isSubmitting}
-                  className="bg-teal-500 hover:!bg-teal-600 border-teal-500"
+                  className="bg-teal-500 hover:bg-teal-600! border-teal-500"
                 >
                   <Play className="size-4" />
                 </Button>
@@ -194,6 +196,7 @@ export function TimerControls({ variant }: TimerControlsProps) {
       <ProjectPicker
         value={projectId}
         onChange={setProjectId}
+        selectedProject={project}
         triggerRef={projectSelectRef}
         variant="desktop"
       />
@@ -207,7 +210,7 @@ export function TimerControls({ variant }: TimerControlsProps) {
               onClick={() => setIsBillable(!isBillable)}
               className={cn(
                 "rounded-xl",
-                isBillable && "bg-teal-500 hover:!bg-teal-600 border-teal-500"
+                isBillable && "bg-teal-500 hover:bg-teal-600! border-teal-500"
               )}
             />
           }
@@ -231,7 +234,7 @@ export function TimerControls({ variant }: TimerControlsProps) {
         <Button
           onClick={handleStart}
           disabled={isSubmitting}
-          className="rounded-xl bg-teal-500 hover:!bg-teal-600 border-teal-500"
+          className="rounded-xl bg-teal-500 hover:bg-teal-600! border-teal-500"
         >
           <Play className="mr-1 size-4" />
           Start
@@ -269,7 +272,7 @@ export function TimerControls({ variant }: TimerControlsProps) {
           <Button
             onClick={handleResume}
             disabled={isSubmitting}
-            className="rounded-xl bg-teal-500 hover:!bg-teal-600 border-teal-500"
+            className="rounded-xl bg-teal-500 hover:bg-teal-600! border-teal-500"
           >
             <Play className="mr-1 size-4" />
             Resume

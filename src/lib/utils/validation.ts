@@ -154,6 +154,7 @@ export const timeEntriesQuerySchema = paginationSchema.extend({
   is_invoiced: z.coerce.boolean().optional(),
   start_date: z.string().optional(),
   end_date: z.string().optional(),
+  search: z.string().optional(),
 })
 
 export const invoicesQuerySchema = paginationSchema.extend({

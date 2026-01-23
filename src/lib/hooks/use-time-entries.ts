@@ -2,7 +2,6 @@
 
 import useSWR from 'swr'
 import { timeEntriesApi } from '@/lib/api'
-import { useAuthContext } from '@/contexts'
 import type {
   TimeEntryListResponse,
   TimeEntryWithDetails,
@@ -11,17 +10,15 @@ import type {
 import type { TimeEntriesQuery } from '@/lib/utils/validation'
 
 export function useTimeEntries(options?: TimeEntriesQuery) {
-  const { isAuthenticated, isLoading: authLoading } = useAuthContext()
-
   const { data, error, isLoading, mutate } = useSWR<TimeEntryListResponse>(
-    isAuthenticated ? ['time-entries', options] : null,
+    ['time-entries', options],
     () => timeEntriesApi.listTimeEntries(options)
   )
 
   return {
     entries: data?.data || [],
     pagination: data?.pagination,
-    isLoading: authLoading || isLoading,
+    isLoading,
     isError: !!error,
     error,
     mutate,
@@ -29,10 +26,8 @@ export function useTimeEntries(options?: TimeEntriesQuery) {
 }
 
 export function useTimeEntry(id: string | null) {
-  const { isAuthenticated, isLoading: authLoading } = useAuthContext()
-
   const { data, error, isLoading, mutate } = useSWR<TimeEntryWithDetails>(
-    isAuthenticated && id ? ['time-entry', id] : null,
+    id ? ['time-entry', id] : null,
     () =>
       id
         ? timeEntriesApi.getTimeEntry(id)
@@ -41,7 +36,7 @@ export function useTimeEntry(id: string | null) {
 
   return {
     entry: data,
-    isLoading: authLoading || isLoading,
+    isLoading,
     isError: !!error,
     error,
     mutate,
@@ -49,10 +44,8 @@ export function useTimeEntry(id: string | null) {
 }
 
 export function useUnbilledTimeEntries(clientId?: string) {
-  const { isAuthenticated, isLoading: authLoading } = useAuthContext()
-
   const { data, error, isLoading, mutate } = useSWR<UnbilledTimeEntriesResponse>(
-    isAuthenticated ? ['unbilled-time-entries', clientId] : null,
+    ['unbilled-time-entries', clientId],
     () => timeEntriesApi.getUnbilledTimeEntries(clientId)
   )
 
@@ -60,7 +53,7 @@ export function useUnbilledTimeEntries(clientId?: string) {
     entries: data?.entries || [],
     totalHours: data?.total_hours || 0,
     totalAmount: data?.total_amount || 0,
-    isLoading: authLoading || isLoading,
+    isLoading,
     isError: !!error,
     error,
     mutate,

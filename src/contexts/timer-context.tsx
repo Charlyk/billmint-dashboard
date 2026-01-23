@@ -286,7 +286,7 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
         type: 'success',
         title: `Entry saved: ${formatDurationHuman(savedDuration)}`,
       })
-    } catch (error) {
+    } catch {
       // Revert on error
       setTimer(prevTimer)
       toastManager.add({ type: 'error', title: 'Failed to stop timer' })
@@ -311,7 +311,7 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
 
     try {
       await timerApi.pauseTimer()
-    } catch (error) {
+    } catch {
       // Revert on error
       setTimer((prev) => ({
         ...prev,
@@ -339,7 +339,7 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
 
     try {
       await timerApi.resumeTimer()
-    } catch (error) {
+    } catch {
       // Revert on error
       setTimer((prev) => ({
         ...prev,
@@ -373,7 +373,7 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
     try {
       await timerApi.discardTimer()
       toastManager.add({ type: 'info', title: 'Timer discarded' })
-    } catch (error) {
+    } catch {
       // Revert on error
       setTimer(prevTimer)
       toastManager.add({ type: 'error', title: 'Failed to discard timer' })
@@ -407,13 +407,21 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
   // Immediate project update
   const setProjectId = useCallback(
     (projectId: string | null) => {
-      setTimer((prev) => ({ ...prev, projectId }))
+      // Optimistic update - clear project data, it will be set from API response
+      setTimer((prev) => ({ ...prev, projectId, project: projectId ? prev.project : null }))
 
       // Immediate sync to server if timer is running
       if (timer.isRunning) {
-        timerApi.updateTimer({ project_id: projectId }).catch((error) => {
-          console.error('Failed to update project:', error)
-        })
+        timerApi.updateTimer({ project_id: projectId })
+          .then((response) => {
+            // Update project data from server response
+            if (response.project) {
+              setTimer((prev) => ({ ...prev, project: response.project }))
+            }
+          })
+          .catch((error) => {
+            console.error('Failed to update project:', error)
+          })
       }
     },
     [timer.isRunning]

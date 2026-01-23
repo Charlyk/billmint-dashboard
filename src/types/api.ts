@@ -63,7 +63,7 @@ export interface ClientWithStats extends Client {
   outstanding_amount: number
 }
 
-export interface ClientListResponse extends PaginatedResponse<ClientWithStats> {}
+export type ClientListResponse = PaginatedResponse<ClientWithStats>
 
 // Project responses
 export interface ProjectWithClient extends Project {
@@ -77,7 +77,7 @@ export interface ProjectWithStats extends ProjectWithClient {
   unbilled_amount: number
 }
 
-export interface ProjectListResponse extends PaginatedResponse<ProjectWithStats> {}
+export type ProjectListResponse = PaginatedResponse<ProjectWithStats>
 
 // Time entry responses
 export interface TimeEntryWithProject extends TimeEntry {
@@ -89,7 +89,7 @@ export interface TimeEntryWithDetails extends TimeEntryWithProject {
   amount: number
 }
 
-export interface TimeEntryListResponse extends PaginatedResponse<TimeEntryWithDetails> {}
+export type TimeEntryListResponse = PaginatedResponse<TimeEntryWithDetails>
 
 export interface UnbilledTimeEntriesResponse {
   entries: TimeEntryWithDetails[]
@@ -112,7 +112,7 @@ export interface InvoiceWithDetails extends InvoiceWithClient {
   line_items: InvoiceLineItem[]
 }
 
-export interface InvoiceListResponse extends PaginatedResponse<InvoiceWithClient> {}
+export type InvoiceListResponse = PaginatedResponse<InvoiceWithClient>
 
 export interface InvoicesQuery {
   page?: number
@@ -132,6 +132,7 @@ export interface TimeEntriesQuery {
   end_date?: string
   is_billable?: boolean
   is_invoiced?: boolean
+  search?: string
 }
 
 export interface InvoiceLineItemInput {

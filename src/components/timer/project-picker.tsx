@@ -48,6 +48,8 @@ interface ProjectPickerProps {
   onChange: (projectId: string | null) => void;
   triggerRef?: React.RefObject<HTMLButtonElement | null>;
   variant?: "desktop" | "mobile";
+  /** Pre-loaded project data (e.g., from timer context) to show color dot without fetching */
+  selectedProject?: { id: string; name: string; color: string } | null;
 }
 
 export function ProjectPicker({
@@ -55,6 +57,7 @@ export function ProjectPicker({
   onChange,
   triggerRef,
   variant = "desktop",
+  selectedProject: initialSelectedProject,
 }: ProjectPickerProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -70,8 +73,10 @@ export function ProjectPicker({
   const [projects, setProjects] = useState<ProjectWithStats[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Fetch projects with debounced search
+  // Fetch projects with debounced search - only when dialog is open
   useEffect(() => {
+    if (!open) return;
+
     const fetchProjects = async () => {
       setIsLoading(true);
       try {
@@ -88,7 +93,7 @@ export function ProjectPicker({
     };
 
     fetchProjects();
-  }, [debouncedSearch]);
+  }, [open, debouncedSearch]);
 
   const refreshProjects = async () => {
     setIsLoading(true);
@@ -113,7 +118,8 @@ export function ProjectPicker({
     return () => clearTimeout(timer);
   }, [search]);
 
-  const selectedProject = projects.find((p) => p.id === value);
+  // Use pre-loaded project if available, otherwise find from fetched list
+  const selectedProject = initialSelectedProject || projects.find((p) => p.id === value);
 
   // Focus appropriate input when dialog opens or mode changes
   useEffect(() => {

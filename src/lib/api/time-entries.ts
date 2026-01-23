@@ -24,6 +24,7 @@ export async function listTimeEntries(
       is_invoiced: options?.is_invoiced,
       start_date: options?.start_date,
       end_date: options?.end_date,
+      search: options?.search,
     },
   })
 }

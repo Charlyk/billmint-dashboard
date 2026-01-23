@@ -24,7 +24,7 @@ export async function listTimeEntries(
     .select(
       `
       *,
-      project:projects(id, name, color, hourly_rate, currency, client:clients(id, name))
+      project:projects(id, name, color, hourly_rate, currency, client_id, client:clients(id, name))
     `,
       { count: 'exact' }
     )
@@ -55,6 +55,10 @@ export async function listTimeEntries(
     query = query.lte('start_time', options.end_date)
   }
 
+  if (options?.search) {
+    query = query.ilike('description', `%${options.search}%`)
+  }
+
   interface EntryWithProject {
     id: string
     user_id: string
@@ -75,8 +79,86 @@ export async function listTimeEntries(
       color: string | null
       hourly_rate: number | null
       currency: string
+      client_id: string | null
       client: { id: string; name: string } | null
     } | null
+  }
+
+  // For client_id filtering, we need to get all matching entries first
+  // then filter and paginate manually (since Supabase doesn't support filtering on nested relations easily)
+  if (options?.client_id) {
+    // Fetch all entries matching other filters
+    const allQuery = supabase
+      .from('time_entries')
+      .select(
+        `
+        *,
+        project:projects(id, name, color, hourly_rate, currency, client_id, client:clients(id, name))
+      `
+      )
+      .eq('user_id', currentUser.id)
+      .order('start_time', { ascending: false })
+
+    if (options?.project_id) {
+      allQuery.eq('project_id', options.project_id)
+    }
+    if (options?.is_billable !== undefined) {
+      allQuery.eq('is_billable', options.is_billable)
+    }
+    if (options?.is_invoiced !== undefined) {
+      if (options.is_invoiced) {
+        allQuery.not('invoice_id', 'is', null)
+      } else {
+        allQuery.is('invoice_id', null)
+      }
+    }
+    if (options?.start_date) {
+      allQuery.gte('start_time', options.start_date)
+    }
+    if (options?.end_date) {
+      allQuery.lte('start_time', options.end_date)
+    }
+    if (options?.search) {
+      allQuery.ilike('description', `%${options.search}%`)
+    }
+
+    const { data: allData, error: allError } = await allQuery as { data: EntryWithProject[] | null; error: Error | null }
+
+    if (allError) {
+      throw new ValidationError('Failed to fetch time entries')
+    }
+
+    // Filter by client_id
+    const filteredEntries = (allData || []).filter(
+      (entry) => entry.project?.client_id === options.client_id
+    )
+
+    // Manual pagination
+    const total = filteredEntries.length
+    const paginatedEntries = filteredEntries.slice(offset, offset + limit)
+
+    const entriesWithDetails = paginatedEntries.map((entry) => {
+      const rate = entry.hourly_rate || entry.project?.hourly_rate || 0
+      const amount = entry.is_billable
+        ? Math.round((entry.duration_seconds / 3600) * rate * 100) / 100
+        : 0
+
+      return {
+        ...entry,
+        client: entry.project?.client || null,
+        amount,
+      }
+    })
+
+    return {
+      data: entriesWithDetails as unknown as TimeEntryWithDetails[],
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    }
   }
 
   const result = await query.range(offset, offset + limit - 1) as { data: EntryWithProject[] | null; error: Error | null; count: number | null }

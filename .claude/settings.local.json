@@ -12,7 +12,8 @@
       "Bash(supabase db push:*)",
       "Bash(supabase db lint:*)",
       "Bash(npx tsc:*)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Bash(npm run lint:*)"
     ]
   }
 }
