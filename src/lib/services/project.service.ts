@@ -9,6 +9,7 @@ export async function listProjects(options?: {
   limit?: number
   clientId?: string
   includeArchived?: boolean
+  search?: string
 }): Promise<ProjectListResponse> {
   const currentUser = await requireAuth()
   const supabase = await createClient()
@@ -29,6 +30,10 @@ export async function listProjects(options?: {
 
   if (!options?.includeArchived) {
     query = query.eq('is_archived', false)
+  }
+
+  if (options?.search) {
+    query = query.ilike('name', `%${options.search}%`)
   }
 
   type ProjectWithClient = Project & { client: { id: string; name: string } | null }

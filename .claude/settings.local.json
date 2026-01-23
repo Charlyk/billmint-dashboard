@@ -11,7 +11,8 @@
       "Bash(supabase link:*)",
       "Bash(supabase db push:*)",
       "Bash(supabase db lint:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(npx eslint:*)"
     ]
   }
 }

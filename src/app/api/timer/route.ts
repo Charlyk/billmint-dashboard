@@ -15,7 +15,11 @@ export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json()
 
-    if (!body.description && !body.project_id && body.is_billable === undefined) {
+    const hasDescription = body.description !== undefined
+    const hasProjectId = 'project_id' in body
+    const hasBillable = body.is_billable !== undefined
+
+    if (!hasDescription && !hasProjectId && !hasBillable) {
       throw new ValidationError('No fields to update')
     }
 

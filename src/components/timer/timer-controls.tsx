@@ -10,20 +10,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectPopup,
-  SelectItem,
-} from "@/components/ui/select";
-import {
   Tooltip,
   TooltipTrigger,
   TooltipPopup,
 } from "@/components/ui/tooltip";
+import { ProjectPicker } from "./project-picker";
 import { cn } from "@/lib/utils";
 import { useTimerContext } from "@/contexts";
-import { useProjects, useTimerShortcuts } from "@/lib/hooks";
+import { useTimerShortcuts } from "@/lib/hooks";
 import { formatDuration } from "@/lib/utils/date";
 
 interface TimerControlsProps {
@@ -53,8 +47,6 @@ export function TimerControls({ variant }: TimerControlsProps) {
   // Only enable keyboard shortcuts on desktop
   useTimerShortcuts({ enabled: variant === "desktop" });
 
-  const { projects } = useProjects({ limit: 100 });
-
   const handleStart = () => startTimer();
   const handlePause = () => pauseTimer();
   const handleResume = () => resumeTimer();
@@ -79,42 +71,31 @@ export function TimerControls({ variant }: TimerControlsProps) {
             onChange={(e) => setDescription(e.target.value)}
             className="flex-1"
           />
-          <Select
-            value={projectId || ""}
-            onValueChange={(value) => setProjectId(value || null)}
-          >
-            <SelectTrigger className="w-28">
-              <SelectValue placeholder="Project" />
-            </SelectTrigger>
-            <SelectPopup>
-              {projects.map((project) => (
-                <SelectItem key={project.id} value={project.id}>
-                  {project.name}
-                </SelectItem>
-              ))}
-            </SelectPopup>
-          </Select>
+          <ProjectPicker
+            value={projectId}
+            onChange={setProjectId}
+            variant="mobile"
+          />
         </div>
 
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Button
-              variant={isBillable ? "default" : "outline"}
-              size="icon-sm"
-              onClick={() => setIsBillable(!isBillable)}
-              className={cn(
-                isBillable && "bg-teal-500 hover:!bg-teal-600 border-teal-500"
-              )}
-            >
-              <DollarSign className="size-4" />
-            </Button>
-            <span className={cn(
-              "font-mono text-lg font-semibold tabular-nums",
-              timerState === "running" && "text-teal-500 animate-pulse"
-            )}>
-              {formatDuration(displayTime)}
-            </span>
-          </div>
+          <Button
+            variant={isBillable ? "default" : "outline"}
+            size="icon-sm"
+            onClick={() => setIsBillable(!isBillable)}
+            className={cn(
+              isBillable && "bg-teal-500 hover:!bg-teal-600 border-teal-500"
+            )}
+          >
+            <DollarSign className="size-4" />
+          </Button>
+
+          <span className={cn(
+            "font-mono text-2xl font-semibold tabular-nums",
+            timerState === "running" && "text-teal-500 animate-pulse"
+          )}>
+            {formatDuration(displayTime)}
+          </span>
 
           <div className="flex gap-2">
             {timerState === "idle" && (
@@ -210,31 +191,12 @@ export function TimerControls({ variant }: TimerControlsProps) {
         </TooltipPopup>
       </Tooltip>
 
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Select
-              value={projectId || ""}
-              onValueChange={(value) => setProjectId(value || null)}
-            >
-              <SelectTrigger ref={projectSelectRef} className="w-40 rounded-xl">
-                <SelectValue placeholder="Project" />
-              </SelectTrigger>
-              <SelectPopup>
-                {projects.map((project) => (
-                  <SelectItem key={project.id} value={project.id}>
-                    {project.name}
-                  </SelectItem>
-                ))}
-              </SelectPopup>
-            </Select>
-          }
-        />
-        <TooltipPopup className="flex items-center gap-2">
-          <span>Select project</span>
-          <kbd className="inline-flex size-5 items-center justify-center rounded border bg-background text-[10px] font-semibold">P</kbd>
-        </TooltipPopup>
-      </Tooltip>
+      <ProjectPicker
+        value={projectId}
+        onChange={setProjectId}
+        triggerRef={projectSelectRef}
+        variant="desktop"
+      />
 
       <Tooltip>
         <TooltipTrigger
@@ -259,7 +221,7 @@ export function TimerControls({ variant }: TimerControlsProps) {
       </Tooltip>
 
       <div className={cn(
-        "min-w-24 text-center font-mono text-lg font-semibold tabular-nums",
+        "min-w-28 text-center font-mono text-2xl font-semibold tabular-nums",
         timerState === "running" && "text-teal-500 animate-pulse"
       )}>
         {formatDuration(displayTime)}

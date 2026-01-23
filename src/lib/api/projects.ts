@@ -7,6 +7,7 @@ export async function listProjects(options?: {
   limit?: number
   clientId?: string
   includeArchived?: boolean
+  search?: string
 }): Promise<ProjectListResponse> {
   return fetcher<ProjectListResponse>('/api/projects', {
     params: {
@@ -14,6 +15,7 @@ export async function listProjects(options?: {
       limit: options?.limit,
       clientId: options?.clientId,
       includeArchived: options?.includeArchived,
+      search: options?.search,
     },
   })
 }

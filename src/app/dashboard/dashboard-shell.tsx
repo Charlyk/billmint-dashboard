@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
@@ -103,8 +104,15 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
               </button>
               <Link
                 href="/dashboard"
-                className="text-xl font-bold text-teal-500"
+                className="flex items-center gap-2 text-xl font-bold text-teal-500"
               >
+                <Image
+                  src="/billmint_logo.webp"
+                  alt="BillMint logo"
+                  width={28}
+                  height={28}
+                  className="size-7"
+                />
                 BillMint
               </Link>
             </div>
@@ -216,8 +224,15 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
             <div className="flex h-14 items-center justify-between px-4">
               <Link
                 href="/dashboard"
-                className="text-xl font-bold text-teal-500"
+                className="flex items-center gap-2 text-xl font-bold text-teal-500"
               >
+                <Image
+                  src="/billmint_logo.webp"
+                  alt="BillMint logo"
+                  width={28}
+                  height={28}
+                  className="size-7"
+                />
                 BillMint
               </Link>
 

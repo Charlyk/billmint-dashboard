@@ -15,9 +15,10 @@ export async function GET(request: NextRequest) {
     const limit = parsed.success ? parsed.data.limit : 20
     const clientId = searchParams.get('clientId') || undefined
     const includeArchived = searchParams.get('includeArchived') === 'true'
+    const search = searchParams.get('search') || undefined
 
-    const projects = await listProjects({ page, limit, clientId, includeArchived })
-    return Response.json({ data: projects })
+    const result = await listProjects({ page, limit, clientId, includeArchived, search })
+    return Response.json({ data: result })
   } catch (error) {
     return handleError(error)
   }

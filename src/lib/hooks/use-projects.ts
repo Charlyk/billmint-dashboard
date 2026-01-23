@@ -10,6 +10,7 @@ export function useProjects(options?: {
   limit?: number
   clientId?: string
   includeArchived?: boolean
+  search?: string
 }) {
   const { isAuthenticated, isLoading: authLoading } = useAuthContext()
 
