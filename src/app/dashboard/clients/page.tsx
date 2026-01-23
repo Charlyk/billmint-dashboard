@@ -151,11 +151,6 @@ export default function ClientsPage() {
     return amounts.map(a => formatCurrency(a.amount, a.currency)).join(", ");
   };
 
-  // Get projects assigned to a specific client
-  const getClientProjects = (clientId: string) => {
-    return projects.filter(p => p.client_id === clientId);
-  };
-
   const handleOpenAddModal = () => {
     setModalMode("add");
     setEditingId(null);

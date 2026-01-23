@@ -4,9 +4,6 @@ import { NotFoundError, ValidationError } from '@/lib/utils/errors'
 import type { Client, InsertClient, UpdateClient } from '@/types/database'
 import type { ClientWithStats, ClientListResponse } from '@/types/api'
 
-// Helper type for Supabase query results
-type QueryResult<T> = { data: T | null; error: Error | null; count?: number | null }
-
 export async function listClients(options?: {
   page?: number
   limit?: number
