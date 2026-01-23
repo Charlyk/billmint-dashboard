@@ -9,6 +9,7 @@ import {
   useRef,
   type ReactNode,
 } from 'react'
+import { useSWRConfig } from 'swr'
 import { timerApi, isApiError } from '@/lib/api'
 import { toastManager } from '@/components/ui/toast'
 import { formatDurationHuman } from '@/lib/utils/date'
@@ -99,6 +100,7 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
   const descriptionDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const descriptionInputRef = useRef<HTMLInputElement | null>(null)
   const projectSelectRef = useRef<HTMLButtonElement | null>(null)
+  const { mutate } = useSWRConfig()
 
   // Fetch timer from server
   const fetchTimer = useCallback(async () => {
@@ -282,6 +284,8 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
 
     try {
       await timerApi.stopTimer()
+      // Invalidate time entries cache so lists refresh
+      mutate((key) => Array.isArray(key) && key[0] === 'time-entries')
       toastManager.add({
         type: 'success',
         title: `Entry saved: ${formatDurationHuman(savedDuration)}`,
@@ -293,7 +297,7 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
     } finally {
       setIsSubmitting(false)
     }
-  }, [timer, displayTime, isSubmitting])
+  }, [timer, displayTime, isSubmitting, mutate])
 
   // Optimistic pause timer
   const pauseTimer = useCallback(async () => {

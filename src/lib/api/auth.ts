@@ -4,11 +4,12 @@ import type { AuthResponse, SessionResponse } from '@/types/api'
 export async function signup(
   email: string,
   password: string,
-  fullName: string
+  fullName: string,
+  timezone?: string
 ): Promise<AuthResponse> {
   return fetcher<AuthResponse>('/api/auth/signup', {
     method: 'POST',
-    body: JSON.stringify({ email, password, full_name: fullName }),
+    body: JSON.stringify({ email, password, full_name: fullName, timezone }),
   })
 }
 

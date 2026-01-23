@@ -49,6 +49,8 @@ import {
   getCurrentMonthRange,
   addDays,
 } from "@/lib/utils/date";
+import { TimeRangeDisplay } from "@/components/ui/time-display";
+import { toastManager } from "@/components/ui/toast";
 import type { TimeEntryWithDetails } from "@/types";
 
 // Color map for project colors
@@ -167,6 +169,10 @@ export default function TimeEntriesPage() {
   const [modalMode, setModalMode] = useState<EntryModalMode>("add");
   const [formData, setFormData] = useState<EntryFormData>(defaultFormData);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; entry: TimeEntryWithDetails | null }>({
+    open: false,
+    entry: null,
+  });
 
   // Get date range for API query
   const dateRangeFilter = useMemo(() => getDateRange(dateRange), [dateRange]);
@@ -229,17 +235,48 @@ export default function TimeEntriesPage() {
 
   const handleSaveEntry = async () => {
     if (isSubmitting) return;
+
+    const startDateTime = new Date(`${formData.date}T${formData.startTime}:00`);
+    const endDateTime = new Date(`${formData.date}T${formData.endTime}:00`);
+
+    // Validation: End time must be after start time
+    if (endDateTime <= startDateTime) {
+      toastManager.add({
+        type: "error",
+        title: "Invalid time range",
+        description: "End time must be after start time",
+      });
+      return;
+    }
+
+    // Validation: Check for overlapping entries
+    const overlappingEntry = entries.find((entry) => {
+      // Skip the entry being edited
+      if (modalMode === "edit" && entry.id === formData.id) return false;
+
+      const entryStart = new Date(entry.start_time);
+      const entryEnd = entry.end_time
+        ? new Date(entry.end_time)
+        : new Date(entryStart.getTime() + entry.duration_seconds * 1000);
+
+      // Check if ranges overlap
+      // Two ranges overlap if one starts before the other ends AND ends after the other starts
+      return startDateTime < entryEnd && endDateTime > entryStart;
+    });
+
+    if (overlappingEntry) {
+      const overlapStart = new Date(overlappingEntry.start_time);
+      toastManager.add({
+        type: "error",
+        title: "Overlapping entry",
+        description: `This time range overlaps with "${overlappingEntry.description || "Untitled"}" on ${overlapStart.toLocaleDateString()}`,
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      const startDateTime = new Date(`${formData.date}T${formData.startTime}:00`);
-      const endDateTime = new Date(`${formData.date}T${formData.endTime}:00`);
-
-      // Handle case where end time is before start time (assume next day)
-      if (endDateTime <= startDateTime) {
-        endDateTime.setDate(endDateTime.getDate() + 1);
-      }
-
       const entryData = {
         description: formData.description || undefined,
         project_id: formData.project_id,
@@ -259,6 +296,10 @@ export default function TimeEntriesPage() {
       setFormData(defaultFormData);
     } catch (error) {
       console.error("Failed to save entry:", error);
+      toastManager.add({
+        type: "error",
+        title: "Failed to save entry",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -289,14 +330,23 @@ export default function TimeEntriesPage() {
     }
   };
 
-  const handleDelete = async (entryId: string) => {
-    if (!window.confirm("Are you sure you want to delete this entry?")) return;
+  const handleDeleteClick = (entry: TimeEntryWithDetails) => {
+    setDeleteConfirm({ open: true, entry });
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteConfirm.entry) return;
 
     try {
-      await deleteTimeEntry(entryId);
+      await deleteTimeEntry(deleteConfirm.entry.id);
       mutate();
+      setDeleteConfirm({ open: false, entry: null });
     } catch (error) {
       console.error("Failed to delete entry:", error);
+      toastManager.add({
+        type: "error",
+        title: "Failed to delete entry",
+      });
     }
   };
 
@@ -415,10 +465,17 @@ export default function TimeEntriesPage() {
                         style={{ backgroundColor: getColorHex(entry.project?.color ?? null) }}
                       />
 
-                      {/* Description */}
-                      <span className="flex-1 truncate text-sm">
-                        {entry.description || <span className="text-muted-foreground italic">No description</span>}
-                      </span>
+                      {/* Description and time */}
+                      <div className="flex-1 min-w-0">
+                        <span className="block truncate text-sm">
+                          {entry.description || <span className="text-muted-foreground italic">No description</span>}
+                        </span>
+                        <TimeRangeDisplay
+                          startTime={entry.start_time}
+                          endTime={entry.end_time}
+                          className="text-xs text-muted-foreground tabular-nums"
+                        />
+                      </div>
 
                       {/* Billable toggle */}
                       <button
@@ -472,7 +529,7 @@ export default function TimeEntriesPage() {
                           <MenuSeparator />
                           <MenuItem
                             variant="destructive"
-                            onClick={() => handleDelete(entry.id)}
+                            onClick={() => handleDeleteClick(entry)}
                           >
                             <Trash2 className="size-4" />
                             Delete
@@ -597,6 +654,39 @@ export default function TimeEntriesPage() {
               className="bg-teal-500 hover:!bg-teal-600 border-teal-500"
             >
               {isSubmitting ? "Saving..." : modalMode === "add" ? "Save Entry" : "Update Entry"}
+            </Button>
+          </DialogFooter>
+        </DialogPopup>
+      </Dialog>
+
+      {/* Delete Confirmation Modal */}
+      <Dialog open={deleteConfirm.open} onOpenChange={(open) => setDeleteConfirm({ open, entry: open ? deleteConfirm.entry : null })}>
+        <DialogPopup>
+          <DialogHeader>
+            <DialogTitle>Delete Time Entry</DialogTitle>
+          </DialogHeader>
+          <DialogPanel>
+            <p className="text-sm text-muted-foreground">
+              Are you sure you want to delete this entry?
+            </p>
+            {deleteConfirm.entry && (
+              <div className="mt-3 rounded-lg bg-muted p-3">
+                <p className="font-medium">
+                  {deleteConfirm.entry.description || <span className="italic text-muted-foreground">No description</span>}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {formatDurationHuman(deleteConfirm.entry.duration_seconds)}
+                  {deleteConfirm.entry.project?.name && ` • ${deleteConfirm.entry.project.name}`}
+                </p>
+              </div>
+            )}
+          </DialogPanel>
+          <DialogFooter variant="bare">
+            <Button variant="outline" onClick={() => setDeleteConfirm({ open: false, entry: null })}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteConfirm}>
+              Delete
             </Button>
           </DialogFooter>
         </DialogPopup>

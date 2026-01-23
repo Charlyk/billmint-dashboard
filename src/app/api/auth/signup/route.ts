@@ -17,7 +17,8 @@ export async function POST(request: NextRequest) {
     const result = await signup(
       parsed.data.email,
       parsed.data.password,
-      parsed.data.full_name
+      parsed.data.full_name,
+      parsed.data.timezone
     )
 
     return Response.json({ data: result })

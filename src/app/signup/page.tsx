@@ -25,7 +25,9 @@ export default function SignupPage() {
     setError("");
 
     try {
-      await authApi.signup(email, password, name);
+      // Detect timezone to set appropriate time format on signup
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      await authApi.signup(email, password, name, timezone);
       router.push("/dashboard");
     } catch (err) {
       setError(getErrorMessage(err));

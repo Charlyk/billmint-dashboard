@@ -3,10 +3,44 @@ import { UnauthorizedError, ValidationError, ConflictError } from '@/lib/utils/e
 import type { User } from '@/types/database'
 import type { AuthResponse, SessionResponse } from '@/types/api'
 
+// Timezones that typically use 24-hour format
+const TIMEZONES_24H = [
+  'Europe/',
+  'Africa/',
+  'Asia/',
+  'Australia/',
+  'Pacific/Auckland',
+  'Atlantic/',
+]
+
+// Timezones that typically use 12-hour format
+const TIMEZONES_12H = ['America/', 'Pacific/']
+
+/**
+ * Detect time format preference from timezone
+ */
+function getTimeFormatFromTimezone(timezone?: string): '12h' | '24h' {
+  if (!timezone) return '12h' // Default to 12h
+
+  // Check if timezone is in a 12-hour region
+  if (TIMEZONES_12H.some((tz) => timezone.startsWith(tz) && !timezone.startsWith('Pacific/Auckland'))) {
+    return '12h'
+  }
+
+  // Check if timezone is in a 24-hour region
+  if (TIMEZONES_24H.some((tz) => timezone.startsWith(tz))) {
+    return '24h'
+  }
+
+  // Default to 12h for unknown timezones
+  return '12h'
+}
+
 export async function signup(
   email: string,
   password: string,
-  fullName: string
+  fullName: string,
+  timezone?: string
 ): Promise<AuthResponse> {
   const supabase = await createClient()
 
@@ -33,6 +67,15 @@ export async function signup(
 
   // Get the user profile (created by database trigger)
   const user = await getUser(data.user.id)
+
+  // Set time_format based on timezone if provided
+  if (timezone) {
+    const timeFormat = getTimeFormatFromTimezone(timezone)
+    await supabase
+      .from('user_settings')
+      .update({ time_format: timeFormat } as never)
+      .eq('user_id', data.user.id)
+  }
 
   return {
     user,

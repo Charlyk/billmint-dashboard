@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -25,16 +25,9 @@ import {
 import { Tabs, TabsList, TabsTab, TabsPanel } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Check } from "lucide-react";
-
-// Mock user data
-const mockUser = {
-  name: "Your Name",
-  email: "your@email.com",
-  defaultHourlyRate: "75.00",
-  defaultCurrency: "USD",
-  timezone: "America/New_York",
-  plan: "free",
-};
+import { useUserSettings } from "@/contexts/user-settings-context";
+import { userApi } from "@/lib/api";
+import { toastManager } from "@/components/ui/toast";
 
 const currencies = [
   { value: "USD", label: "USD - US Dollar" },
@@ -44,16 +37,9 @@ const currencies = [
   { value: "AUD", label: "AUD - Australian Dollar" },
 ];
 
-const timezones = [
-  { value: "America/New_York", label: "America/New_York (EST)" },
-  { value: "America/Chicago", label: "America/Chicago (CST)" },
-  { value: "America/Denver", label: "America/Denver (MST)" },
-  { value: "America/Los_Angeles", label: "America/Los_Angeles (PST)" },
-  { value: "Europe/London", label: "Europe/London (GMT)" },
-  { value: "Europe/Paris", label: "Europe/Paris (CET)" },
-  { value: "Europe/Bucharest", label: "Europe/Bucharest (EET)" },
-  { value: "Asia/Tokyo", label: "Asia/Tokyo (JST)" },
-  { value: "Australia/Sydney", label: "Australia/Sydney (AEDT)" },
+const timeFormats = [
+  { value: "12h", label: "12-hour (AM/PM)" },
+  { value: "24h", label: "24-hour" },
 ];
 
 const plans = {
@@ -85,26 +71,50 @@ const plans = {
 };
 
 export default function SettingsPage() {
-  const [name, setName] = useState(mockUser.name);
-  const [defaultHourlyRate, setDefaultHourlyRate] = useState(
-    mockUser.defaultHourlyRate
-  );
-  const [defaultCurrency, setDefaultCurrency] = useState(
-    mockUser.defaultCurrency
-  );
-  const [timezone, setTimezone] = useState(mockUser.timezone);
-  const [currentPlan] = useState(mockUser.plan);
+  const { settings, isLoading, refetchSettings } = useUserSettings();
+
+  // Profile state
+  const [name, setName] = useState("");
+  const [email] = useState("your@email.com"); // Email is managed by auth provider
+
+  // Settings state
+  const [defaultHourlyRate, setDefaultHourlyRate] = useState("");
+  const [defaultCurrency, setDefaultCurrency] = useState("USD");
+  const [timeFormat, setTimeFormat] = useState<"12h" | "24h">("12h");
+  const [weekStartsOn, setWeekStartsOn] = useState(0);
+
+  const [currentPlan] = useState("free");
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleSaveProfile = () => {
-    // TODO: Save profile to API
-    console.log("Save profile:", {
-      name,
-      defaultHourlyRate,
-      defaultCurrency,
-      timezone,
-    });
+  // Initialize form values from settings
+  useEffect(() => {
+    if (settings) {
+      setDefaultHourlyRate(settings.default_hourly_rate?.toString() || "");
+      setDefaultCurrency(settings.default_currency || "USD");
+      setTimeFormat(settings.time_format || "12h");
+      setWeekStartsOn(settings.week_starts_on ?? 0);
+    }
+  }, [settings]);
+
+  const handleSaveProfile = async () => {
+    setIsSaving(true);
+    try {
+      await userApi.updateSettings({
+        default_hourly_rate: defaultHourlyRate ? parseFloat(defaultHourlyRate) : undefined,
+        default_currency: defaultCurrency as "USD" | "EUR" | "GBP" | "CAD" | "AUD",
+        time_format: timeFormat,
+        week_starts_on: weekStartsOn,
+      });
+      await refetchSettings();
+      toastManager.add({ type: "success", title: "Settings saved" });
+    } catch (error) {
+      console.error("Failed to save settings:", error);
+      toastManager.add({ type: "error", title: "Failed to save settings" });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleDeleteAccount = () => {
@@ -119,6 +129,15 @@ export default function SettingsPage() {
     // TODO: Redirect to Stripe checkout
     console.log("Upgrade to:", plan);
   };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-semibold">Settings</h1>
+        <div className="text-muted-foreground">Loading settings...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -151,7 +170,7 @@ export default function SettingsPage() {
 
             <Field>
               <FieldLabel>Email</FieldLabel>
-              <Input value={mockUser.email} disabled className="opacity-60" />
+              <Input value={email} disabled className="opacity-60" />
               <FieldDescription>
                 Email is managed through your authentication provider.
               </FieldDescription>
@@ -199,19 +218,49 @@ export default function SettingsPage() {
             </Field>
           </div>
 
-          <div className="max-w-md">
+          <Separator />
+
+          <div>
+            <h3 className="text-base font-medium">Display Preferences</h3>
+            <p className="text-sm text-muted-foreground">
+              Customize how dates and times are displayed.
+            </p>
+          </div>
+
+          <div className="grid max-w-md gap-4 sm:grid-cols-2">
             <Field>
-              <FieldLabel>Timezone</FieldLabel>
-              <Select value={timezone} onValueChange={(value) => setTimezone(value || "America/New_York")}>
+              <FieldLabel>Time Format</FieldLabel>
+              <Select value={timeFormat} onValueChange={(value) => setTimeFormat((value || "12h") as "12h" | "24h")}>
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue>
+                    {timeFormats.find((f) => f.value === timeFormat)?.label}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectPopup>
-                  {timezones.map((tz) => (
-                    <SelectItem key={tz.value} value={tz.value}>
-                      {tz.label}
+                  {timeFormats.map((format) => (
+                    <SelectItem key={format.value} value={format.value}>
+                      {format.label}
                     </SelectItem>
                   ))}
+                </SelectPopup>
+              </Select>
+              <FieldDescription>
+                Choose whether to display times in 12-hour (AM/PM) or 24-hour format.
+              </FieldDescription>
+            </Field>
+
+            <Field>
+              <FieldLabel>Week Starts On</FieldLabel>
+              <Select value={weekStartsOn.toString()} onValueChange={(value) => setWeekStartsOn(parseInt(value || "0"))}>
+                <SelectTrigger>
+                  <SelectValue>
+                    {weekStartsOn === 0 ? "Sunday" : weekStartsOn === 1 ? "Monday" : "Saturday"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectPopup>
+                  <SelectItem value="0">Sunday</SelectItem>
+                  <SelectItem value="1">Monday</SelectItem>
+                  <SelectItem value="6">Saturday</SelectItem>
                 </SelectPopup>
               </Select>
             </Field>
@@ -221,8 +270,9 @@ export default function SettingsPage() {
             <Button
               onClick={handleSaveProfile}
               className="bg-teal-500 hover:!bg-teal-600 border-teal-500"
+              disabled={isSaving}
             >
-              Save Changes
+              {isSaving ? "Saving..." : "Save Changes"}
             </Button>
           </div>
 

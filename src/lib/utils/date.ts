@@ -140,17 +140,16 @@ export function formatDateTime(
 }
 
 /**
- * Format time for display (HH:MM AM/PM)
+ * Format time for display based on user's locale
+ * Uses browser's locale to determine 12h/24h format automatically
  */
-export function formatTime(
-  date: Date | string,
-  use24Hour: boolean = false
-): string {
+export function formatTime(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date
-  return d.toLocaleTimeString('en-US', {
+  // Use navigator.language on client, fallback to undefined for SSR
+  const locale = typeof navigator !== 'undefined' ? navigator.language : undefined
+  return d.toLocaleTimeString(locale, {
     hour: '2-digit',
     minute: '2-digit',
-    hour12: !use24Hour,
   })
 }
 
