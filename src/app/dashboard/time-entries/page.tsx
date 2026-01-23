@@ -219,8 +219,10 @@ export default function TimeEntriesPage() {
     client_id: clientFilter !== "all" ? clientFilter : undefined,
   });
 
-  // Accumulate entries when new data loads
+  // Accumulate entries when new data loads (only when not loading to avoid stale data)
   useEffect(() => {
+    if (isLoading) return;
+
     if (entries.length > 0) {
       if (page === 1) {
         setAllEntries(entries);
@@ -230,11 +232,12 @@ export default function TimeEntriesPage() {
     } else if (page === 1) {
       setAllEntries([]);
     }
-  }, [entries, page]);
+  }, [entries, page, isLoading]);
 
-  // Reset to page 1 when filters change
+  // Reset to page 1 and clear entries when filters change
   useEffect(() => {
     setPage(1);
+    setAllEntries([]);
   }, [dateRange, projectFilter, clientFilter]);
 
   // Fetch projects and clients for filter dropdowns
@@ -250,14 +253,25 @@ export default function TimeEntriesPage() {
   // Calculate summary
   const summary = useMemo(() => {
     const totalSeconds = allEntries.reduce((acc, e) => acc + e.duration_seconds, 0);
-    const totalBillable = allEntries
-      .filter((e) => e.is_billable)
-      .reduce((acc, e) => acc + (e.amount || 0), 0);
+
+    // Group billable amounts by currency
+    const billableByCurrency = allEntries
+      .filter((e) => e.is_billable && e.amount)
+      .reduce<Record<string, number>>((acc, e) => {
+        const currency = e.project?.currency ?? defaultCurrency;
+        acc[currency] = (acc[currency] || 0) + (e.amount || 0);
+        return acc;
+      }, {});
+
+    // Format each currency total
+    const billableStrings = Object.entries(billableByCurrency)
+      .map(([currency, amount]) => formatCurrency(amount, currency))
+      .join(" + ");
 
     return {
       count: pagination?.total ?? allEntries.length,
       totalTime: formatDurationHuman(totalSeconds),
-      totalBillable: formatCurrency(totalBillable, defaultCurrency),
+      totalBillable: billableStrings || formatCurrency(0, defaultCurrency),
     };
   }, [allEntries, pagination, defaultCurrency]);
 
