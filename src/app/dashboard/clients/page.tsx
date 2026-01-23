@@ -289,7 +289,7 @@ export default function ClientsPage() {
         <h1 className="text-2xl font-semibold">Clients</h1>
         <Button
           onClick={handleOpenAddModal}
-          className="bg-teal-500 hover:!bg-teal-600 border-teal-500"
+          className="bg-teal-500 hover:bg-teal-600! border-teal-500"
         >
           <Plus className="mr-1 size-4" />
           New Client
@@ -517,7 +517,7 @@ export default function ClientsPage() {
             </DialogClose>
             <Button
               onClick={handleSaveClient}
-              className="bg-teal-500 hover:!bg-teal-600 border-teal-500"
+              className="bg-teal-500 hover:bg-teal-600! border-teal-500"
               disabled={!formData.name || isSaving}
             >
               {isSaving ? (
