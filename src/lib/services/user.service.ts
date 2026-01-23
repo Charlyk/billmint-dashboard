@@ -172,6 +172,7 @@ function getDefaultSettings(userId: string): UserSettings {
     invoice_prefix: 'INV-',
     invoice_notes: null,
     invoice_terms: null,
+    max_timer_hours: 8, // Default to 8 hours auto-pause
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   }

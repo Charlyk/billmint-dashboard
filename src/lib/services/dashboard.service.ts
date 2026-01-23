@@ -6,7 +6,20 @@ import {
   getCurrentWeekRange,
   getCurrentMonthRange,
 } from '@/lib/utils/date'
-import type { DashboardStats, RecentActivity, TimeEntryWithDetails } from '@/types/api'
+import type { DashboardStats, RecentActivity, TimeEntryWithDetails, AmountByCurrency } from '@/types/api'
+
+type EntryWithCurrency = {
+  duration_seconds: number
+  hourly_rate: number | null
+  is_billable: boolean
+  project_id: string | null
+}
+
+type ProjectInfo = {
+  id: string
+  hourly_rate: number | null
+  currency: string
+}
 
 export async function getDashboardStats(): Promise<DashboardStats> {
   const currentUser = await requireAuth()
@@ -19,37 +32,52 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   const { start: weekStart, end: weekEnd } = getCurrentWeekRange()
   const { start: monthStart, end: monthEnd } = getCurrentMonthRange()
 
-  type EntryStats = { duration_seconds: number; hourly_rate: number | null; is_billable: boolean }
-  type InvoiceStats = { total: number; status: string }
+  type InvoiceStats = { total: number; status: string; currency: string }
+
+  // Get all projects with currency info
+  const { data: allProjects } = await supabase
+    .from('projects')
+    .select('id, hourly_rate, currency')
+    .eq('user_id', currentUser.id) as { data: ProjectInfo[] | null }
+
+  const projectMap = new Map((allProjects || []).map(p => [p.id, p]))
 
   // Get today's entries
   const { data: todayEntries } = await supabase
     .from('time_entries')
-    .select('duration_seconds, hourly_rate, is_billable')
+    .select('duration_seconds, hourly_rate, is_billable, project_id')
     .eq('user_id', currentUser.id)
     .gte('start_time', startOfToday)
-    .lte('start_time', endOfToday) as { data: EntryStats[] | null }
+    .lte('start_time', endOfToday) as { data: EntryWithCurrency[] | null }
 
   // Get this week's entries
   const { data: weekEntries } = await supabase
     .from('time_entries')
-    .select('duration_seconds, hourly_rate, is_billable')
+    .select('duration_seconds, hourly_rate, is_billable, project_id')
     .eq('user_id', currentUser.id)
     .gte('start_time', weekStart.toISOString())
-    .lte('start_time', weekEnd.toISOString()) as { data: EntryStats[] | null }
+    .lte('start_time', weekEnd.toISOString()) as { data: EntryWithCurrency[] | null }
 
   // Get this month's entries
   const { data: monthEntries } = await supabase
     .from('time_entries')
-    .select('duration_seconds, hourly_rate, is_billable')
+    .select('duration_seconds, hourly_rate, is_billable, project_id')
     .eq('user_id', currentUser.id)
     .gte('start_time', monthStart.toISOString())
-    .lte('start_time', monthEnd.toISOString()) as { data: EntryStats[] | null }
+    .lte('start_time', monthEnd.toISOString()) as { data: EntryWithCurrency[] | null }
+
+  // Get all unbilled entries
+  const { data: unbilledEntries } = await supabase
+    .from('time_entries')
+    .select('duration_seconds, hourly_rate, is_billable, project_id')
+    .eq('user_id', currentUser.id)
+    .eq('is_billable', true)
+    .is('invoice_id', null) as { data: EntryWithCurrency[] | null }
 
   // Get this month's invoices
   const { data: monthInvoices } = await supabase
     .from('invoices')
-    .select('total, status')
+    .select('total, status, currency')
     .eq('user_id', currentUser.id)
     .gte('issue_date', monthStart.toISOString())
     .lte('issue_date', monthEnd.toISOString()) as { data: InvoiceStats[] | null }
@@ -68,43 +96,82 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     .eq('user_id', currentUser.id)
     .eq('is_archived', false)
 
-  // Calculate today's stats
-  const todayStats = calculateEntryStats(todayEntries || [])
+  // Calculate stats with currency grouping
+  const todayStats = calculateEntryStatsWithCurrency(todayEntries || [], projectMap)
+  const weekStats = calculateEntryStatsWithCurrency(weekEntries || [], projectMap)
+  const monthStats = calculateEntryStatsWithCurrency(monthEntries || [], projectMap)
+  const unbilledStats = calculateEntryStatsWithCurrency(unbilledEntries || [], projectMap)
 
-  // Calculate this week's stats
-  const weekStats = calculateEntryStats(weekEntries || [])
+  // Calculate invoice totals by currency
+  const invoicedByCurrency = new Map<string, number>()
+  const outstandingByCurrency = new Map<string, number>()
 
-  // Calculate this month's stats
-  const monthStats = calculateEntryStats(monthEntries || [])
-
-  // Calculate invoice totals
-  const invoiced = (monthInvoices || [])
-    .filter((inv) => inv.status === 'paid')
-    .reduce((sum, inv) => sum + (inv.total || 0), 0)
-
-  const outstanding = (monthInvoices || [])
-    .filter((inv) => ['sent', 'overdue'].includes(inv.status))
-    .reduce((sum, inv) => sum + (inv.total || 0), 0)
+  for (const inv of monthInvoices || []) {
+    const currency = inv.currency || 'USD'
+    if (inv.status === 'paid') {
+      invoicedByCurrency.set(currency, (invoicedByCurrency.get(currency) || 0) + (inv.total || 0))
+    }
+    if (['sent', 'overdue'].includes(inv.status)) {
+      outstandingByCurrency.set(currency, (outstandingByCurrency.get(currency) || 0) + (inv.total || 0))
+    }
+  }
 
   return {
     today: {
       hours: todayStats.hours,
-      amount: todayStats.amount,
+      amounts: todayStats.amounts,
       entries_count: todayEntries?.length || 0,
     },
     this_week: {
       hours: weekStats.hours,
-      amount: weekStats.amount,
+      amounts: weekStats.amounts,
       entries_count: weekEntries?.length || 0,
     },
     this_month: {
       hours: monthStats.hours,
-      amount: monthStats.amount,
-      invoiced,
-      outstanding,
+      amounts: monthStats.amounts,
+      invoiced: mapToAmountArray(invoicedByCurrency),
+      outstanding: mapToAmountArray(outstandingByCurrency),
+    },
+    unbilled: {
+      hours: unbilledStats.hours,
+      amounts: unbilledStats.amounts,
     },
     active_projects: activeProjects || 0,
     active_clients: activeClients || 0,
+  }
+}
+
+function mapToAmountArray(map: Map<string, number>): AmountByCurrency[] {
+  return Array.from(map.entries())
+    .map(([currency, amount]) => ({ currency, amount: Math.round(amount * 100) / 100 }))
+    .filter(item => item.amount > 0)
+    .sort((a, b) => a.currency.localeCompare(b.currency))
+}
+
+function calculateEntryStatsWithCurrency(
+  entries: EntryWithCurrency[],
+  projectMap: Map<string, ProjectInfo>
+): { hours: number; amounts: AmountByCurrency[] } {
+  let totalSeconds = 0
+  const amountsByCurrency = new Map<string, number>()
+
+  for (const entry of entries) {
+    totalSeconds += entry.duration_seconds || 0
+
+    if (entry.is_billable) {
+      const project = entry.project_id ? projectMap.get(entry.project_id) : null
+      const rate = entry.hourly_rate ?? project?.hourly_rate ?? 0
+      const currency = project?.currency || 'USD'
+      const amount = (entry.duration_seconds / 3600) * rate
+
+      amountsByCurrency.set(currency, (amountsByCurrency.get(currency) || 0) + amount)
+    }
+  }
+
+  return {
+    hours: Math.round((totalSeconds / 3600) * 100) / 100,
+    amounts: mapToAmountArray(amountsByCurrency),
   }
 }
 
@@ -193,26 +260,3 @@ export async function getRecentActivity(limit: number = 10): Promise<RecentActiv
   }
 }
 
-function calculateEntryStats(
-  entries: Array<{
-    duration_seconds: number
-    hourly_rate: number | null
-    is_billable: boolean
-  }>
-): { hours: number; amount: number } {
-  let totalSeconds = 0
-  let totalAmount = 0
-
-  for (const entry of entries) {
-    totalSeconds += entry.duration_seconds || 0
-    if (entry.is_billable) {
-      const rate = entry.hourly_rate || 0
-      totalAmount += (entry.duration_seconds / 3600) * rate
-    }
-  }
-
-  return {
-    hours: Math.round((totalSeconds / 3600) * 100) / 100,
-    amount: Math.round(totalAmount * 100) / 100,
-  }
-}

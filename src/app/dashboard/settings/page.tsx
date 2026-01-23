@@ -97,6 +97,7 @@ export default function SettingsPage() {
   const [defaultCurrency, setDefaultCurrency] = useState("USD");
   const [timeFormat, setTimeFormat] = useState<"12h" | "24h">("12h");
   const [weekStartsOn, setWeekStartsOn] = useState(0);
+  const [maxTimerHours, setMaxTimerHours] = useState<string | null>("8");
 
   const [currentPlan] = useState("free");
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -110,6 +111,7 @@ export default function SettingsPage() {
       setDefaultCurrency(settings.default_currency || "USD");
       setTimeFormat(settings.time_format || "12h");
       setWeekStartsOn(settings.week_starts_on ?? 0);
+      setMaxTimerHours(settings.max_timer_hours?.toString() ?? null);
     }
   }, [settings]);
 
@@ -121,6 +123,7 @@ export default function SettingsPage() {
         default_currency: defaultCurrency || undefined,
         time_format: timeFormat,
         week_starts_on: weekStartsOn,
+        max_timer_hours: maxTimerHours ? parseFloat(maxTimerHours) : null,
       });
       await refetchSettings();
       toastManager.add({ type: "success", title: "Settings saved" });
@@ -280,6 +283,42 @@ export default function SettingsPage() {
               </Select>
             </Field>
           </div>
+
+          <Separator />
+
+          <div>
+            <h3 className="text-base font-medium">Timer Settings</h3>
+            <p className="text-sm text-muted-foreground">
+              Prevent forgotten timers from running indefinitely.
+            </p>
+          </div>
+
+          <Field className="max-w-md">
+            <FieldLabel>Auto-Pause Timer After</FieldLabel>
+            <Select
+              value={maxTimerHours ?? "none"}
+              onValueChange={(value) => setMaxTimerHours(value === "none" ? null : value)}
+            >
+              <SelectTrigger>
+                <SelectValue>
+                  {maxTimerHours === null
+                    ? "No limit"
+                    : `${maxTimerHours} hours`}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectPopup>
+                <SelectItem value="4">4 hours</SelectItem>
+                <SelectItem value="8">8 hours</SelectItem>
+                <SelectItem value="12">12 hours</SelectItem>
+                <SelectItem value="24">24 hours</SelectItem>
+                <SelectItem value="none">No limit</SelectItem>
+              </SelectPopup>
+            </Select>
+            <FieldDescription>
+              Timer will automatically pause when it reaches this duration.
+              You&apos;ll see a warning and can review the time before saving.
+            </FieldDescription>
+          </Field>
 
           <div>
             <Button

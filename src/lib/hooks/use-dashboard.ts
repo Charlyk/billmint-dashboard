@@ -2,20 +2,17 @@
 
 import useSWR from 'swr'
 import { dashboardApi } from '@/lib/api'
-import { useAuthContext } from '@/contexts'
 import type { DashboardStats, RecentActivity } from '@/types/api'
 
 export function useDashboardStats() {
-  const { isAuthenticated, isLoading: authLoading } = useAuthContext()
-
   const { data, error, isLoading, mutate } = useSWR<DashboardStats>(
-    isAuthenticated ? 'dashboard-stats' : null,
+    'dashboard-stats',
     () => dashboardApi.getDashboardStats()
   )
 
   return {
     stats: data,
-    isLoading: authLoading || isLoading,
+    isLoading,
     isError: !!error,
     error,
     mutate,
@@ -23,10 +20,8 @@ export function useDashboardStats() {
 }
 
 export function useRecentActivity(limit?: number) {
-  const { isAuthenticated, isLoading: authLoading } = useAuthContext()
-
   const { data, error, isLoading, mutate } = useSWR<RecentActivity>(
-    isAuthenticated ? ['recent-activity', limit] : null,
+    ['recent-activity', limit],
     () => dashboardApi.getRecentActivity(limit)
   )
 
@@ -34,7 +29,7 @@ export function useRecentActivity(limit?: number) {
     activity: data,
     entries: data?.entries || [],
     groupedByDate: data?.grouped_by_date || [],
-    isLoading: authLoading || isLoading,
+    isLoading,
     isError: !!error,
     error,
     mutate,

@@ -56,11 +56,18 @@ export interface UserWithSettings extends User {
   settings: UserSettings
 }
 
+// Amount by currency
+export interface AmountByCurrency {
+  currency: string
+  amount: number
+}
+
 // Client responses
 export interface ClientWithStats extends Client {
   project_count: number
-  total_invoiced: number
-  outstanding_amount: number
+  total_invoiced: AmountByCurrency[]
+  outstanding_amount: AmountByCurrency[]
+  unbilled_amount: AmountByCurrency[]
 }
 
 export type ClientListResponse = PaginatedResponse<ClientWithStats>
@@ -101,6 +108,7 @@ export interface UnbilledTimeEntriesResponse {
 export interface TimerResponse {
   timer: ActiveTimer | null
   project: Pick<Project, 'id' | 'name' | 'color'> | null
+  autoPaused?: boolean // True if timer was automatically paused due to max_timer_hours setting
 }
 
 // Invoice responses
@@ -152,19 +160,23 @@ export interface PublicInvoiceResponse {
 export interface DashboardStats {
   today: {
     hours: number
-    amount: number
+    amounts: AmountByCurrency[]
     entries_count: number
   }
   this_week: {
     hours: number
-    amount: number
+    amounts: AmountByCurrency[]
     entries_count: number
   }
   this_month: {
     hours: number
-    amount: number
-    invoiced: number
-    outstanding: number
+    amounts: AmountByCurrency[]
+    invoiced: AmountByCurrency[]
+    outstanding: AmountByCurrency[]
+  }
+  unbilled: {
+    hours: number
+    amounts: AmountByCurrency[]
   }
   active_projects: number
   active_clients: number

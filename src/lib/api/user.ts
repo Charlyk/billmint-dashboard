@@ -33,6 +33,7 @@ export async function updateSettings(data: {
   invoice_prefix?: string
   invoice_notes?: string
   invoice_terms?: string
+  max_timer_hours?: number | null
 }): Promise<UserSettings> {
   return fetcher<UserSettings>('/api/users/me/settings', {
     method: 'PATCH',

@@ -174,38 +174,81 @@ export async function unarchiveClient(id: string): Promise<Client> {
 
 async function getClientStats(clientId: string): Promise<{
   project_count: number
-  total_invoiced: number
-  outstanding_amount: number
+  total_invoiced: { currency: string; amount: number }[]
+  outstanding_amount: { currency: string; amount: number }[]
+  unbilled_amount: { currency: string; amount: number }[]
 }> {
   const supabase = await createSupabaseClient()
 
-  // Get project count
-  const { count: projectCount } = await supabase
+  // Get projects for this client with their currencies
+  const { data: clientProjects } = await supabase
     .from('projects')
-    .select('*', { count: 'exact', head: true })
+    .select('id, hourly_rate, currency')
     .eq('client_id', clientId)
-    .eq('is_archived', false)
+    .eq('is_archived', false) as { data: { id: string; hourly_rate: number | null; currency: string }[] | null }
 
-  // Get invoice totals
+  const projectCount = clientProjects?.length || 0
+  const projectIds = (clientProjects || []).map(p => p.id)
+
+  // Get invoice totals grouped by currency
   const { data: invoices } = await supabase
     .from('invoices')
-    .select('total, status')
+    .select('total, status, currency')
     .eq('client_id', clientId)
-    .neq('status', 'void') as { data: { total: number; status: string }[] | null }
+    .neq('status', 'void') as { data: { total: number; status: string; currency: string }[] | null }
 
-  const totalInvoiced = (invoices || []).reduce(
-    (sum, inv) => sum + (inv.total || 0),
-    0
-  )
+  // Group invoiced amounts by currency
+  const invoicedByCurrency = new Map<string, number>()
+  const outstandingByCurrency = new Map<string, number>()
 
-  const outstandingAmount = (invoices || [])
-    .filter((inv) => ['sent', 'overdue'].includes(inv.status))
-    .reduce((sum, inv) => sum + (inv.total || 0), 0)
+  for (const inv of invoices || []) {
+    const currency = inv.currency || 'USD'
+    invoicedByCurrency.set(currency, (invoicedByCurrency.get(currency) || 0) + (inv.total || 0))
+    if (['sent', 'overdue'].includes(inv.status)) {
+      outstandingByCurrency.set(currency, (outstandingByCurrency.get(currency) || 0) + (inv.total || 0))
+    }
+  }
+
+  // Calculate unbilled amounts grouped by currency
+  const unbilledByCurrency = new Map<string, number>()
+
+  if (projectIds.length > 0) {
+    const { data: unbilledEntries } = await supabase
+      .from('time_entries')
+      .select('duration_seconds, hourly_rate, project_id')
+      .in('project_id', projectIds)
+      .is('invoice_id', null)
+      .eq('is_billable', true) as { data: { duration_seconds: number; hourly_rate: number | null; project_id: string }[] | null }
+
+    // Create maps for project rates and currencies
+    const projectRates = new Map(
+      (clientProjects || []).map(p => [p.id, p.hourly_rate])
+    )
+    const projectCurrencies = new Map(
+      (clientProjects || []).map(p => [p.id, p.currency || 'USD'])
+    )
+
+    for (const entry of unbilledEntries || []) {
+      const rate = entry.hourly_rate ?? projectRates.get(entry.project_id) ?? 0
+      const currency = projectCurrencies.get(entry.project_id) || 'USD'
+      const hours = entry.duration_seconds / 3600
+      const amount = hours * rate
+      unbilledByCurrency.set(currency, (unbilledByCurrency.get(currency) || 0) + amount)
+    }
+  }
+
+  // Convert maps to arrays
+  const toAmountArray = (map: Map<string, number>) =>
+    Array.from(map.entries())
+      .map(([currency, amount]) => ({ currency, amount: Math.round(amount * 100) / 100 }))
+      .filter(item => item.amount > 0)
+      .sort((a, b) => a.currency.localeCompare(b.currency))
 
   return {
-    project_count: projectCount || 0,
-    total_invoiced: totalInvoiced,
-    outstanding_amount: outstandingAmount,
+    project_count: projectCount,
+    total_invoiced: toAmountArray(invoicedByCurrency),
+    outstanding_amount: toAmountArray(outstandingByCurrency),
+    unbilled_amount: toAmountArray(unbilledByCurrency),
   }
 }
 

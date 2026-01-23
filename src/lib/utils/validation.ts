@@ -10,7 +10,9 @@ export const createClientSchema = z.object({
   notes: z.string().max(1000).optional(),
 })
 
-export const updateClientSchema = createClientSchema.partial()
+export const updateClientSchema = createClientSchema.extend({
+  is_archived: z.boolean().optional(),
+}).partial()
 
 // Project schemas
 export const projectColorSchema = z.enum([
@@ -40,9 +42,18 @@ export const createProjectSchema = z.object({
   notes: z.string().max(1000).optional(),
 })
 
-export const updateProjectSchema = createProjectSchema.extend({
+// Update schema without defaults to avoid overwriting existing values
+export const updateProjectSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  client_id: z.string().uuid().nullable().optional(),
+  color: projectColorSchema.optional(),
+  hourly_rate: z.number().min(0).nullable().optional(),
+  currency: currencySchema.optional(),
+  is_billable: z.boolean().optional(),
+  is_default: z.boolean().optional(),
   is_archived: z.boolean().optional(),
-}).partial()
+  notes: z.string().max(1000).optional(),
+})
 
 // Time entry schemas
 export const createTimeEntrySchema = z.object({
@@ -119,6 +130,7 @@ export const updateSettingsSchema = z.object({
   invoice_prefix: z.string().max(10).optional(),
   invoice_notes: z.string().max(2000).optional(),
   invoice_terms: z.string().max(2000).optional(),
+  max_timer_hours: z.number().min(1).max(24).nullable().optional(),
 })
 
 // Auth schemas

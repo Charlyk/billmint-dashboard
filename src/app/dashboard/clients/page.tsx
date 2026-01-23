@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -31,56 +31,38 @@ import {
   FolderOpen,
   FileText,
   Archive,
+  Loader2,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { clientsApi, projectsApi } from "@/lib/api";
+import { useUserSettings } from "@/contexts/user-settings-context";
+import { toastManager } from "@/components/ui/toast";
+import type { ClientWithStats, ProjectWithStats } from "@/types";
 
-// Mock data
-const initialClients = [
-  {
-    id: "1",
-    name: "ClientName Inc.",
-    contactName: "John Smith",
-    email: "john@clientname.com",
-    address: "123 Business St\nNew York, NY 10001",
-    projectCount: 3,
-    totalInvoiced: 15200,
-    outstanding: 2400,
-    isArchived: false,
-  },
-  {
-    id: "2",
-    name: "StartupXYZ",
-    contactName: "Jane Founder",
-    email: "founder@startupxyz.com",
-    address: "456 Startup Ave\nSan Francisco, CA 94102",
-    projectCount: 1,
-    totalInvoiced: 6000,
-    outstanding: 0,
-    isArchived: false,
-  },
-  {
-    id: "3",
-    name: "Freelance Client",
-    contactName: "",
-    email: "",
-    address: "",
-    projectCount: 2,
-    totalInvoiced: 0,
-    outstanding: 0,
-    isArchived: false,
-  },
-  {
-    id: "4",
-    name: "Old Corp",
-    contactName: "Bob Old",
-    email: "bob@oldcorp.com",
-    address: "789 Legacy Blvd\nChicago, IL 60601",
-    projectCount: 1,
-    totalInvoiced: 3500,
-    outstanding: 0,
-    isArchived: true,
-  },
-];
+// Currency to locale mapping for proper symbol placement
+const currencyLocales: Record<string, string> = {
+  USD: "en-US",
+  EUR: "de-DE",
+  GBP: "en-GB",
+  CAD: "en-CA",
+  AUD: "en-AU",
+  CHF: "de-CH",
+  JPY: "ja-JP",
+  INR: "en-IN",
+  BRL: "pt-BR",
+  MXN: "es-MX",
+  PLN: "pl-PL",
+  RON: "ro-RO",
+  SEK: "sv-SE",
+  NOK: "nb-NO",
+  DKK: "da-DK",
+  NZD: "en-NZ",
+  SGD: "en-SG",
+  HKD: "zh-HK",
+  ZAR: "en-ZA",
+  AED: "ar-AE",
+};
 
 type ModalMode = "add" | "edit";
 
@@ -89,6 +71,7 @@ interface ClientFormData {
   contactName: string;
   email: string;
   address: string;
+  projectIds: string[];
 }
 
 const defaultFormData: ClientFormData = {
@@ -96,23 +79,81 @@ const defaultFormData: ClientFormData = {
   contactName: "",
   email: "",
   address: "",
+  projectIds: [],
 };
 
 export default function ClientsPage() {
   const router = useRouter();
-  const [clients, setClients] = useState(initialClients);
+  const { settings } = useUserSettings();
+  const defaultCurrency = settings?.default_currency ?? "USD";
+
+  // Data state
+  const [clients, setClients] = useState<ClientWithStats[]>([]);
+  const [projects, setProjects] = useState<ProjectWithStats[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Filter state
   const [showArchived, setShowArchived] = useState(false);
+
+  // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<ModalMode>("add");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<ClientFormData>(defaultFormData);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Fetch clients
+  const fetchClients = useCallback(async () => {
+    try {
+      const response = await clientsApi.listClients({ includeArchived: true });
+      setClients(response.data);
+    } catch (error) {
+      console.error("Failed to fetch clients:", error);
+      toastManager.add({ type: "error", title: "Failed to load clients" });
+    }
+  }, []);
+
+  // Fetch all projects (for assignment dropdown)
+  const fetchProjects = useCallback(async () => {
+    try {
+      const response = await projectsApi.listProjects({ includeArchived: false, limit: 100 });
+      setProjects(response.data);
+    } catch (error) {
+      console.error("Failed to fetch projects:", error);
+    }
+  }, []);
+
+  // Initial data fetch
+  useEffect(() => {
+    const loadData = async () => {
+      setIsLoading(true);
+      await Promise.all([fetchClients(), fetchProjects()]);
+      setIsLoading(false);
+    };
+    loadData();
+  }, [fetchClients, fetchProjects]);
 
   const filteredClients = clients.filter(
-    (c) => showArchived || !c.isArchived
+    (c) => showArchived || !c.is_archived
   );
 
-  const formatCurrency = (amount: number) => {
-    return `$${amount.toLocaleString()}`;
+  const formatCurrency = (amount: number, currency: string = defaultCurrency) => {
+    const locale = currencyLocales[currency] || "en-US";
+    return new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency,
+    }).format(amount);
+  };
+
+  // Format multi-currency amounts
+  const formatAmounts = (amounts: { currency: string; amount: number }[]) => {
+    if (amounts.length === 0) return formatCurrency(0);
+    return amounts.map(a => formatCurrency(a.amount, a.currency)).join(", ");
+  };
+
+  // Get projects assigned to a specific client
+  const getClientProjects = (clientId: string) => {
+    return projects.filter(p => p.client_id === clientId);
   };
 
   const handleOpenAddModal = () => {
@@ -122,22 +163,82 @@ export default function ClientsPage() {
     setIsModalOpen(true);
   };
 
-  const handleOpenEditModal = (client: typeof initialClients[0]) => {
+  const handleOpenEditModal = (client: ClientWithStats) => {
     setModalMode("edit");
     setEditingId(client.id);
+    // Get projects currently assigned to this client
+    const clientProjectIds = projects
+      .filter(p => p.client_id === client.id)
+      .map(p => p.id);
     setFormData({
       name: client.name,
-      contactName: client.contactName,
-      email: client.email,
-      address: client.address,
+      contactName: client.contact_name || "",
+      email: client.email || "",
+      address: client.address || "",
+      projectIds: clientProjectIds,
     });
     setIsModalOpen(true);
   };
 
-  const handleSaveClient = () => {
-    // TODO: Save client to API
-    setIsModalOpen(false);
-    setFormData(defaultFormData);
+  const handleSaveClient = async () => {
+    if (!formData.name.trim()) return;
+
+    setIsSaving(true);
+    try {
+      const clientData = {
+        name: formData.name.trim(),
+        contact_name: formData.contactName || undefined,
+        email: formData.email || undefined,
+        address: formData.address || undefined,
+      };
+
+      let clientId: string;
+
+      if (modalMode === "add") {
+        const newClient = await clientsApi.createClient(clientData);
+        clientId = newClient.id;
+        toastManager.add({ type: "success", title: "Client created" });
+      } else if (editingId) {
+        await clientsApi.updateClient(editingId, clientData);
+        clientId = editingId;
+        toastManager.add({ type: "success", title: "Client updated" });
+      } else {
+        return;
+      }
+
+      // Update project assignments
+      // Find projects that need to be assigned to this client
+      const projectsToAssign = formData.projectIds;
+      // Find projects that were previously assigned but now need to be unassigned
+      const previouslyAssigned = projects
+        .filter(p => p.client_id === clientId)
+        .map(p => p.id);
+      const projectsToUnassign = previouslyAssigned.filter(
+        id => !projectsToAssign.includes(id)
+      );
+
+      // Assign new projects to client
+      await Promise.all([
+        ...projectsToAssign.map(projectId =>
+          projectsApi.updateProject(projectId, { client_id: clientId })
+        ),
+        ...projectsToUnassign.map(projectId =>
+          projectsApi.updateProject(projectId, { client_id: null })
+        ),
+      ]);
+
+      await Promise.all([fetchClients(), fetchProjects()]);
+      setIsModalOpen(false);
+      setFormData(defaultFormData);
+    } catch (error) {
+      console.error("Failed to save client:", error);
+      toastManager.add({
+        type: "error",
+        title: modalMode === "add" ? "Failed to create client" : "Failed to update client",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleViewProjects = (clientId: string) => {
@@ -148,13 +249,43 @@ export default function ClientsPage() {
     router.push(`/dashboard/invoices?client=${clientId}`);
   };
 
-  const handleArchive = (clientId: string) => {
-    setClients((prev) =>
-      prev.map((c) =>
-        c.id === clientId ? { ...c, isArchived: !c.isArchived } : c
-      )
-    );
+  const handleArchive = async (client: ClientWithStats) => {
+    try {
+      await clientsApi.updateClient(client.id, {
+        is_archived: !client.is_archived,
+      });
+      toastManager.add({
+        type: "success",
+        title: client.is_archived ? "Client unarchived" : "Client archived",
+      });
+      await fetchClients();
+    } catch (error) {
+      console.error("Failed to archive client:", error);
+      toastManager.add({ type: "error", title: "Failed to update client" });
+    }
   };
+
+  const toggleProjectSelection = (projectId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      projectIds: prev.projectIds.includes(projectId)
+        ? prev.projectIds.filter(id => id !== projectId)
+        : [...prev.projectIds, projectId],
+    }));
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-semibold">Clients</h1>
+        </div>
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="size-6 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -175,7 +306,9 @@ export default function ClientsPage() {
         <CardContent className="divide-y p-0">
           {filteredClients.length === 0 ? (
             <div className="p-8 text-center text-muted-foreground">
-              No clients found. Add your first client to get started.
+              {showArchived
+                ? "No clients found. Add your first client to get started."
+                : "No active clients found. Create a new client or show archived clients."}
             </div>
           ) : (
             filteredClients.map((client) => (
@@ -183,14 +316,14 @@ export default function ClientsPage() {
                 key={client.id}
                 className={cn(
                   "flex items-start justify-between gap-4 p-4 hover:bg-accent/30",
-                  client.isArchived && "opacity-60"
+                  client.is_archived && "opacity-60"
                 )}
               >
                 {/* Client info */}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <h3 className="font-medium">{client.name}</h3>
-                    {client.isArchived && (
+                    {client.is_archived && (
                       <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
                         Archived
                       </span>
@@ -200,9 +333,16 @@ export default function ClientsPage() {
                     {client.email || "No email"}
                   </p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    {client.projectCount} {client.projectCount === 1 ? "project" : "projects"} •{" "}
-                    {formatCurrency(client.totalInvoiced)} invoiced •{" "}
-                    {formatCurrency(client.outstanding)} outstanding
+                    {client.project_count} {client.project_count === 1 ? "project" : "projects"}
+                    {client.total_invoiced.length > 0 && (
+                      <> • {formatAmounts(client.total_invoiced)} invoiced</>
+                    )}
+                    {client.unbilled_amount.length > 0 && (
+                      <> • {formatAmounts(client.unbilled_amount)} unbilled</>
+                    )}
+                    {client.outstanding_amount.length > 0 && (
+                      <> • {formatAmounts(client.outstanding_amount)} outstanding</>
+                    )}
                   </p>
                 </div>
 
@@ -225,9 +365,9 @@ export default function ClientsPage() {
                       View invoices
                     </MenuItem>
                     <MenuSeparator />
-                    <MenuItem onClick={() => handleArchive(client.id)}>
+                    <MenuItem onClick={() => handleArchive(client)}>
                       <Archive className="size-4" />
-                      {client.isArchived ? "Unarchive" : "Archive"}
+                      {client.is_archived ? "Unarchive" : "Archive"}
                     </MenuItem>
                   </MenuPopup>
                 </Menu>
@@ -250,7 +390,7 @@ export default function ClientsPage() {
 
       {/* Add/Edit Client Modal */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogPopup>
+        <DialogPopup className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
               {modalMode === "add" ? "New Client" : "Edit Client"}
@@ -304,18 +444,95 @@ export default function ClientsPage() {
                   rows={3}
                 />
               </Field>
+
+              <Field>
+                <FieldLabel>Projects</FieldLabel>
+                <div className="space-y-2">
+                  {/* Selected projects */}
+                  {formData.projectIds.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {formData.projectIds.map((projectId) => {
+                        const project = projects.find((p) => p.id === projectId);
+                        if (!project) return null;
+                        return (
+                          <span
+                            key={projectId}
+                            className="inline-flex items-center gap-1 rounded-full bg-teal-500/10 px-2.5 py-1 text-sm text-teal-600"
+                          >
+                            {project.name}
+                            <button
+                              type="button"
+                              onClick={() => toggleProjectSelection(projectId)}
+                              className="hover:text-teal-800"
+                            >
+                              <X className="size-3.5" />
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Available projects to add */}
+                  {(() => {
+                    const availableProjects = projects.filter(
+                      (p) => !formData.projectIds.includes(p.id) &&
+                             (p.client_id === null || p.client_id === editingId)
+                    );
+                    if (availableProjects.length === 0 && formData.projectIds.length === 0) {
+                      return (
+                        <p className="text-sm text-muted-foreground">
+                          No projects available. Create projects first.
+                        </p>
+                      );
+                    }
+                    if (availableProjects.length === 0) {
+                      return null;
+                    }
+                    return (
+                      <div className="rounded-lg border bg-muted/30 p-2">
+                        <p className="mb-2 text-xs text-muted-foreground">
+                          Click to assign projects:
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {availableProjects.map((project) => (
+                            <button
+                              key={project.id}
+                              type="button"
+                              onClick={() => toggleProjectSelection(project.id)}
+                              className="rounded-full border bg-background px-2.5 py-1 text-sm hover:border-teal-500 hover:bg-teal-500/5"
+                            >
+                              {project.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Assign existing projects to this client
+                </p>
+              </Field>
             </div>
           </DialogPanel>
           <DialogFooter variant="bare">
-            <DialogClose render={<Button variant="outline" />}>
+            <DialogClose render={<Button variant="outline" />} disabled={isSaving}>
               Cancel
             </DialogClose>
             <Button
               onClick={handleSaveClient}
               className="bg-teal-500 hover:!bg-teal-600 border-teal-500"
-              disabled={!formData.name}
+              disabled={!formData.name || isSaving}
             >
-              {modalMode === "add" ? "Create Client" : "Update Client"}
+              {isSaving ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  {modalMode === "add" ? "Creating..." : "Updating..."}
+                </>
+              ) : (
+                modalMode === "add" ? "Create Client" : "Update Client"
+              )}
             </Button>
           </DialogFooter>
         </DialogPopup>

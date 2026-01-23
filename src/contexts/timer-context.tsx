@@ -117,6 +117,16 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
           project: response.project,
           isBillable: response.timer.is_billable,
         })
+
+        // Show warning if timer was auto-paused
+        if (response.autoPaused) {
+          const hours = Math.floor(response.timer.elapsed_seconds / 3600)
+          toastManager.add({
+            type: 'warning',
+            title: `Timer auto-paused after ${hours} hours`,
+            description: 'Review and stop when ready.',
+          })
+        }
       } else {
         // No active timer on server - only reset if we had one locally
         setTimer((prev) => {
@@ -284,8 +294,16 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
 
     try {
       await timerApi.stopTimer()
-      // Invalidate time entries cache so lists refresh
-      mutate((key) => Array.isArray(key) && key[0] === 'time-entries')
+      // Invalidate caches so lists refresh
+      mutate((key) => {
+        if (typeof key === 'string') {
+          return key === 'dashboard-stats'
+        }
+        if (Array.isArray(key)) {
+          return key[0] === 'time-entries' || key[0] === 'recent-activity'
+        }
+        return false
+      })
       toastManager.add({
         type: 'success',
         title: `Entry saved: ${formatDurationHuman(savedDuration)}`,
