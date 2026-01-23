@@ -18,6 +18,15 @@ export async function listProjects(options?: {
   const limit = options?.limit || 20
   const offset = (page - 1) * limit
 
+  // Fetch user settings to get default hourly rate
+  const { data: userSettings } = await supabase
+    .from('user_settings')
+    .select('default_hourly_rate')
+    .eq('user_id', currentUser.id)
+    .single() as { data: { default_hourly_rate: number | null } | null }
+
+  const defaultHourlyRate = userSettings?.default_hourly_rate ?? null
+
   let query = supabase
     .from('projects')
     .select('*, client:clients(id, name)', { count: 'exact' })
@@ -44,10 +53,11 @@ export async function listProjects(options?: {
     throw new ValidationError('Failed to fetch projects')
   }
 
-  // Get stats for each project
+  // Get stats for each project (use project rate, falling back to user's default rate)
   const projectsWithStats = await Promise.all(
     (data || []).map(async (project) => {
-      const stats = await getProjectStats(project.id)
+      const effectiveRate = project.hourly_rate ?? defaultHourlyRate
+      const stats = await getProjectStats(project.id, effectiveRate)
       return {
         ...project,
         ...stats,
@@ -82,7 +92,7 @@ export async function getProjectById(id: string): Promise<ProjectWithStats> {
     throw new NotFoundError('Project')
   }
 
-  const stats = await getProjectStats(id)
+  const stats = await getProjectStats(id, data.hourly_rate)
 
   return {
     ...data,
@@ -210,7 +220,10 @@ export async function getDefaultProject(): Promise<Project | null> {
   return data || null
 }
 
-async function getProjectStats(projectId: string): Promise<{
+async function getProjectStats(
+  projectId: string,
+  projectHourlyRate: number | null
+): Promise<{
   total_hours: number
   total_amount: number
   unbilled_hours: number
@@ -240,7 +253,8 @@ async function getProjectStats(projectId: string): Promise<{
 
   for (const entry of entries) {
     const duration = entry.duration_seconds || 0
-    const rate = entry.hourly_rate || 0
+    // Use entry's rate if set, otherwise fall back to project rate
+    const rate = entry.hourly_rate ?? projectHourlyRate ?? 0
     const amount = (duration / 3600) * rate
 
     totalSeconds += duration

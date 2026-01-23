@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Field, FieldLabel, FieldDescription } from "@/components/ui/field";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
@@ -36,8 +36,14 @@ import {
   Pencil,
   Clock,
   Archive,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { projectsApi, clientsApi } from "@/lib/api";
+import { useUserSettings } from "@/contexts/user-settings-context";
+import { toastManager } from "@/components/ui/toast";
+import type { ProjectWithStats, ClientWithStats } from "@/types";
+import type { CreateProjectInput } from "@/lib/utils/validation";
 
 // Color options for projects
 const colorOptions = [
@@ -50,68 +56,6 @@ const colorOptions = [
   { name: "Slate", value: "slate", class: "bg-slate-500" },
   { name: "Red", value: "red", class: "bg-red-500" },
 ];
-
-// Mock data
-const initialProjects = [
-  {
-    id: "1",
-    name: "Website Redesign",
-    client: "ClientName Inc.",
-    color: "emerald",
-    rate: 80,
-    currency: "EUR",
-    isDefault: false,
-    hoursTracked: 45,
-    totalAmount: 3600,
-    isBillable: true,
-    isArchived: false,
-  },
-  {
-    id: "2",
-    name: "Mobile App MVP",
-    client: "StartupXYZ",
-    color: "blue",
-    rate: 100,
-    currency: "USD",
-    isDefault: false,
-    hoursTracked: 120,
-    totalAmount: 12000,
-    isBillable: true,
-    isArchived: false,
-  },
-  {
-    id: "3",
-    name: "Maintenance Contract",
-    client: "ClientName Inc.",
-    color: "purple",
-    rate: 75,
-    currency: "USD",
-    isDefault: true,
-    hoursTracked: 20,
-    totalAmount: 1500,
-    isBillable: true,
-    isArchived: false,
-  },
-  {
-    id: "4",
-    name: "Old Website",
-    client: "Legacy Corp",
-    color: "slate",
-    rate: 60,
-    currency: "USD",
-    isDefault: false,
-    hoursTracked: 100,
-    totalAmount: 6000,
-    isBillable: true,
-    isArchived: true,
-  },
-];
-
-// Profile defaults (mock)
-const profileDefaults = {
-  rate: 75,
-  currency: "USD",
-};
 
 type ModalMode = "add" | "edit";
 
@@ -135,30 +79,111 @@ const defaultFormData: ProjectFormData = {
 
 export default function ProjectsPage() {
   const router = useRouter();
-  const [projects, setProjects] = useState(initialProjects);
+  const { settings } = useUserSettings();
+
+  // Data state
+  const [projects, setProjects] = useState<ProjectWithStats[]>([]);
+  const [clients, setClients] = useState<ClientWithStats[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Filter state
   const [showArchived, setShowArchived] = useState(false);
+
+  // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<ModalMode>("add");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<ProjectFormData>(defaultFormData);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Profile defaults from user settings
+  const profileDefaults = {
+    rate: settings?.default_hourly_rate ?? 75,
+    currency: settings?.default_currency ?? "USD",
+  };
+
+  // Fetch projects
+  const fetchProjects = useCallback(async () => {
+    try {
+      const response = await projectsApi.listProjects({ includeArchived: true });
+      setProjects(response.data);
+    } catch (error) {
+      console.error("Failed to fetch projects:", error);
+      toastManager.add({ type: "error", title: "Failed to load projects" });
+    }
+  }, []);
+
+  // Fetch clients for dropdown
+  const fetchClients = useCallback(async () => {
+    try {
+      const response = await clientsApi.listClients({ includeArchived: false });
+      setClients(response.data);
+    } catch (error) {
+      console.error("Failed to fetch clients:", error);
+    }
+  }, []);
+
+  // Initial data fetch
+  useEffect(() => {
+    const loadData = async () => {
+      setIsLoading(true);
+      await Promise.all([fetchProjects(), fetchClients()]);
+      setIsLoading(false);
+    };
+    loadData();
+  }, [fetchProjects, fetchClients]);
 
   const filteredProjects = projects.filter(
-    (p) => showArchived || !p.isArchived
+    (p) => showArchived || !p.is_archived
   );
 
   const getColorClass = (colorValue: string) => {
     return colorOptions.find((c) => c.value === colorValue)?.class || "bg-slate-500";
   };
 
-  const formatCurrency = (amount: number, currency: string) => {
-    const symbol = currency === "EUR" ? "€" : "$";
-    return `${symbol}${amount.toLocaleString()}`;
+  // Currency to locale mapping for proper symbol placement
+  const currencyLocales: Record<string, string> = {
+    USD: "en-US",
+    EUR: "de-DE",
+    GBP: "en-GB",
+    CAD: "en-CA",
+    AUD: "en-AU",
+    CHF: "de-CH",
+    JPY: "ja-JP",
+    INR: "en-IN",
+    BRL: "pt-BR",
+    MXN: "es-MX",
+    PLN: "pl-PL",
+    RON: "ro-RO",
+    SEK: "sv-SE",
+    NOK: "nb-NO",
+    DKK: "da-DK",
+    NZD: "en-NZ",
+    SGD: "en-SG",
+    HKD: "zh-HK",
+    ZAR: "en-ZA",
+    AED: "ar-AE",
   };
 
-  const formatRate = (rate: number, currency: string, isDefault: boolean) => {
-    const symbol = currency === "EUR" ? "€" : "$";
-    const rateStr = `${symbol}${rate}/hr`;
-    return isDefault ? `${rateStr} (default)` : rateStr;
+  const formatCurrency = (amount: number, currency: string) => {
+    const locale = currencyLocales[currency] || "en-US";
+    return new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency,
+    }).format(amount);
+  };
+
+  const formatRate = (project: ProjectWithStats) => {
+    const rate = project.hourly_rate ?? profileDefaults.rate;
+    const currency = project.currency ?? profileDefaults.currency;
+    const locale = currencyLocales[currency] || "en-US";
+    const formattedRate = new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 0,
+    }).format(rate ?? 0);
+    const rateStr = `${formattedRate}/hr`;
+    return project.hourly_rate === null ? `${rateStr} (default)` : rateStr;
   };
 
   const handleOpenAddModal = () => {
@@ -168,37 +193,89 @@ export default function ProjectsPage() {
     setIsModalOpen(true);
   };
 
-  const handleOpenEditModal = (project: typeof initialProjects[0]) => {
+  const handleOpenEditModal = (project: ProjectWithStats) => {
     setModalMode("edit");
     setEditingId(project.id);
     setFormData({
       name: project.name,
-      client: project.client,
-      rate: project.isDefault ? "" : project.rate.toString(),
-      currency: project.isDefault ? "" : project.currency,
-      color: project.color,
-      isBillable: project.isBillable,
+      client: project.client_id || "",
+      rate: project.hourly_rate?.toString() ?? "",
+      currency: project.currency ?? "",
+      color: project.color ?? "blue",
+      isBillable: project.is_billable ?? true,
     });
     setIsModalOpen(true);
   };
 
-  const handleSaveProject = () => {
-    // TODO: Save project to API
-    setIsModalOpen(false);
-    setFormData(defaultFormData);
+  const handleSaveProject = async () => {
+    if (!formData.name.trim()) return;
+
+    setIsSaving(true);
+    try {
+      const projectData: CreateProjectInput = {
+        name: formData.name.trim(),
+        client_id: formData.client || null,
+        color: formData.color as CreateProjectInput["color"],
+        hourly_rate: formData.rate ? parseFloat(formData.rate) : null,
+        currency: (formData.currency || profileDefaults.currency) as CreateProjectInput["currency"],
+        is_billable: formData.isBillable,
+        is_default: false,
+      };
+
+      if (modalMode === "add") {
+        await projectsApi.createProject(projectData);
+        toastManager.add({ type: "success", title: "Project created" });
+      } else if (editingId) {
+        await projectsApi.updateProject(editingId, projectData);
+        toastManager.add({ type: "success", title: "Project updated" });
+      }
+
+      await fetchProjects();
+      setIsModalOpen(false);
+      setFormData(defaultFormData);
+    } catch (error) {
+      console.error("Failed to save project:", error);
+      toastManager.add({
+        type: "error",
+        title: modalMode === "add" ? "Failed to create project" : "Failed to update project",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleViewEntries = (projectId: string) => {
     router.push(`/dashboard/time-entries?project=${projectId}`);
   };
 
-  const handleArchive = (projectId: string) => {
-    setProjects((prev) =>
-      prev.map((p) =>
-        p.id === projectId ? { ...p, isArchived: !p.isArchived } : p
-      )
-    );
+  const handleArchive = async (project: ProjectWithStats) => {
+    try {
+      await projectsApi.updateProject(project.id, {
+        is_archived: !project.is_archived,
+      });
+      toastManager.add({
+        type: "success",
+        title: project.is_archived ? "Project unarchived" : "Project archived",
+      });
+      await fetchProjects();
+    } catch (error) {
+      console.error("Failed to archive project:", error);
+      toastManager.add({ type: "error", title: "Failed to update project" });
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-semibold">Projects</h1>
+        </div>
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="size-6 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -219,7 +296,9 @@ export default function ProjectsPage() {
         <CardContent className="divide-y p-0">
           {filteredProjects.length === 0 ? (
             <div className="p-8 text-center text-muted-foreground">
-              No projects found. Create your first project to get started.
+              {showArchived
+                ? "No projects found. Create your first project to get started."
+                : "No active projects found. Create a new project or show archived projects."}
             </div>
           ) : (
             filteredProjects.map((project) => (
@@ -227,14 +306,14 @@ export default function ProjectsPage() {
                 key={project.id}
                 className={cn(
                   "flex items-start gap-4 p-4 hover:bg-accent/30",
-                  project.isArchived && "opacity-60"
+                  project.is_archived && "opacity-60"
                 )}
               >
                 {/* Color dot */}
                 <span
                   className={cn(
                     "mt-1.5 size-3 shrink-0 rounded-full",
-                    getColorClass(project.color)
+                    getColorClass(project.color ?? "blue")
                   )}
                 />
 
@@ -242,19 +321,21 @@ export default function ProjectsPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <h3 className="font-medium">{project.name}</h3>
-                    {project.isArchived && (
+                    {project.is_archived && (
                       <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
                         Archived
                       </span>
                     )}
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    {project.client}
-                  </p>
+                  {project.client && (
+                    <p className="text-sm text-muted-foreground">
+                      {project.client.name}
+                    </p>
+                  )}
                   <p className="mt-1 text-sm text-muted-foreground">
-                    {formatRate(project.rate, project.currency, project.isDefault)} •{" "}
-                    {project.hoursTracked}h tracked •{" "}
-                    {formatCurrency(project.totalAmount, project.currency)} total
+                    {formatRate(project)} •{" "}
+                    {project.total_hours}h tracked •{" "}
+                    {formatCurrency(project.total_amount, project.currency ?? profileDefaults.currency)} total
                   </p>
                 </div>
 
@@ -273,9 +354,9 @@ export default function ProjectsPage() {
                       View entries
                     </MenuItem>
                     <MenuSeparator />
-                    <MenuItem onClick={() => handleArchive(project.id)}>
+                    <MenuItem onClick={() => handleArchive(project)}>
                       <Archive className="size-4" />
-                      {project.isArchived ? "Unarchive" : "Archive"}
+                      {project.is_archived ? "Unarchive" : "Archive"}
                     </MenuItem>
                   </MenuPopup>
                 </Menu>
@@ -327,12 +408,24 @@ export default function ProjectsPage() {
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select client (optional)" />
+                    <SelectValue placeholder="Select client (optional)">
+                      {formData.client
+                        ? clients.find((c) => c.id === formData.client)?.name
+                        : "Select client (optional)"}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectPopup>
-                    <SelectItem value="ClientName Inc.">ClientName Inc.</SelectItem>
-                    <SelectItem value="StartupXYZ">StartupXYZ</SelectItem>
-                    <SelectItem value="Legacy Corp">Legacy Corp</SelectItem>
+                    {clients.length === 0 ? (
+                      <div className="px-3 py-2 text-sm text-muted-foreground">
+                        No clients found
+                      </div>
+                    ) : (
+                      clients.map((client) => (
+                        <SelectItem key={client.id} value={client.id}>
+                          {client.name}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectPopup>
                 </Select>
               </Field>
@@ -342,7 +435,7 @@ export default function ProjectsPage() {
                   <FieldLabel>Hourly Rate</FieldLabel>
                   <Input
                     type="number"
-                    placeholder={profileDefaults.rate.toString()}
+                    placeholder={profileDefaults.rate?.toString() ?? "75"}
                     value={formData.rate}
                     onChange={(e) =>
                       setFormData({ ...formData, rate: e.target.value })
@@ -359,20 +452,37 @@ export default function ProjectsPage() {
                     }
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder={profileDefaults.currency} />
+                      <SelectValue placeholder={profileDefaults.currency}>
+                        {formData.currency || profileDefaults.currency}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectPopup>
-                      <SelectItem value="USD">USD</SelectItem>
-                      <SelectItem value="EUR">EUR</SelectItem>
-                      <SelectItem value="GBP">GBP</SelectItem>
-                      <SelectItem value="CAD">CAD</SelectItem>
-                      <SelectItem value="AUD">AUD</SelectItem>
+                      <SelectItem value="USD">USD - US Dollar</SelectItem>
+                      <SelectItem value="EUR">EUR - Euro</SelectItem>
+                      <SelectItem value="GBP">GBP - British Pound</SelectItem>
+                      <SelectItem value="CAD">CAD - Canadian Dollar</SelectItem>
+                      <SelectItem value="AUD">AUD - Australian Dollar</SelectItem>
+                      <SelectItem value="CHF">CHF - Swiss Franc</SelectItem>
+                      <SelectItem value="JPY">JPY - Japanese Yen</SelectItem>
+                      <SelectItem value="INR">INR - Indian Rupee</SelectItem>
+                      <SelectItem value="BRL">BRL - Brazilian Real</SelectItem>
+                      <SelectItem value="MXN">MXN - Mexican Peso</SelectItem>
+                      <SelectItem value="PLN">PLN - Polish Zloty</SelectItem>
+                      <SelectItem value="RON">RON - Romanian Leu</SelectItem>
+                      <SelectItem value="SEK">SEK - Swedish Krona</SelectItem>
+                      <SelectItem value="NOK">NOK - Norwegian Krone</SelectItem>
+                      <SelectItem value="DKK">DKK - Danish Krone</SelectItem>
+                      <SelectItem value="NZD">NZD - New Zealand Dollar</SelectItem>
+                      <SelectItem value="SGD">SGD - Singapore Dollar</SelectItem>
+                      <SelectItem value="HKD">HKD - Hong Kong Dollar</SelectItem>
+                      <SelectItem value="ZAR">ZAR - South African Rand</SelectItem>
+                      <SelectItem value="AED">AED - UAE Dirham</SelectItem>
                     </SelectPopup>
                   </Select>
                 </Field>
               </div>
               <p className="text-xs text-muted-foreground">
-                Leave empty to use profile default (currently: ${profileDefaults.rate}/hr {profileDefaults.currency})
+                Leave empty to use profile default (currently: {formatCurrency(profileDefaults.rate ?? 0, profileDefaults.currency)}/hr)
               </p>
 
               <Field>
@@ -410,15 +520,22 @@ export default function ProjectsPage() {
             </div>
           </DialogPanel>
           <DialogFooter variant="bare">
-            <DialogClose render={<Button variant="outline" />}>
+            <DialogClose render={<Button variant="outline" />} disabled={isSaving}>
               Cancel
             </DialogClose>
             <Button
               onClick={handleSaveProject}
               className="bg-teal-500 hover:!bg-teal-600 border-teal-500"
-              disabled={!formData.name}
+              disabled={!formData.name || isSaving}
             >
-              {modalMode === "add" ? "Create Project" : "Update Project"}
+              {isSaving ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  {modalMode === "add" ? "Creating..." : "Updating..."}
+                </>
+              ) : (
+                modalMode === "add" ? "Create Project" : "Update Project"
+              )}
             </Button>
           </DialogFooter>
         </DialogPopup>

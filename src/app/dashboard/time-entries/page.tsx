@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTimeEntries, useTimeEntryMutations, useProjects, useClients } from "@/lib/hooks";
+import { useUserSettings } from "@/contexts/user-settings-context";
 import {
   formatDurationHuman,
   getStartOfDay,
@@ -132,11 +133,36 @@ function groupEntriesByDate(entries: TimeEntryWithDetails[]) {
   return Array.from(groups.values()).sort((a, b) => b.date.localeCompare(a.date));
 }
 
-// Format currency
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("en-US", {
+// Currency to locale mapping for proper symbol placement
+const currencyLocales: Record<string, string> = {
+  USD: "en-US",
+  EUR: "de-DE",
+  GBP: "en-GB",
+  CAD: "en-CA",
+  AUD: "en-AU",
+  CHF: "de-CH",
+  JPY: "ja-JP",
+  INR: "en-IN",
+  BRL: "pt-BR",
+  MXN: "es-MX",
+  PLN: "pl-PL",
+  RON: "ro-RO",
+  SEK: "sv-SE",
+  NOK: "nb-NO",
+  DKK: "da-DK",
+  NZD: "en-NZ",
+  SGD: "en-SG",
+  HKD: "zh-HK",
+  ZAR: "en-ZA",
+  AED: "ar-AE",
+};
+
+// Format currency with proper symbol placement
+function formatCurrency(amount: number, currency: string = "USD"): string {
+  const locale = currencyLocales[currency] || "en-US";
+  return new Intl.NumberFormat(locale, {
     style: "currency",
-    currency: "USD",
+    currency,
   }).format(amount);
 }
 
@@ -162,6 +188,9 @@ const defaultFormData: EntryFormData = {
 };
 
 export default function TimeEntriesPage() {
+  const { settings } = useUserSettings();
+  const defaultCurrency = settings?.default_currency ?? "USD";
+
   const [dateRange, setDateRange] = useState("this-week");
   const [projectFilter, setProjectFilter] = useState("all");
   const [clientFilter, setClientFilter] = useState("all");
@@ -206,9 +235,9 @@ export default function TimeEntriesPage() {
     return {
       count: pagination?.total ?? entries.length,
       totalTime: formatDurationHuman(totalSeconds),
-      totalBillable: formatCurrency(totalBillable),
+      totalBillable: formatCurrency(totalBillable, defaultCurrency),
     };
-  }, [entries, pagination]);
+  }, [entries, pagination, defaultCurrency]);
 
   const handleOpenAddModal = () => {
     setModalMode("add");
@@ -507,7 +536,9 @@ export default function TimeEntriesPage() {
 
                       {/* Amount */}
                       <span className="w-20 text-right text-sm font-medium tabular-nums">
-                        {entry.is_billable && entry.amount ? formatCurrency(entry.amount) : "–"}
+                        {entry.is_billable && entry.amount
+                          ? formatCurrency(entry.amount, entry.project?.currency ?? defaultCurrency)
+                          : "–"}
                       </span>
 
                       {/* Actions Menu */}

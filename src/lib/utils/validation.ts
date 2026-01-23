@@ -24,7 +24,10 @@ export const projectColorSchema = z.enum([
   'red',
 ])
 
-export const currencySchema = z.enum(['USD', 'EUR', 'GBP', 'CAD', 'AUD'])
+export const currencySchema = z.enum([
+  'USD', 'EUR', 'GBP', 'CAD', 'AUD', 'CHF', 'JPY', 'INR', 'BRL', 'MXN',
+  'PLN', 'RON', 'SEK', 'NOK', 'DKK', 'NZD', 'SGD', 'HKD', 'ZAR', 'AED'
+])
 
 export const createProjectSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100),
@@ -37,7 +40,9 @@ export const createProjectSchema = z.object({
   notes: z.string().max(1000).optional(),
 })
 
-export const updateProjectSchema = createProjectSchema.partial()
+export const updateProjectSchema = createProjectSchema.extend({
+  is_archived: z.boolean().optional(),
+}).partial()
 
 // Time entry schemas
 export const createTimeEntrySchema = z.object({

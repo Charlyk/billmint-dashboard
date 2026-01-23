@@ -35,6 +35,21 @@ const currencies = [
   { value: "GBP", label: "GBP - British Pound" },
   { value: "CAD", label: "CAD - Canadian Dollar" },
   { value: "AUD", label: "AUD - Australian Dollar" },
+  { value: "CHF", label: "CHF - Swiss Franc" },
+  { value: "JPY", label: "JPY - Japanese Yen" },
+  { value: "INR", label: "INR - Indian Rupee" },
+  { value: "BRL", label: "BRL - Brazilian Real" },
+  { value: "MXN", label: "MXN - Mexican Peso" },
+  { value: "PLN", label: "PLN - Polish Zloty" },
+  { value: "RON", label: "RON - Romanian Leu" },
+  { value: "SEK", label: "SEK - Swedish Krona" },
+  { value: "NOK", label: "NOK - Norwegian Krone" },
+  { value: "DKK", label: "DKK - Danish Krone" },
+  { value: "NZD", label: "NZD - New Zealand Dollar" },
+  { value: "SGD", label: "SGD - Singapore Dollar" },
+  { value: "HKD", label: "HKD - Hong Kong Dollar" },
+  { value: "ZAR", label: "ZAR - South African Rand" },
+  { value: "AED", label: "AED - UAE Dirham" },
 ];
 
 const timeFormats = [
@@ -103,7 +118,7 @@ export default function SettingsPage() {
     try {
       await userApi.updateSettings({
         default_hourly_rate: defaultHourlyRate ? parseFloat(defaultHourlyRate) : undefined,
-        default_currency: defaultCurrency as "USD" | "EUR" | "GBP" | "CAD" | "AUD",
+        default_currency: defaultCurrency || undefined,
         time_format: timeFormat,
         week_starts_on: weekStartsOn,
       });

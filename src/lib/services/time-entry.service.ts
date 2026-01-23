@@ -262,15 +262,28 @@ export async function createTimeEntry(
     durationSeconds = Math.floor((end - start) / 1000)
   }
 
-  // Get hourly rate from project if not provided
+  // Get hourly rate: input rate → project rate → user default rate
   let hourlyRate = input.hourly_rate
-  if (hourlyRate === undefined && input.project_id) {
-    const { data: project } = await supabase
-      .from('projects')
-      .select('hourly_rate')
-      .eq('id', input.project_id)
-      .single() as { data: { hourly_rate: number | null } | null }
-    hourlyRate = project?.hourly_rate || null
+  if (hourlyRate === undefined || hourlyRate === null) {
+    // Try to get rate from project
+    if (input.project_id) {
+      const { data: project } = await supabase
+        .from('projects')
+        .select('hourly_rate')
+        .eq('id', input.project_id)
+        .single() as { data: { hourly_rate: number | null } | null }
+      hourlyRate = project?.hourly_rate
+    }
+
+    // If still no rate, fall back to user's default rate
+    if (hourlyRate === undefined || hourlyRate === null) {
+      const { data: userSettings } = await supabase
+        .from('user_settings')
+        .select('default_hourly_rate')
+        .eq('user_id', currentUser.id)
+        .single() as { data: { default_hourly_rate: number | null } | null }
+      hourlyRate = userSettings?.default_hourly_rate ?? null
+    }
   }
 
   const { data, error } = await supabase
