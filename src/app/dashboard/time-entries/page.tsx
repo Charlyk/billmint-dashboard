@@ -234,10 +234,9 @@ export default function TimeEntriesPage() {
     }
   }, [entries, page, isLoading]);
 
-  // Reset to page 1 and clear entries when filters change
+  // Reset to page 1 when filters change
   useEffect(() => {
     setPage(1);
-    setAllEntries([]);
   }, [dateRange, projectFilter, clientFilter]);
 
   // Fetch projects and clients for filter dropdowns

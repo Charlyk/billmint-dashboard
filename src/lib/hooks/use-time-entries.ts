@@ -12,7 +12,8 @@ import type { TimeEntriesQuery } from '@/lib/utils/validation'
 export function useTimeEntries(options?: TimeEntriesQuery) {
   const { data, error, isLoading, mutate } = useSWR<TimeEntryListResponse>(
     ['time-entries', options],
-    () => timeEntriesApi.listTimeEntries(options)
+    () => timeEntriesApi.listTimeEntries(options),
+    { revalidateOnMount: true, dedupingInterval: 0 }
   )
 
   return {
