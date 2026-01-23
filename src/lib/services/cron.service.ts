@@ -1,12 +1,19 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { sendTimerAutoPausedEmail } from './email.service'
 import type { Database } from '@/types/database'
 
-// Use service role for cron jobs (bypasses RLS)
-const supabase = createClient<Database>(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+// Lazy initialization to avoid build-time env var issues
+let supabaseInstance: SupabaseClient<Database> | null = null
+
+function getSupabase(): SupabaseClient<Database> {
+  if (!supabaseInstance) {
+    supabaseInstance = createClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+  }
+  return supabaseInstance
+}
 
 interface StaleTimer {
   id: string
@@ -44,6 +51,8 @@ export async function autopauseStaleTimers(): Promise<AutoPauseResult> {
     paused: 0,
     errors: [],
   }
+
+  const supabase = getSupabase()
 
   // Fetch all running (non-paused) timers with user settings
   const { data: timers, error: fetchError } = await supabase
