@@ -85,6 +85,8 @@ export default function ProjectsPage() {
   const [projects, setProjects] = useState<ProjectWithStats[]>([]);
   const [clients, setClients] = useState<ClientWithStats[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingClients, setIsLoadingClients] = useState(false);
+  const [clientsFetched, setClientsFetched] = useState(false);
 
   // Filter state
   const [showArchived, setShowArchived] = useState(false);
@@ -113,25 +115,37 @@ export default function ProjectsPage() {
     }
   }, []);
 
-  // Fetch clients for dropdown
+  // Fetch clients for dropdown (lazy loaded when modal opens)
   const fetchClients = useCallback(async () => {
+    if (clientsFetched) return;
+    setIsLoadingClients(true);
     try {
       const response = await clientsApi.listClients({ includeArchived: false });
       setClients(response.data);
+      setClientsFetched(true);
     } catch (error) {
       console.error("Failed to fetch clients:", error);
+    } finally {
+      setIsLoadingClients(false);
     }
-  }, []);
+  }, [clientsFetched]);
 
-  // Initial data fetch
+  // Initial data fetch (only projects, clients are lazy loaded)
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
-      await Promise.all([fetchProjects(), fetchClients()]);
+      await fetchProjects();
       setIsLoading(false);
     };
     loadData();
-  }, [fetchProjects, fetchClients]);
+  }, [fetchProjects]);
+
+  // Fetch clients when modal opens
+  useEffect(() => {
+    if (isModalOpen && !clientsFetched) {
+      fetchClients();
+    }
+  }, [isModalOpen, clientsFetched, fetchClients]);
 
   const filteredProjects = projects.filter(
     (p) => showArchived || !p.is_archived
@@ -415,7 +429,12 @@ export default function ProjectsPage() {
                     </SelectValue>
                   </SelectTrigger>
                   <SelectPopup>
-                    {clients.length === 0 ? (
+                    {isLoadingClients ? (
+                      <div className="px-3 py-2 flex items-center gap-2 text-sm text-muted-foreground">
+                        <Loader2 className="size-4 animate-spin" />
+                        Loading clients...
+                      </div>
+                    ) : clients.length === 0 ? (
                       <div className="px-3 py-2 text-sm text-muted-foreground">
                         No clients found
                       </div>
