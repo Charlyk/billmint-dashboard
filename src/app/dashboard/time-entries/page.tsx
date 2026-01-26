@@ -38,7 +38,12 @@ import {
   Copy,
   Trash2,
   Loader2,
+  Calendar,
+  ChevronDown,
+  Filter,
 } from "lucide-react";
+import { Tabs, TabsList, TabsTab, TabsPanel } from "@/components/ui/tabs";
+import { Collapsible, CollapsibleTrigger, CollapsiblePanel } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { useTimeEntries, useTimeEntryMutations, useProjects, useClients } from "@/lib/hooks";
 import { useUserSettings } from "@/contexts/user-settings-context";
@@ -71,7 +76,7 @@ function getColorHex(colorName: string | null): string {
 }
 
 // Get date range based on filter selection
-function getDateRange(filter: string): { start_date?: string; end_date?: string } {
+function getDateRange(filter: string, customStart?: string, customEnd?: string): { start_date?: string; end_date?: string } {
   const now = new Date();
 
   switch (filter) {
@@ -84,6 +89,11 @@ function getDateRange(filter: string): { start_date?: string; end_date?: string 
       const yesterday = addDays(now, -1);
       const start = getStartOfDay(yesterday);
       const end = getEndOfDay(yesterday);
+      return { start_date: start.toISOString(), end_date: end.toISOString() };
+    }
+    case "last-7-days": {
+      const start = getStartOfDay(addDays(now, -6));
+      const end = getEndOfDay(now);
       return { start_date: start.toISOString(), end_date: end.toISOString() };
     }
     case "this-week": {
@@ -105,6 +115,14 @@ function getDateRange(filter: string): { start_date?: string; end_date?: string 
       const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
       const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
       return { start_date: lastMonthStart.toISOString(), end_date: lastMonthEnd.toISOString() };
+    }
+    case "custom": {
+      if (customStart && customEnd) {
+        const start = getStartOfDay(new Date(customStart));
+        const end = getEndOfDay(new Date(customEnd));
+        return { start_date: start.toISOString(), end_date: end.toISOString() };
+      }
+      return {};
     }
     default:
       return {};
@@ -191,9 +209,13 @@ export default function TimeEntriesPage() {
   const { settings } = useUserSettings();
   const defaultCurrency = settings?.default_currency ?? "USD";
 
-  const [dateRange, setDateRange] = useState("this-week");
+  const [dateRange, setDateRange] = useState("last-7-days");
   const [projectFilter, setProjectFilter] = useState("all");
   const [clientFilter, setClientFilter] = useState("all");
+  const [billableFilter, setBillableFilter] = useState("all");
+  const [invoicedFilter, setInvoicedFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<EntryModalMode>("add");
   const [formData, setFormData] = useState<EntryFormData>(defaultFormData);
@@ -203,12 +225,44 @@ export default function TimeEntriesPage() {
     entry: null,
   });
 
+  // Custom date range state (applied values)
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
+
+  // Custom date range modal state (temporary values)
+  const [customRangeOpen, setCustomRangeOpen] = useState(false);
+  const [tempStartDate, setTempStartDate] = useState("");
+  const [tempEndDate, setTempEndDate] = useState("");
+  const [customRangeTab, setCustomRangeTab] = useState<"start" | "end">("start");
+
+  // Filters collapsed state (collapsed by default on mobile, open on desktop)
+  const [filtersOpen, setFiltersOpen] = useState(true);
+
+  // Collapse filters on mobile by default
+  useEffect(() => {
+    const isMobile = window.innerWidth < 640;
+    if (isMobile) {
+      setFiltersOpen(false);
+    }
+  }, []);
+
   // Pagination state
   const [page, setPage] = useState(1);
   const [allEntries, setAllEntries] = useState<TimeEntryWithDetails[]>([]);
 
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   // Get date range for API query
-  const dateRangeFilter = useMemo(() => getDateRange(dateRange), [dateRange]);
+  const dateRangeFilter = useMemo(
+    () => getDateRange(dateRange, customStartDate, customEndDate),
+    [dateRange, customStartDate, customEndDate]
+  );
 
   // Fetch time entries with filters
   const { entries, pagination, isLoading, mutate } = useTimeEntries({
@@ -217,6 +271,9 @@ export default function TimeEntriesPage() {
     ...dateRangeFilter,
     project_id: projectFilter !== "all" ? projectFilter : undefined,
     client_id: clientFilter !== "all" ? clientFilter : undefined,
+    is_billable: billableFilter !== "all" ? billableFilter === "billable" : undefined,
+    is_invoiced: invoicedFilter !== "all" ? invoicedFilter === "invoiced" : undefined,
+    search: debouncedSearch || undefined,
   });
 
   // Accumulate entries when new data loads (only when not loading to avoid stale data)
@@ -237,7 +294,7 @@ export default function TimeEntriesPage() {
   // Reset to page 1 when filters change
   useEffect(() => {
     setPage(1);
-  }, [dateRange, projectFilter, clientFilter]);
+  }, [dateRange, projectFilter, clientFilter, billableFilter, invoicedFilter, debouncedSearch, customStartDate, customEndDate]);
 
   // Fetch projects and clients for filter dropdowns
   const { projects } = useProjects({ limit: 100 });
@@ -409,67 +466,166 @@ export default function TimeEntriesPage() {
 
       {/* Filters */}
       <Card>
-        <CardContent className="flex flex-wrap items-center gap-3 py-4">
-          <span className="text-sm text-muted-foreground">Filters:</span>
-          <Select value={dateRange} onValueChange={(value) => setDateRange(value || "this-week")}>
-            <SelectTrigger className="w-36">
-              <SelectValue>
-                {{
-                  "today": "Today",
-                  "yesterday": "Yesterday",
-                  "this-week": "This Week",
-                  "last-week": "Last Week",
-                  "this-month": "This Month",
-                  "last-month": "Last Month",
-                }[dateRange] || "This Week"}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectPopup>
-              <SelectItem value="today">Today</SelectItem>
-              <SelectItem value="yesterday">Yesterday</SelectItem>
-              <SelectItem value="this-week">This Week</SelectItem>
-              <SelectItem value="last-week">Last Week</SelectItem>
-              <SelectItem value="this-month">This Month</SelectItem>
-              <SelectItem value="last-month">Last Month</SelectItem>
-            </SelectPopup>
-          </Select>
+        <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
+          {/* Mobile toggle header */}
+          <CollapsibleTrigger className="flex w-full items-center justify-between px-4 py-3 sm:hidden">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <Filter className="size-4" />
+              Filters
+            </div>
+            <ChevronDown className={cn("size-4 transition-transform", filtersOpen && "rotate-180")} />
+          </CollapsibleTrigger>
 
-          <Select value={projectFilter} onValueChange={(value) => setProjectFilter(value || "all")}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="All Projects">
-                {projectFilter === "all"
-                  ? "All Projects"
-                  : projects.find((p) => p.id === projectFilter)?.name || "All Projects"}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectPopup>
-              <SelectItem value="all">All Projects</SelectItem>
-              {projects.map((project) => (
-                <SelectItem key={project.id} value={project.id}>
-                  {project.name}
-                </SelectItem>
-              ))}
-            </SelectPopup>
-          </Select>
+          {/* Desktop always visible, mobile collapsible */}
+          <CollapsiblePanel className="sm:!h-auto">
+            <CardContent className="grid grid-cols-2 gap-4 py-4 sm:flex sm:flex-wrap sm:items-end sm:gap-4">
+              {/* Search */}
+              <div className="col-span-2 sm:w-40">
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Search</label>
+                <Input
+                  placeholder="Search..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
 
-          <Select value={clientFilter} onValueChange={(value) => setClientFilter(value || "all")}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="All Clients">
-                {clientFilter === "all"
-                  ? "All Clients"
-                  : clients.find((c) => c.id === clientFilter)?.name || "All Clients"}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectPopup>
-              <SelectItem value="all">All Clients</SelectItem>
-              {clients.map((client) => (
-                <SelectItem key={client.id} value={client.id}>
-                  {client.name}
-                </SelectItem>
-              ))}
-            </SelectPopup>
-          </Select>
-        </CardContent>
+              {/* Date Range */}
+              <div className="col-span-2 sm:w-44">
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Date Range</label>
+                <Select
+                  value={dateRange}
+                  onValueChange={(value) => {
+                    if (value === "custom") {
+                      const today = new Date().toISOString().split("T")[0];
+                      const weekAgo = addDays(new Date(), -6).toISOString().split("T")[0];
+                      setTempStartDate(customStartDate || weekAgo);
+                      setTempEndDate(customEndDate || today);
+                      setCustomRangeTab("start");
+                      setCustomRangeOpen(true);
+                    } else {
+                      setDateRange(value || "last-7-days");
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue>
+                      {dateRange === "custom" && customStartDate && customEndDate
+                        ? `${new Date(customStartDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })} - ${new Date(customEndDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+                        : {
+                            "today": "Today",
+                            "yesterday": "Yesterday",
+                            "last-7-days": "Last 7 days",
+                            "this-week": "This Week",
+                            "last-week": "Last Week",
+                            "this-month": "This Month",
+                            "last-month": "Last Month",
+                          }[dateRange] || "Last 7 days"}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectPopup>
+                    <SelectItem value="today">Today</SelectItem>
+                    <SelectItem value="yesterday">Yesterday</SelectItem>
+                    <SelectItem value="last-7-days">Last 7 days</SelectItem>
+                    <SelectItem value="this-week">This Week</SelectItem>
+                    <SelectItem value="last-week">Last Week</SelectItem>
+                    <SelectItem value="this-month">This Month</SelectItem>
+                    <SelectItem value="last-month">Last Month</SelectItem>
+                    <SelectItem value="custom">
+                      <Calendar className="size-4 mr-1.5 inline" />
+                      Custom range...
+                    </SelectItem>
+                  </SelectPopup>
+                </Select>
+              </div>
+
+              {/* Project */}
+              <div className="sm:w-40">
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Project</label>
+                <Select value={projectFilter} onValueChange={(value) => setProjectFilter(value || "all")}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Projects">
+                      {projectFilter === "all"
+                        ? "All Projects"
+                        : projects.find((p) => p.id === projectFilter)?.name || "All Projects"}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectPopup>
+                    <SelectItem value="all">All Projects</SelectItem>
+                    {projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.name}
+                      </SelectItem>
+                    ))}
+                  </SelectPopup>
+                </Select>
+              </div>
+
+              {/* Client */}
+              <div className="sm:w-40">
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Client</label>
+                <Select value={clientFilter} onValueChange={(value) => setClientFilter(value || "all")}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Clients">
+                      {clientFilter === "all"
+                        ? "All Clients"
+                        : clients.find((c) => c.id === clientFilter)?.name || "All Clients"}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectPopup>
+                    <SelectItem value="all">All Clients</SelectItem>
+                    {clients.map((client) => (
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.name}
+                      </SelectItem>
+                    ))}
+                  </SelectPopup>
+                </Select>
+              </div>
+
+              {/* Billable */}
+              <div className="sm:w-32">
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Billable</label>
+                <Select value={billableFilter} onValueChange={(value) => setBillableFilter(value || "all")}>
+                  <SelectTrigger>
+                    <SelectValue>
+                      {{
+                        "all": "All",
+                        "billable": "Billable",
+                        "non-billable": "Non-billable",
+                      }[billableFilter] || "All"}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectPopup>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="billable">Billable</SelectItem>
+                    <SelectItem value="non-billable">Non-billable</SelectItem>
+                  </SelectPopup>
+                </Select>
+              </div>
+
+              {/* Invoiced */}
+              <div className="sm:w-32">
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Invoiced</label>
+                <Select value={invoicedFilter} onValueChange={(value) => setInvoicedFilter(value || "all")}>
+                  <SelectTrigger>
+                    <SelectValue>
+                      {{
+                        "all": "All",
+                        "invoiced": "Invoiced",
+                        "not-invoiced": "Not invoiced",
+                      }[invoicedFilter] || "All"}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectPopup>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="invoiced">Invoiced</SelectItem>
+                    <SelectItem value="not-invoiced">Not invoiced</SelectItem>
+                  </SelectPopup>
+                </Select>
+              </div>
+            </CardContent>
+          </CollapsiblePanel>
+        </Collapsible>
       </Card>
 
       {/* Entries List */}
@@ -752,6 +908,84 @@ export default function TimeEntriesPage() {
             </Button>
             <Button variant="destructive" onClick={handleDeleteConfirm}>
               Delete
+            </Button>
+          </DialogFooter>
+        </DialogPopup>
+      </Dialog>
+
+      {/* Custom Date Range Modal */}
+      <Dialog open={customRangeOpen} onOpenChange={setCustomRangeOpen}>
+        <DialogPopup className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle>Custom Date Range</DialogTitle>
+          </DialogHeader>
+          <DialogPanel>
+            <Tabs value={customRangeTab} onValueChange={(v) => setCustomRangeTab(v as "start" | "end")}>
+              <TabsList className="w-full">
+                <TabsTab value="start" className="flex-1">Start Date</TabsTab>
+                <TabsTab value="end" className="flex-1">End Date</TabsTab>
+              </TabsList>
+              <TabsPanel value="start" className="pt-4">
+                <Input
+                  type="date"
+                  value={tempStartDate}
+                  onChange={(e) => {
+                    const newStart = e.target.value;
+                    setTempStartDate(newStart);
+                    // If start date is after end date, set end date to start date
+                    if (tempEndDate && newStart > tempEndDate) {
+                      setTempEndDate(newStart);
+                    }
+                  }}
+                />
+                <p className="text-xs text-muted-foreground mt-2">
+                  {tempStartDate
+                    ? new Date(tempStartDate).toLocaleDateString("en-US", {
+                        weekday: "long",
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })
+                    : "Select a start date"}
+                </p>
+              </TabsPanel>
+              <TabsPanel value="end" className="pt-4">
+                <Input
+                  type="date"
+                  value={tempEndDate}
+                  min={tempStartDate || undefined}
+                  onChange={(e) => setTempEndDate(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground mt-2">
+                  {tempEndDate
+                    ? new Date(tempEndDate).toLocaleDateString("en-US", {
+                        weekday: "long",
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })
+                    : "Select an end date"}
+                </p>
+              </TabsPanel>
+            </Tabs>
+          </DialogPanel>
+          <DialogFooter variant="bare">
+            <Button variant="outline" onClick={() => setCustomRangeOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (tempStartDate && tempEndDate) {
+                  setCustomStartDate(tempStartDate);
+                  setCustomEndDate(tempEndDate);
+                  setDateRange("custom");
+                  setCustomRangeOpen(false);
+                }
+              }}
+              disabled={!tempStartDate || !tempEndDate}
+              className="bg-teal-500 hover:!bg-teal-600 border-teal-500"
+            >
+              Apply
             </Button>
           </DialogFooter>
         </DialogPopup>

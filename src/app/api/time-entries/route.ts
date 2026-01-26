@@ -6,20 +6,31 @@ import { handleError, ValidationError } from '@/lib/utils/errors'
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const parsed = timeEntriesQuerySchema.safeParse({
-      page: searchParams.get('page'),
-      limit: searchParams.get('limit'),
-      project_id: searchParams.get('project_id'),
-      client_id: searchParams.get('client_id'),
-      is_billable: searchParams.get('is_billable'),
-      is_invoiced: searchParams.get('is_invoiced'),
-      start_date: searchParams.get('start_date'),
-      end_date: searchParams.get('end_date'),
-      search: searchParams.get('search'),
-    })
 
-    const options = parsed.success ? parsed.data : { page: 1, limit: 20 }
-    const entries = await listTimeEntries(options)
+    // Build options object, only including parameters that are actually provided
+    const rawOptions: Record<string, string | null> = {}
+
+    const paramKeys = [
+      'page', 'limit', 'project_id', 'client_id',
+      'is_billable', 'is_invoiced', 'start_date', 'end_date', 'search'
+    ]
+
+    for (const key of paramKeys) {
+      const value = searchParams.get(key)
+      if (value !== null) {
+        rawOptions[key] = value
+      }
+    }
+
+    const parsed = timeEntriesQuerySchema.safeParse(rawOptions)
+
+    if (!parsed.success) {
+      throw new ValidationError('Invalid query parameters', {
+        ...parsed.error.flatten().fieldErrors,
+      })
+    }
+
+    const entries = await listTimeEntries(parsed.data)
     return Response.json({ data: entries })
   } catch (error) {
     return handleError(error)

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { FolderOpen, Search, X, Plus, ArrowLeft, Loader2 } from "lucide-react";
+import { FolderOpen, Plus, ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -230,27 +230,13 @@ export function ProjectPicker({
               <DialogTitle>Select Project</DialogTitle>
             </DialogHeader>
             <DialogPanel className="flex flex-col gap-3">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                <Input
-                  ref={searchInputRef}
-                  type="text"
-                  placeholder="Search projects..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-9"
-                />
-                {search && (
-                  <Button
-                    variant="ghost"
-                    size="icon-xs"
-                    className="absolute right-1.5 top-1/2 -translate-y-1/2"
-                    onClick={() => setSearch("")}
-                  >
-                    <X className="size-3" />
-                  </Button>
-                )}
-              </div>
+              <Input
+                ref={searchInputRef}
+                type="text"
+                placeholder="Search projects..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
 
               <div className="flex flex-col gap-1 -mx-2">
                 {/* Create new project option */}

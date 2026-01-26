@@ -165,11 +165,23 @@ export const dateRangeSchema = z.object({
   end_date: z.string().datetime().optional(),
 })
 
+// Helper to properly parse boolean strings from URL query params
+const booleanStringSchema = z
+  .union([z.boolean(), z.string()])
+  .optional()
+  .transform((val) => {
+    if (val === undefined || val === null) return undefined
+    if (typeof val === 'boolean') return val
+    if (val === 'true' || val === '1') return true
+    if (val === 'false' || val === '0') return false
+    return undefined
+  })
+
 export const timeEntriesQuerySchema = paginationSchema.extend({
   project_id: z.string().uuid().optional(),
   client_id: z.string().uuid().optional(),
-  is_billable: z.coerce.boolean().optional(),
-  is_invoiced: z.coerce.boolean().optional(),
+  is_billable: booleanStringSchema,
+  is_invoiced: booleanStringSchema,
   start_date: z.string().optional(),
   end_date: z.string().optional(),
   search: z.string().optional(),
