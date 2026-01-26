@@ -63,3 +63,13 @@ export async function getUnbilledTimeEntries(
     params: { clientId },
   })
 }
+
+export async function bulkTimeEntryAction(
+  action: 'delete' | 'mark-billable' | 'mark-non-billable',
+  entryIds: string[]
+): Promise<{ success: boolean; affected_count: number }> {
+  return fetcher<{ success: boolean; affected_count: number }>('/api/time-entries/bulk', {
+    method: 'POST',
+    body: JSON.stringify({ action, entry_ids: entryIds }),
+  })
+}

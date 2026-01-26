@@ -287,3 +287,69 @@ export async function unmarkEntriesFromInvoice(
     throw new ValidationError('Failed to unmark entries from invoice')
   }
 }
+
+export async function bulkDeleteTimeEntries(
+  entryIds: string[]
+): Promise<number> {
+  const currentUser = await requireAuth()
+  const supabase = await createClient()
+
+  // First verify none of the entries are invoiced
+  const { data: invoicedEntries } = await supabase
+    .from('time_entries')
+    .select('id')
+    .in('id', entryIds)
+    .eq('user_id', currentUser.id)
+    .not('invoice_id', 'is', null) as { data: { id: string }[] | null }
+
+  if (invoicedEntries && invoicedEntries.length > 0) {
+    throw new ValidationError('Cannot delete invoiced time entries')
+  }
+
+  const { error, count } = await supabase
+    .from('time_entries')
+    .delete({ count: 'exact' })
+    .in('id', entryIds)
+    .eq('user_id', currentUser.id)
+
+  if (error) {
+    throw new ValidationError('Failed to delete time entries')
+  }
+
+  return count ?? 0
+}
+
+export async function bulkUpdateTimeEntries(
+  entryIds: string[],
+  updates: { is_billable?: boolean }
+): Promise<number> {
+  const currentUser = await requireAuth()
+  const supabase = await createClient()
+
+  // First verify none of the entries are invoiced
+  const { data: invoicedEntries } = await supabase
+    .from('time_entries')
+    .select('id')
+    .in('id', entryIds)
+    .eq('user_id', currentUser.id)
+    .not('invoice_id', 'is', null) as { data: { id: string }[] | null }
+
+  if (invoicedEntries && invoicedEntries.length > 0) {
+    throw new ValidationError('Cannot update invoiced time entries')
+  }
+
+  const { error, count } = await supabase
+    .from('time_entries')
+    .update({
+      ...updates,
+      updated_at: new Date().toISOString(),
+    } as never, { count: 'exact' })
+    .in('id', entryIds)
+    .eq('user_id', currentUser.id)
+
+  if (error) {
+    throw new ValidationError('Failed to update time entries')
+  }
+
+  return count ?? 0
+}

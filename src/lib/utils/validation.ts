@@ -194,6 +194,12 @@ export const invoicesQuerySchema = paginationSchema.extend({
   end_date: z.string().optional(),
 })
 
+// Bulk time entry action schema
+export const bulkTimeEntryActionSchema = z.object({
+  action: z.enum(['delete', 'mark-billable', 'mark-non-billable']),
+  entry_ids: z.array(z.string().uuid()).min(1).max(100),
+})
+
 // Type exports
 export type CreateClientInput = z.infer<typeof createClientSchema>
 export type UpdateClientInput = z.infer<typeof updateClientSchema>
@@ -210,3 +216,4 @@ export type SignupInput = z.infer<typeof signupSchema>
 export type LoginInput = z.infer<typeof loginSchema>
 export type TimeEntriesQuery = z.infer<typeof timeEntriesQuerySchema>
 export type InvoicesQuery = z.infer<typeof invoicesQuerySchema>
+export type BulkTimeEntryAction = z.infer<typeof bulkTimeEntryActionSchema>

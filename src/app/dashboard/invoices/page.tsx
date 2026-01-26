@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,6 +11,14 @@ import {
   SelectPopup,
   SelectItem,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogPopup,
+  DialogHeader,
+  DialogTitle,
+  DialogPanel,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   Menu,
   MenuTrigger,
@@ -27,96 +35,15 @@ import {
   CheckCircle,
   XCircle,
   Trash2,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useInvoices, useInvoiceMutations, useClients, useProjects } from "@/lib/hooks";
+import { useUserSettings } from "@/contexts/user-settings-context";
+import { toastManager } from "@/components/ui/toast";
+import type { InvoiceWithClient } from "@/types";
 
 type InvoiceStatus = "draft" | "sent" | "paid" | "overdue" | "void";
-
-interface Invoice {
-  id: string;
-  number: string;
-  client: string;
-  issueDate: string;
-  dueDate: string;
-  paidDate?: string;
-  status: InvoiceStatus;
-  amount: number;
-}
-
-// Mock data
-const invoices: Invoice[] = [
-  {
-    id: "1",
-    number: "INV-2026-0012",
-    client: "ClientName Inc.",
-    issueDate: "Jan 15, 2026",
-    dueDate: "Jan 30, 2026",
-    status: "sent",
-    amount: 2450.0,
-  },
-  {
-    id: "2",
-    number: "INV-2026-0011",
-    client: "StartupXYZ",
-    issueDate: "Jan 10, 2026",
-    dueDate: "Jan 25, 2026",
-    status: "overdue",
-    amount: 1200.0,
-  },
-  {
-    id: "3",
-    number: "INV-2026-0010",
-    client: "ClientName Inc.",
-    issueDate: "Jan 5, 2026",
-    dueDate: "Jan 20, 2026",
-    paidDate: "Jan 12, 2026",
-    status: "paid",
-    amount: 3200.0,
-  },
-  {
-    id: "4",
-    number: "INV-2026-0009",
-    client: "StartupXYZ",
-    issueDate: "Dec 20, 2025",
-    dueDate: "Jan 4, 2026",
-    paidDate: "Jan 2, 2026",
-    status: "paid",
-    amount: 1800.0,
-  },
-  {
-    id: "5",
-    number: "INV-2026-0013",
-    client: "Legacy Corp",
-    issueDate: "Jan 18, 2026",
-    dueDate: "Feb 2, 2026",
-    status: "draft",
-    amount: 950.0,
-  },
-  {
-    id: "6",
-    number: "INV-2025-0042",
-    client: "Old Client",
-    issueDate: "Nov 1, 2025",
-    dueDate: "Nov 15, 2025",
-    status: "void",
-    amount: 500.0,
-  },
-];
-
-const stats = {
-  outstanding: {
-    amount: 4850,
-    count: 3,
-  },
-  overdue: {
-    amount: 1200,
-    count: 1,
-  },
-  paidThisYear: {
-    amount: 24600,
-    count: 12,
-  },
-};
 
 const statusConfig: Record<
   InvoiceStatus,
@@ -144,25 +71,75 @@ const statusConfig: Record<
   },
 };
 
+// Currency to locale mapping for proper symbol placement
+const currencyLocales: Record<string, string> = {
+  USD: "en-US",
+  EUR: "de-DE",
+  GBP: "en-GB",
+  CAD: "en-CA",
+  AUD: "en-AU",
+  CHF: "de-CH",
+  JPY: "ja-JP",
+  INR: "en-IN",
+  BRL: "pt-BR",
+  MXN: "es-MX",
+  PLN: "pl-PL",
+  RON: "ro-RO",
+  SEK: "sv-SE",
+  NOK: "nb-NO",
+  DKK: "da-DK",
+  NZD: "en-NZ",
+  SGD: "en-SG",
+  HKD: "zh-HK",
+  ZAR: "en-ZA",
+  AED: "ar-AE",
+};
+
+function formatCurrency(amount: number, currency: string = "USD"): string {
+  const locale = currencyLocales[currency] || "en-US";
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency,
+  }).format(amount);
+}
+
+function formatDate(dateString: string): string {
+  return new Date(dateString).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 function StatCard({
   title,
   amount,
   count,
+  currency,
+  isLoading,
 }: {
   title: string;
   amount: number;
   count: number;
+  currency: string;
+  isLoading?: boolean;
 }) {
   return (
     <Card>
       <CardContent className="pt-6">
         <p className="text-sm text-muted-foreground">{title}</p>
-        <p className="mt-1 text-2xl font-semibold">
-          ${amount.toLocaleString()}
-        </p>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          {count} {count === 1 ? "invoice" : "invoices"}
-        </p>
+        {isLoading ? (
+          <div className="mt-1 h-8 w-24 animate-pulse rounded bg-muted" />
+        ) : (
+          <>
+            <p className="mt-1 text-2xl font-semibold">
+              {formatCurrency(amount, currency)}
+            </p>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              {count} {count === 1 ? "invoice" : "invoices"}
+            </p>
+          </>
+        )}
       </CardContent>
     </Card>
   );
@@ -170,21 +147,77 @@ function StatCard({
 
 export default function InvoicesPage() {
   const router = useRouter();
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [clientFilter, setClientFilter] = useState("all");
-  const [invoiceList, setInvoiceList] = useState(invoices);
+  const { settings } = useUserSettings();
+  const defaultCurrency = settings?.default_currency ?? "USD";
 
-  const filteredInvoices = invoiceList.filter((inv) => {
-    if (statusFilter !== "all" && inv.status !== statusFilter) return false;
-    if (clientFilter !== "all" && inv.client !== clientFilter) return false;
-    return true;
+  const [statusFilter, setStatusFilter] = useState<"all" | InvoiceStatus>("all");
+  const [clientFilter, setClientFilter] = useState("all");
+  const [projectFilter, setProjectFilter] = useState("all");
+  const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; invoice: InvoiceWithClient | null }>({
+    open: false,
+    invoice: null,
   });
+  const [voidConfirm, setVoidConfirm] = useState<{ open: boolean; invoice: InvoiceWithClient | null }>({
+    open: false,
+    invoice: null,
+  });
+  const [isActionLoading, setIsActionLoading] = useState(false);
+
+  // Fetch clients and projects for filter dropdowns
+  const { clients } = useClients({ limit: 100 });
+  const { projects } = useProjects({ limit: 100 });
+
+  // Get the effective client filter (from project if selected, otherwise from client filter)
+  const effectiveClientId = useMemo(() => {
+    if (projectFilter !== "all") {
+      const project = projects.find((p) => p.id === projectFilter);
+      return project?.client_id || null;
+    }
+    return clientFilter !== "all" ? clientFilter : undefined;
+  }, [projectFilter, clientFilter, projects]);
+
+  // Fetch invoices with filters
+  const { invoices, isLoading, mutate } = useInvoices({
+    page: 1,
+    limit: 100,
+    status: statusFilter !== "all" ? statusFilter : undefined,
+    client_id: effectiveClientId || undefined,
+  });
+
+  // Mutations
+  const { deleteInvoice, markAsPaid, voidInvoice } = useInvoiceMutations();
+
+  // Calculate stats from invoices
+  const stats = useMemo(() => {
+    const outstanding = invoices.filter((inv) => inv.status === "sent" || inv.status === "overdue");
+    const overdue = invoices.filter((inv) => inv.status === "overdue");
+    const paidThisYear = invoices.filter((inv) => {
+      if (inv.status !== "paid") return false;
+      const paidYear = inv.paid_date ? new Date(inv.paid_date).getFullYear() : null;
+      return paidYear === new Date().getFullYear();
+    });
+
+    return {
+      outstanding: {
+        amount: outstanding.reduce((sum, inv) => sum + inv.total, 0),
+        count: outstanding.length,
+      },
+      overdue: {
+        amount: overdue.reduce((sum, inv) => sum + inv.total, 0),
+        count: overdue.length,
+      },
+      paidThisYear: {
+        amount: paidThisYear.reduce((sum, inv) => sum + inv.total, 0),
+        count: paidThisYear.length,
+      },
+    };
+  }, [invoices]);
 
   const handleNewInvoice = () => {
     router.push("/dashboard/invoices/new");
   };
 
-  const handleView = (invoice: Invoice) => {
+  const handleView = (invoice: InvoiceWithClient) => {
     if (invoice.status === "draft") {
       router.push(`/dashboard/invoices/${invoice.id}/edit`);
     } else {
@@ -194,29 +227,81 @@ export default function InvoicesPage() {
 
   const handleDownloadPDF = (invoiceId: string) => {
     // TODO: Generate and download PDF
-    console.log("Download PDF:", invoiceId);
+    window.open(`/api/invoices/${invoiceId}/pdf`, "_blank");
   };
 
-  const handleMarkAsPaid = (invoiceId: string) => {
-    setInvoiceList((prev) =>
-      prev.map((inv) =>
-        inv.id === invoiceId
-          ? { ...inv, status: "paid" as InvoiceStatus, paidDate: "Jan 22, 2026" }
-          : inv
-      )
-    );
+  const handleMarkAsPaid = async (invoice: InvoiceWithClient) => {
+    setIsActionLoading(true);
+    try {
+      await markAsPaid(invoice.id);
+      toastManager.add({
+        type: "success",
+        title: "Invoice marked as paid",
+      });
+      mutate();
+    } catch (error) {
+      console.error("Failed to mark invoice as paid:", error);
+      toastManager.add({
+        type: "error",
+        title: "Failed to mark invoice as paid",
+      });
+    } finally {
+      setIsActionLoading(false);
+    }
   };
 
-  const handleVoid = (invoiceId: string) => {
-    setInvoiceList((prev) =>
-      prev.map((inv) =>
-        inv.id === invoiceId ? { ...inv, status: "void" as InvoiceStatus } : inv
-      )
-    );
+  const handleVoidClick = (invoice: InvoiceWithClient) => {
+    setVoidConfirm({ open: true, invoice });
   };
 
-  const handleDelete = (invoiceId: string) => {
-    setInvoiceList((prev) => prev.filter((inv) => inv.id !== invoiceId));
+  const handleVoidConfirm = async () => {
+    if (!voidConfirm.invoice) return;
+
+    setIsActionLoading(true);
+    try {
+      await voidInvoice(voidConfirm.invoice.id);
+      toastManager.add({
+        type: "success",
+        title: "Invoice voided",
+      });
+      mutate();
+      setVoidConfirm({ open: false, invoice: null });
+    } catch (error) {
+      console.error("Failed to void invoice:", error);
+      toastManager.add({
+        type: "error",
+        title: "Failed to void invoice",
+      });
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
+
+  const handleDeleteClick = (invoice: InvoiceWithClient) => {
+    setDeleteConfirm({ open: true, invoice });
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteConfirm.invoice) return;
+
+    setIsActionLoading(true);
+    try {
+      await deleteInvoice(deleteConfirm.invoice.id);
+      toastManager.add({
+        type: "success",
+        title: "Invoice deleted",
+      });
+      mutate();
+      setDeleteConfirm({ open: false, invoice: null });
+    } catch (error) {
+      console.error("Failed to delete invoice:", error);
+      toastManager.add({
+        type: "error",
+        title: "Failed to delete invoice",
+      });
+    } finally {
+      setIsActionLoading(false);
+    }
   };
 
   return (
@@ -239,16 +324,22 @@ export default function InvoicesPage() {
           title="Outstanding"
           amount={stats.outstanding.amount}
           count={stats.outstanding.count}
+          currency={defaultCurrency}
+          isLoading={isLoading}
         />
         <StatCard
           title="Overdue"
           amount={stats.overdue.amount}
           count={stats.overdue.count}
+          currency={defaultCurrency}
+          isLoading={isLoading}
         />
         <StatCard
           title="Paid (this year)"
           amount={stats.paidThisYear.amount}
           count={stats.paidThisYear.count}
+          currency={defaultCurrency}
+          isLoading={isLoading}
         />
       </div>
 
@@ -256,9 +347,18 @@ export default function InvoicesPage() {
       <Card>
         <CardContent className="flex flex-wrap items-center gap-3 py-4">
           <span className="text-sm text-muted-foreground">Filter:</span>
-          <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value || "all")}>
+          <Select value={statusFilter} onValueChange={(value) => setStatusFilter((value || "all") as "all" | InvoiceStatus)}>
             <SelectTrigger className="w-36">
-              <SelectValue />
+              <SelectValue>
+                {{
+                  all: "All Statuses",
+                  draft: "Draft",
+                  sent: "Sent",
+                  paid: "Paid",
+                  overdue: "Overdue",
+                  void: "Void",
+                }[statusFilter] || "All Statuses"}
+              </SelectValue>
             </SelectTrigger>
             <SelectPopup>
               <SelectItem value="all">All Statuses</SelectItem>
@@ -270,15 +370,57 @@ export default function InvoicesPage() {
             </SelectPopup>
           </Select>
 
-          <Select value={clientFilter} onValueChange={(value) => setClientFilter(value || "all")}>
+          <Select
+            value={clientFilter}
+            onValueChange={(value) => {
+              setClientFilter(value || "all");
+              // Reset project filter when client changes
+              if (value !== "all") {
+                setProjectFilter("all");
+              }
+            }}
+          >
             <SelectTrigger className="w-40">
-              <SelectValue />
+              <SelectValue>
+                {clientFilter === "all"
+                  ? "All Clients"
+                  : clients.find((c) => c.id === clientFilter)?.name || "All Clients"}
+              </SelectValue>
             </SelectTrigger>
             <SelectPopup>
               <SelectItem value="all">All Clients</SelectItem>
-              <SelectItem value="ClientName Inc.">ClientName Inc.</SelectItem>
-              <SelectItem value="StartupXYZ">StartupXYZ</SelectItem>
-              <SelectItem value="Legacy Corp">Legacy Corp</SelectItem>
+              {clients.map((client) => (
+                <SelectItem key={client.id} value={client.id}>
+                  {client.name}
+                </SelectItem>
+              ))}
+            </SelectPopup>
+          </Select>
+
+          <Select
+            value={projectFilter}
+            onValueChange={(value) => {
+              setProjectFilter(value || "all");
+              // When a project is selected, reset the client filter since project determines client
+              if (value !== "all") {
+                setClientFilter("all");
+              }
+            }}
+          >
+            <SelectTrigger className="w-40">
+              <SelectValue>
+                {projectFilter === "all"
+                  ? "All Projects"
+                  : projects.find((p) => p.id === projectFilter)?.name || "All Projects"}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectPopup>
+              <SelectItem value="all">All Projects</SelectItem>
+              {projects.map((project) => (
+                <SelectItem key={project.id} value={project.id}>
+                  {project.name}
+                </SelectItem>
+              ))}
             </SelectPopup>
           </Select>
         </CardContent>
@@ -287,12 +429,16 @@ export default function InvoicesPage() {
       {/* Invoice List */}
       <Card>
         <CardContent className="divide-y p-0">
-          {filteredInvoices.length === 0 ? (
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="size-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : invoices.length === 0 ? (
             <div className="p-8 text-center text-muted-foreground">
               No invoices found. Create your first invoice to get started.
             </div>
           ) : (
-            filteredInvoices.map((invoice) => (
+            invoices.map((invoice) => (
               <div
                 key={invoice.id}
                 className={cn(
@@ -304,16 +450,16 @@ export default function InvoicesPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                     <span className="font-medium font-mono text-sm">
-                      {invoice.number}
+                      {invoice.invoice_number}
                     </span>
-                    <span className="text-sm">{invoice.client}</span>
+                    <span className="text-sm">{invoice.client.name}</span>
                   </div>
                   <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                    <span>{invoice.issueDate}</span>
+                    <span>{formatDate(invoice.issue_date)}</span>
                     <span>
-                      {invoice.status === "paid" && invoice.paidDate
-                        ? `Paid: ${invoice.paidDate}`
-                        : `Due: ${invoice.dueDate}`}
+                      {invoice.status === "paid" && invoice.paid_date
+                        ? `Paid: ${formatDate(invoice.paid_date)}`
+                        : `Due: ${formatDate(invoice.due_date)}`}
                     </span>
                   </div>
                 </div>
@@ -330,10 +476,7 @@ export default function InvoicesPage() {
 
                 {/* Amount */}
                 <span className="w-24 text-right font-medium tabular-nums">
-                  ${invoice.amount.toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
+                  {formatCurrency(invoice.total, invoice.currency)}
                 </span>
 
                 {/* Actions Menu */}
@@ -355,13 +498,14 @@ export default function InvoicesPage() {
                         </>
                       )}
                     </MenuItem>
-                    <MenuItem onClick={() => handleDownloadPDF(invoice.id)}>
-                      <Download className="size-4" />
-                      Download PDF
-                    </MenuItem>
-                    {(invoice.status === "sent" ||
-                      invoice.status === "overdue") && (
-                      <MenuItem onClick={() => handleMarkAsPaid(invoice.id)}>
+                    {invoice.status !== "draft" && (
+                      <MenuItem onClick={() => handleDownloadPDF(invoice.id)}>
+                        <Download className="size-4" />
+                        Download PDF
+                      </MenuItem>
+                    )}
+                    {(invoice.status === "sent" || invoice.status === "overdue") && (
+                      <MenuItem onClick={() => handleMarkAsPaid(invoice)} disabled={isActionLoading}>
                         <CheckCircle className="size-4" />
                         Mark as Paid
                       </MenuItem>
@@ -369,7 +513,7 @@ export default function InvoicesPage() {
                     {invoice.status !== "paid" && invoice.status !== "void" && (
                       <>
                         <MenuSeparator />
-                        <MenuItem onClick={() => handleVoid(invoice.id)}>
+                        <MenuItem onClick={() => handleVoidClick(invoice)} disabled={isActionLoading}>
                           <XCircle className="size-4" />
                           Void
                         </MenuItem>
@@ -378,7 +522,8 @@ export default function InvoicesPage() {
                     {invoice.status === "draft" && (
                       <MenuItem
                         variant="destructive"
-                        onClick={() => handleDelete(invoice.id)}
+                        onClick={() => handleDeleteClick(invoice)}
+                        disabled={isActionLoading}
                       >
                         <Trash2 className="size-4" />
                         Delete
@@ -391,6 +536,96 @@ export default function InvoicesPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirm.open} onOpenChange={(open) => setDeleteConfirm({ open, invoice: open ? deleteConfirm.invoice : null })}>
+        <DialogPopup>
+          <DialogHeader>
+            <DialogTitle>Delete Invoice</DialogTitle>
+          </DialogHeader>
+          <DialogPanel>
+            <p className="text-sm text-muted-foreground">
+              Are you sure you want to delete this invoice? This action cannot be undone.
+            </p>
+            {deleteConfirm.invoice && (
+              <div className="mt-3 rounded-lg bg-muted p-3">
+                <p className="font-medium font-mono">{deleteConfirm.invoice.invoice_number}</p>
+                <p className="text-sm text-muted-foreground">
+                  {deleteConfirm.invoice.client.name} • {formatCurrency(deleteConfirm.invoice.total, deleteConfirm.invoice.currency)}
+                </p>
+              </div>
+            )}
+          </DialogPanel>
+          <DialogFooter variant="bare">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteConfirm({ open: false, invoice: null })}
+              disabled={isActionLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteConfirm}
+              disabled={isActionLoading}
+            >
+              {isActionLoading ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogPopup>
+      </Dialog>
+
+      {/* Void Confirmation Dialog */}
+      <Dialog open={voidConfirm.open} onOpenChange={(open) => setVoidConfirm({ open, invoice: open ? voidConfirm.invoice : null })}>
+        <DialogPopup>
+          <DialogHeader>
+            <DialogTitle>Void Invoice</DialogTitle>
+          </DialogHeader>
+          <DialogPanel>
+            <p className="text-sm text-muted-foreground">
+              Are you sure you want to void this invoice? This will mark it as cancelled and cannot be undone.
+            </p>
+            {voidConfirm.invoice && (
+              <div className="mt-3 rounded-lg bg-muted p-3">
+                <p className="font-medium font-mono">{voidConfirm.invoice.invoice_number}</p>
+                <p className="text-sm text-muted-foreground">
+                  {voidConfirm.invoice.client.name} • {formatCurrency(voidConfirm.invoice.total, voidConfirm.invoice.currency)}
+                </p>
+              </div>
+            )}
+          </DialogPanel>
+          <DialogFooter variant="bare">
+            <Button
+              variant="outline"
+              onClick={() => setVoidConfirm({ open: false, invoice: null })}
+              disabled={isActionLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleVoidConfirm}
+              disabled={isActionLoading}
+            >
+              {isActionLoading ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Voiding...
+                </>
+              ) : (
+                "Void Invoice"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogPopup>
+      </Dialog>
     </div>
   );
 }

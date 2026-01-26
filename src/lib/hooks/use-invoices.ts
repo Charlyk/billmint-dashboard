@@ -2,22 +2,20 @@
 
 import useSWR from 'swr'
 import { invoicesApi } from '@/lib/api'
-import { useAuthContext } from '@/contexts'
 import type { InvoiceListResponse, InvoiceWithDetails } from '@/types'
 import type { InvoicesQuery } from '@/lib/utils/validation'
 
 export function useInvoices(options?: InvoicesQuery) {
-  const { isAuthenticated, isLoading: authLoading } = useAuthContext()
-
   const { data, error, isLoading, mutate } = useSWR<InvoiceListResponse>(
-    isAuthenticated ? ['invoices', options] : null,
-    () => invoicesApi.listInvoices(options)
+    ['invoices', options],
+    () => invoicesApi.listInvoices(options),
+    { revalidateOnMount: true, dedupingInterval: 0 }
   )
 
   return {
     invoices: data?.data || [],
     pagination: data?.pagination,
-    isLoading: authLoading || isLoading,
+    isLoading,
     isError: !!error,
     error,
     mutate,
@@ -25,10 +23,8 @@ export function useInvoices(options?: InvoicesQuery) {
 }
 
 export function useInvoice(id: string | null) {
-  const { isAuthenticated, isLoading: authLoading } = useAuthContext()
-
   const { data, error, isLoading, mutate } = useSWR<InvoiceWithDetails>(
-    isAuthenticated && id ? ['invoice', id] : null,
+    id ? ['invoice', id] : null,
     () =>
       id
         ? invoicesApi.getInvoice(id)
@@ -37,7 +33,7 @@ export function useInvoice(id: string | null) {
 
   return {
     invoice: data,
-    isLoading: authLoading || isLoading,
+    isLoading,
     isError: !!error,
     error,
     mutate,

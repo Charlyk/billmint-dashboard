@@ -25,22 +25,22 @@ This checklist covers everything needed before launching BillMint to real users.
 - [x] **[MUST]** Create manual entry
 - [x] **[MUST]** Edit entry (description, project, duration, billable)
 - [x] **[MUST]** Delete entry
-- [ ] **[MUST]** Filter by date range
-- [ ] **[NICE]** Filter by project/client
-- [ ] **[NICE]** Duplicate entry
-- [ ] **[NICE]** Bulk actions
+- [x] **[MUST]** Filter by date range
+- [x] **[NICE]** Filter by project/client
+- [x] **[NICE]** Duplicate entry
+- [x] **[NICE]** Bulk actions
 
 ### Projects
-- [ ] **[MUST]** Create project (name, client, rate, currency, color)
-- [ ] **[MUST]** Edit project
-- [ ] **[MUST]** Archive project
-- [ ] **[MUST]** Rate inheritance (project → profile default)
+- [x] **[MUST]** Create project (name, client, rate, currency, color)
+- [x] **[MUST]** Edit project
+- [x] **[MUST]** Archive project
+- [x] **[MUST]** Rate inheritance (project → profile default)
 - [ ] **[NICE]** Delete project (with entries check)
 
 ### Clients
-- [ ] **[MUST]** Create client (name, email, address)
-- [ ] **[MUST]** Edit client
-- [ ] **[MUST]** Archive client
+- [x] **[MUST]** Create client (name, email, address)
+- [x] **[MUST]** Edit client
+- [x] **[MUST]** Archive client
 - [ ] **[NICE]** Delete client (with projects/invoices check)
 
 ### Invoices
@@ -57,36 +57,36 @@ This checklist covers everything needed before launching BillMint to real users.
 - [ ] **[NICE]** Duplicate invoice
 
 ### Dashboard
-- [ ] **[MUST]** Today's time + earnings
-- [ ] **[MUST]** This week's time + earnings
-- [ ] **[MUST]** Unbilled amount
-- [ ] **[MUST]** Recent entries list
+- [x] **[MUST]** Today's time + earnings
+- [x] **[MUST]** This week's time + earnings
+- [x] **[MUST]** Unbilled amount
+- [x] **[MUST]** Recent entries list
 - [ ] **[NICE]** Overdue invoices alert
 
 ### Settings
 - [ ] **[MUST]** Update profile (name)
-- [ ] **[MUST]** Set default hourly rate
-- [ ] **[MUST]** Set default currency
+- [x] **[MUST]** Set default hourly rate
+- [x] **[MUST]** Set default currency
 - [ ] **[MUST]** Set timezone
-- [ ] **[NICE]** Auto-pause timer setting
-- [ ] **[NICE]** Delete account
+- [x] **[NICE]** Auto-pause timer setting
+- [x] **[NICE]** Delete account
 
 ---
 
 ## 2. Authentication & Authorization
 
 ### Auth
-- [ ] **[MUST]** Sign up with email/password
-- [ ] **[MUST]** Login
+- [x] **[MUST]** Sign up with email/password
+- [x] **[MUST]** Login
 - [ ] **[MUST]** Logout
-- [ ] **[MUST]** Password reset flow
+- [x] **[MUST]** Password reset flow
 - [ ] **[NICE]** Google OAuth
 - [ ] **[NICE]** Email verification
 
 ### Authorization
-- [ ] **[MUST]** Users can only see their own data
-- [ ] **[MUST]** RLS policies on all tables
-- [ ] **[MUST]** API routes check user ownership
+- [x] **[MUST]** Users can only see their own data
+- [x] **[MUST]** RLS policies on all tables
+- [x] **[MUST]** API routes check user ownership
 - [ ] **[MUST]** Public invoice route validates token (not user)
 
 ---

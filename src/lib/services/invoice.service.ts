@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { requireAuth, requirePaidUser } from './auth.service'
+import { requireAuth } from './auth.service'
 import { NotFoundError, ValidationError } from '@/lib/utils/errors'
 import type { Invoice } from '@/types/database'
 import type {
@@ -28,15 +28,13 @@ function getResend(): Resend {
 export async function listInvoices(
   options?: InvoicesQuery
 ): Promise<InvoiceListResponse> {
-  await requirePaidUser()
   const currentUser = await requireAuth()
   const supabase = await createClient()
 
   const page = options?.page || 1
   const limit = options?.limit || 20
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase.rpc as any)('list_invoices', {
+  const params = {
     p_user_id: currentUser.id,
     p_page: page,
     p_limit: limit,
@@ -44,13 +42,17 @@ export async function listInvoices(
     p_status: options?.status || null,
     p_start_date: options?.start_date || null,
     p_end_date: options?.end_date || null,
-  }) as { data: InvoiceListResponse | null; error: Error | null }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)('list_invoices', params)
 
   if (error) {
-    console.error('[Invoice] list_invoices RPC error:', error)
+    console.error('[Invoice] list_invoices RPC error:', error.message, error.details, error.hint)
     throw new ValidationError('Failed to fetch invoices')
   }
 
+  // RPC returns the result directly as JSON
   return data || {
     data: [],
     pagination: { page, limit, total: 0, totalPages: 0 },
@@ -58,7 +60,6 @@ export async function listInvoices(
 }
 
 export async function getInvoiceById(id: string): Promise<InvoiceWithDetails> {
-  await requirePaidUser()
   const currentUser = await requireAuth()
   const supabase = await createClient()
 
@@ -94,7 +95,6 @@ export async function createInvoice(input: {
   discount_amount?: number
   line_items: InvoiceLineItemInput[]
 }): Promise<InvoiceWithDetails> {
-  await requirePaidUser()
   const currentUser = await requireAuth()
   const supabase = await createClient()
 
@@ -109,7 +109,7 @@ export async function createInvoice(input: {
     p_terms: input.terms || null,
     p_tax_rate: input.tax_rate || 0,
     p_discount_amount: input.discount_amount || 0,
-    p_line_items: JSON.stringify(input.line_items),
+    p_line_items: input.line_items,
   }) as { data: InvoiceWithDetails | null; error: Error | null }
 
   if (error) {
@@ -137,7 +137,6 @@ export async function updateInvoice(
     line_items?: InvoiceLineItemInput[]
   }
 ): Promise<InvoiceWithDetails> {
-  await requirePaidUser()
   const currentUser = await requireAuth()
   const supabase = await createClient()
 
@@ -152,7 +151,7 @@ export async function updateInvoice(
     p_terms: input.terms || null,
     p_tax_rate: input.tax_rate ?? null,
     p_discount_amount: input.discount_amount ?? null,
-    p_line_items: input.line_items ? JSON.stringify(input.line_items) : null,
+    p_line_items: input.line_items || null,
   }) as { data: InvoiceWithDetails | null; error: { message: string } | null }
 
   if (error) {
@@ -174,7 +173,6 @@ export async function updateInvoice(
 }
 
 export async function deleteInvoice(id: string): Promise<void> {
-  await requirePaidUser()
   const currentUser = await requireAuth()
   const supabase = await createClient()
 
@@ -217,7 +215,6 @@ interface InvoiceEmailData {
 }
 
 export async function sendInvoice(id: string): Promise<Invoice> {
-  await requirePaidUser()
   const currentUser = await requireAuth()
   const supabase = await createClient()
 
@@ -283,7 +280,6 @@ export async function sendInvoice(id: string): Promise<Invoice> {
 }
 
 export async function sendReminder(id: string): Promise<Invoice> {
-  await requirePaidUser()
   const currentUser = await requireAuth()
   const supabase = await createClient()
 
@@ -352,7 +348,6 @@ export async function sendReminder(id: string): Promise<Invoice> {
 }
 
 export async function markInvoiceAsPaid(id: string): Promise<Invoice> {
-  await requirePaidUser()
   const currentUser = await requireAuth()
   const supabase = await createClient()
 
@@ -382,7 +377,6 @@ export async function markInvoiceAsPaid(id: string): Promise<Invoice> {
 }
 
 export async function voidInvoice(id: string): Promise<Invoice> {
-  await requirePaidUser()
   const currentUser = await requireAuth()
   const supabase = await createClient()
 

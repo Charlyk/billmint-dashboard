@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -41,11 +42,13 @@ import {
   Calendar,
   ChevronDown,
   Filter,
+  X,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTab, TabsPanel } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleTrigger, CollapsiblePanel } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { useTimeEntries, useTimeEntryMutations, useProjects, useClients } from "@/lib/hooks";
+import { bulkTimeEntryAction } from "@/lib/api/time-entries";
 import { useUserSettings } from "@/contexts/user-settings-context";
 import {
   formatDurationHuman,
@@ -208,9 +211,15 @@ const defaultFormData: EntryFormData = {
 export default function TimeEntriesPage() {
   const { settings } = useUserSettings();
   const defaultCurrency = settings?.default_currency ?? "USD";
+  const searchParams = useSearchParams();
 
-  const [dateRange, setDateRange] = useState("last-7-days");
-  const [projectFilter, setProjectFilter] = useState("all");
+  // Initialize filters from URL params
+  const initialProjectFilter = searchParams.get("project") || "all";
+  // When coming from a project link, show all time entries for that project
+  const initialDateRange = initialProjectFilter !== "all" ? "all" : "last-7-days";
+
+  const [dateRange, setDateRange] = useState(initialDateRange);
+  const [projectFilter, setProjectFilter] = useState(initialProjectFilter);
   const [clientFilter, setClientFilter] = useState("all");
   const [billableFilter, setBillableFilter] = useState("all");
   const [invoicedFilter, setInvoicedFilter] = useState("all");
@@ -224,6 +233,11 @@ export default function TimeEntriesPage() {
     open: false,
     entry: null,
   });
+
+  // Bulk selection state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
+  const [isBulkActionLoading, setIsBulkActionLoading] = useState(false);
 
   // Custom date range state (applied values)
   const [customStartDate, setCustomStartDate] = useState("");
@@ -291,9 +305,10 @@ export default function TimeEntriesPage() {
     }
   }, [entries, page, isLoading]);
 
-  // Reset to page 1 when filters change
+  // Reset to page 1 and clear selection when filters change
   useEffect(() => {
     setPage(1);
+    setSelectedIds(new Set());
   }, [dateRange, projectFilter, clientFilter, billableFilter, invoicedFilter, debouncedSearch, customStartDate, customEndDate]);
 
   // Fetch projects and clients for filter dropdowns
@@ -305,6 +320,100 @@ export default function TimeEntriesPage() {
 
   // Group entries by date
   const groupedEntries = useMemo(() => groupEntriesByDate(allEntries), [allEntries]);
+
+  // Get selectable entries (non-invoiced only)
+  const selectableEntries = useMemo(
+    () => allEntries.filter((e) => !e.invoice_id),
+    [allEntries]
+  );
+
+  // Select all state
+  const allSelected = selectableEntries.length > 0 && selectableEntries.every((e) => selectedIds.has(e.id));
+  const someSelected = selectableEntries.some((e) => selectedIds.has(e.id)) && !allSelected;
+
+  const handleSelectAll = () => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(selectableEntries.map((e) => e.id)));
+    }
+  };
+
+  const handleSelectEntry = (entryId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(entryId)) {
+        next.delete(entryId);
+      } else {
+        next.add(entryId);
+      }
+      return next;
+    });
+  };
+
+  const handleBulkAction = async (action: 'delete' | 'mark-billable' | 'mark-non-billable') => {
+    if (selectedIds.size === 0 || isBulkActionLoading) return;
+
+    if (action === 'delete') {
+      setBulkDeleteConfirm(true);
+      return;
+    }
+
+    setIsBulkActionLoading(true);
+    try {
+      const result = await bulkTimeEntryAction(action, Array.from(selectedIds));
+      toastManager.add({
+        type: "success",
+        title: action === 'mark-billable' ? "Marked as billable" : "Marked as non-billable",
+        description: `${result.affected_count} entries updated`,
+      });
+      setSelectedIds(new Set());
+      setPage(1);
+      mutate();
+    } catch (error) {
+      console.error("Bulk action failed:", error);
+      toastManager.add({
+        type: "error",
+        title: "Action failed",
+        description: "Failed to update entries",
+      });
+    } finally {
+      setIsBulkActionLoading(false);
+    }
+  };
+
+  const handleBulkDeleteConfirm = async () => {
+    if (selectedIds.size === 0 || isBulkActionLoading) return;
+
+    setIsBulkActionLoading(true);
+    try {
+      const result = await bulkTimeEntryAction('delete', Array.from(selectedIds));
+      toastManager.add({
+        type: "success",
+        title: "Entries deleted",
+        description: `${result.affected_count} entries deleted`,
+      });
+      setSelectedIds(new Set());
+      setBulkDeleteConfirm(false);
+      setPage(1);
+      mutate();
+    } catch (error) {
+      console.error("Bulk delete failed:", error);
+      toastManager.add({
+        type: "error",
+        title: "Delete failed",
+        description: "Failed to delete entries",
+      });
+    } finally {
+      setIsBulkActionLoading(false);
+    }
+  };
+
+  // Get selected entries for preview in bulk delete dialog
+  const selectedEntries = useMemo(
+    () => allEntries.filter((e) => selectedIds.has(e.id)),
+    [allEntries, selectedIds]
+  );
 
   // Calculate summary
   const summary = useMemo(() => {
@@ -512,6 +621,7 @@ export default function TimeEntriesPage() {
                       {dateRange === "custom" && customStartDate && customEndDate
                         ? `${new Date(customStartDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })} - ${new Date(customEndDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
                         : {
+                            "all": "All time",
                             "today": "Today",
                             "yesterday": "Yesterday",
                             "last-7-days": "Last 7 days",
@@ -523,6 +633,7 @@ export default function TimeEntriesPage() {
                     </SelectValue>
                   </SelectTrigger>
                   <SelectPopup>
+                    <SelectItem value="all">All time</SelectItem>
                     <SelectItem value="today">Today</SelectItem>
                     <SelectItem value="yesterday">Yesterday</SelectItem>
                     <SelectItem value="last-7-days">Last 7 days</SelectItem>
@@ -628,6 +739,58 @@ export default function TimeEntriesPage() {
         </Collapsible>
       </Card>
 
+      {/* Bulk Action Toolbar */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 rounded-lg border bg-muted/50 px-4 py-3">
+          <Checkbox
+            checked={allSelected}
+            indeterminate={someSelected}
+            onCheckedChange={handleSelectAll}
+          />
+          <span className="text-sm font-medium">
+            {selectedIds.size} selected
+          </span>
+          <div className="flex-1" />
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleBulkAction('mark-billable')}
+              disabled={isBulkActionLoading}
+            >
+              <DollarSign className="mr-1 size-4" />
+              Mark Billable
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleBulkAction('mark-non-billable')}
+              disabled={isBulkActionLoading}
+            >
+              <Minus className="mr-1 size-4" />
+              Mark Non-billable
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => handleBulkAction('delete')}
+              disabled={isBulkActionLoading}
+            >
+              <Trash2 className="mr-1 size-4" />
+              Delete
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setSelectedIds(new Set())}
+              disabled={isBulkActionLoading}
+            >
+              <X className="size-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Entries List */}
       <Card>
         <CardContent className="p-0">
@@ -658,6 +821,17 @@ export default function TimeEntriesPage() {
                       key={entry.id}
                       className="flex items-center gap-3 px-4 py-3 hover:bg-accent/30"
                     >
+                      {/* Selection checkbox (only for non-invoiced entries) */}
+                      {!entry.invoice_id ? (
+                        <Checkbox
+                          checked={selectedIds.has(entry.id)}
+                          onCheckedChange={() => handleSelectEntry(entry.id)}
+                          className="shrink-0"
+                        />
+                      ) : (
+                        <div className="size-4 shrink-0" />
+                      )}
+
                       {/* Color dot */}
                       <span
                         className="size-2.5 rounded-full shrink-0"
@@ -986,6 +1160,63 @@ export default function TimeEntriesPage() {
               className="bg-teal-500 hover:!bg-teal-600 border-teal-500"
             >
               Apply
+            </Button>
+          </DialogFooter>
+        </DialogPopup>
+      </Dialog>
+
+      {/* Bulk Delete Confirmation Modal */}
+      <Dialog open={bulkDeleteConfirm} onOpenChange={setBulkDeleteConfirm}>
+        <DialogPopup>
+          <DialogHeader>
+            <DialogTitle>Delete {selectedIds.size} Time Entries</DialogTitle>
+          </DialogHeader>
+          <DialogPanel>
+            <p className="text-sm text-muted-foreground">
+              Are you sure you want to delete these entries? This action cannot be undone.
+            </p>
+            {selectedEntries.length > 0 && (
+              <div className="mt-3 max-h-48 overflow-y-auto rounded-lg bg-muted p-3 space-y-2">
+                {selectedEntries.slice(0, 5).map((entry) => (
+                  <div key={entry.id} className="text-sm">
+                    <p className="font-medium truncate">
+                      {entry.description || <span className="italic text-muted-foreground">No description</span>}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatDurationHuman(entry.duration_seconds)}
+                      {entry.project?.name && ` • ${entry.project.name}`}
+                    </p>
+                  </div>
+                ))}
+                {selectedEntries.length > 5 && (
+                  <p className="text-xs text-muted-foreground">
+                    ...and {selectedEntries.length - 5} more entries
+                  </p>
+                )}
+              </div>
+            )}
+          </DialogPanel>
+          <DialogFooter variant="bare">
+            <Button
+              variant="outline"
+              onClick={() => setBulkDeleteConfirm(false)}
+              disabled={isBulkActionLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleBulkDeleteConfirm}
+              disabled={isBulkActionLoading}
+            >
+              {isBulkActionLoading ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                `Delete ${selectedIds.size} Entries`
+              )}
             </Button>
           </DialogFooter>
         </DialogPopup>
