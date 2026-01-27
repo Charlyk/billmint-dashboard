@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, use } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { ArrowLeft, Plus, X, Clock, Loader2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
-import { useClients, useUnbilledTimeEntries, useInvoiceMutations } from "@/lib/hooks";
+import { useClients, useUnbilledTimeEntries, useInvoiceMutations, useInvoice } from "@/lib/hooks";
 import { useUserSettings } from "@/contexts/user-settings-context";
 import { toastManager } from "@/components/ui/toast";
 import { formatCurrency, currencyLocales } from "@/lib/utils/currency";
@@ -43,14 +43,9 @@ interface LineItem {
   time_entry_id?: string | null;
 }
 
-function formatDate(date: Date) {
-  return date.toISOString().split("T")[0];
-}
-
-function addDays(date: Date, days: number) {
-  const result = new Date(date);
-  result.setDate(result.getDate() + days);
-  return result;
+function formatDate(date: Date | string) {
+  const d = typeof date === "string" ? new Date(date) : date;
+  return d.toISOString().split("T")[0];
 }
 
 function formatDuration(seconds: number): string {
@@ -60,7 +55,6 @@ function formatDuration(seconds: number): string {
 
 const supportedCurrencies = Object.keys(currencyLocales);
 
-// Currency symbols for display
 const currencySymbols: Record<string, string> = {
   USD: "$",
   EUR: "€",
@@ -84,16 +78,19 @@ const currencySymbols: Record<string, string> = {
   AED: "د.إ",
 };
 
-export default function NewInvoicePage() {
+export default function EditInvoicePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const router = useRouter();
-  const today = new Date();
   const { settings, isLoading: settingsLoading } = useUserSettings();
+
+  // Fetch existing invoice
+  const { invoice, isLoading: invoiceLoading } = useInvoice(id);
 
   // Form state
   const [clientId, setClientId] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
-  const [issueDate, setIssueDate] = useState(formatDate(today));
-  const [dueDate, setDueDate] = useState(formatDate(addDays(today, 15)));
+  const [issueDate, setIssueDate] = useState("");
+  const [dueDate, setDueDate] = useState("");
   const [notes, setNotes] = useState("");
   const [terms, setTerms] = useState("");
   const [taxRate, setTaxRate] = useState(0);
@@ -104,37 +101,52 @@ export default function NewInvoicePage() {
   const [selectedEntries, setSelectedEntries] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isCurrencyModalOpen, setIsCurrencyModalOpen] = useState(false);
+  const [initialized, setInitialized] = useState(false);
 
   // Fetch data
   const { clients, isLoading: clientsLoading } = useClients({ limit: 100 });
   const { entries: unbilledEntries, isLoading: entriesLoading } = useUnbilledTimeEntries(
     clientId || undefined
   );
-  const { createInvoice, sendInvoice } = useInvoiceMutations();
+  const { updateInvoice, sendInvoice } = useInvoiceMutations();
 
-  // Initialize defaults from user settings
+  // Initialize form with invoice data
   useEffect(() => {
-    if (settings && !settingsLoading) {
-      // Generate invoice number with prefix
-      const prefix = settings.invoice_prefix || "INV";
-      const year = new Date().getFullYear();
-      const num = Math.floor(Math.random() * 9000) + 1000;
-      setInvoiceNumber(`${prefix}-${year}-${num}`);
-
-      // Set default currency
-      if (!invoiceCurrency) {
-        setInvoiceCurrency(settings.default_currency || "USD");
-      }
-
-      // Set default notes and terms
-      if (settings.invoice_notes) {
-        setNotes(settings.invoice_notes);
-      }
-      if (settings.invoice_terms) {
-        setTerms(settings.invoice_terms);
-      }
+    if (invoice && !initialized) {
+      setClientId(invoice.client_id);
+      setInvoiceNumber(invoice.invoice_number);
+      setIssueDate(formatDate(invoice.issue_date));
+      setDueDate(formatDate(invoice.due_date));
+      setNotes(invoice.notes || "");
+      setTerms(invoice.terms || "");
+      setTaxRate(invoice.tax_rate || 0);
+      setDiscountAmount(invoice.discount_amount || 0);
+      setInvoiceCurrency(invoice.currency);
+      setLineItems(
+        invoice.line_items.map((item) => ({
+          id: item.id,
+          description: item.description,
+          quantity: item.quantity,
+          rate: item.unit_price,
+          amount: item.amount,
+          time_entry_id: item.time_entry_id,
+        }))
+      );
+      setInitialized(true);
     }
-  }, [settings, settingsLoading, invoiceCurrency]);
+  }, [invoice, initialized]);
+
+  // Redirect if invoice is not a draft
+  useEffect(() => {
+    if (invoice && invoice.status !== "draft") {
+      toastManager.add({
+        type: "error",
+        title: "Cannot edit invoice",
+        description: "Only draft invoices can be edited",
+      });
+      router.push("/dashboard/invoices");
+    }
+  }, [invoice, router]);
 
   // Get the selected client
   const selectedClient = useMemo(
@@ -186,6 +198,45 @@ export default function NewInvoicePage() {
 
   const handleRemoveLineItem = (id: string) => {
     setLineItems((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  // Group entries by project
+  const entriesByProject = useMemo(() => {
+    const grouped: Record<string, { project: { id: string; name: string; currency: string } | null; entries: typeof unbilledEntries }> = {};
+    unbilledEntries.forEach((entry) => {
+      const projectId = entry.project?.id || "no-project";
+      if (!grouped[projectId]) {
+        grouped[projectId] = {
+          project: entry.project ? { id: entry.project.id, name: entry.project.name, currency: entry.project.currency || "USD" } : null,
+          entries: [],
+        };
+      }
+      grouped[projectId].entries.push(entry);
+    });
+    return grouped;
+  }, [unbilledEntries]);
+
+  // Check if there are already line items (imported or manual)
+  const hasLineItems = lineItems.length > 0;
+
+  // For edit page, always use the invoice's existing currency as the constraint
+  // since the invoice already has a defined currency
+  const requiredCurrency = useMemo(() => {
+    // If invoice has line items, use its currency
+    if (hasLineItems) {
+      return invoiceCurrency || settings?.default_currency || "USD";
+    }
+    // Otherwise, check the currently selected entries in the modal
+    if (selectedEntries.length === 0) return null;
+    const firstSelectedEntry = unbilledEntries.find((e) => selectedEntries.includes(e.id));
+    return firstSelectedEntry?.project?.currency || settings?.default_currency || "USD";
+  }, [hasLineItems, invoiceCurrency, selectedEntries, unbilledEntries, settings?.default_currency]);
+
+  // Check if a project's currency matches the required currency
+  const canSelectProject = (projectId: string) => {
+    if (!requiredCurrency) return true;
+    const projectCurrency = entriesByProject[projectId]?.project?.currency || settings?.default_currency || "USD";
+    return projectCurrency === requiredCurrency;
   };
 
   const handleImportEntries = () => {
@@ -252,46 +303,6 @@ export default function NewInvoicePage() {
     }
   };
 
-  // Group entries by project
-  const entriesByProject = useMemo(() => {
-    const grouped: Record<string, { project: { id: string; name: string; currency: string } | null; entries: typeof unbilledEntries }> = {};
-    unbilledEntries.forEach((entry) => {
-      const projectId = entry.project?.id || "no-project";
-      if (!grouped[projectId]) {
-        grouped[projectId] = {
-          project: entry.project ? { id: entry.project.id, name: entry.project.name, currency: entry.project.currency || "USD" } : null,
-          entries: [],
-        };
-      }
-      grouped[projectId].entries.push(entry);
-    });
-    return grouped;
-  }, [unbilledEntries]);
-
-  // Check if there are already imported line items (have time_entry_id)
-  const hasImportedLineItems = useMemo(() => {
-    return lineItems.some((item) => item.time_entry_id);
-  }, [lineItems]);
-
-  // Get the currency constraint - either from already imported items or from current selection
-  const requiredCurrency = useMemo(() => {
-    // If we already have imported line items, use the invoice currency
-    if (hasImportedLineItems) {
-      return invoiceCurrency || settings?.default_currency || "USD";
-    }
-    // Otherwise, check the currently selected entries in the modal
-    if (selectedEntries.length === 0) return null;
-    const firstSelectedEntry = unbilledEntries.find((e) => selectedEntries.includes(e.id));
-    return firstSelectedEntry?.project?.currency || settings?.default_currency || "USD";
-  }, [hasImportedLineItems, invoiceCurrency, selectedEntries, unbilledEntries, settings?.default_currency]);
-
-  // Check if a project's currency matches the required currency
-  const canSelectProject = (projectId: string) => {
-    if (!requiredCurrency) return true;
-    const projectCurrency = entriesByProject[projectId]?.project?.currency || settings?.default_currency || "USD";
-    return projectCurrency === requiredCurrency;
-  };
-
   const toggleProjectSelection = (projectId: string) => {
     const projectEntries = entriesByProject[projectId]?.entries || [];
     const projectEntryIds = projectEntries.map((e) => e.id);
@@ -309,8 +320,7 @@ export default function NewInvoicePage() {
 
     setIsSaving(true);
     try {
-      await createInvoice({
-        client_id: clientId,
+      await updateInvoice(id, {
         invoice_number: invoiceNumber || undefined,
         issue_date: new Date(issueDate).toISOString(),
         due_date: new Date(dueDate).toISOString(),
@@ -328,14 +338,14 @@ export default function NewInvoicePage() {
 
       toastManager.add({
         type: "success",
-        title: "Invoice saved as draft",
+        title: "Invoice updated",
       });
       router.push("/dashboard/invoices");
     } catch (error) {
-      console.error("Failed to save invoice:", error);
+      console.error("Failed to update invoice:", error);
       toastManager.add({
         type: "error",
-        title: "Failed to save invoice",
+        title: "Failed to update invoice",
         description: error instanceof Error ? error.message : "An error occurred",
       });
     } finally {
@@ -357,9 +367,7 @@ export default function NewInvoicePage() {
 
     setIsSaving(true);
     try {
-      // First create the invoice
-      const invoice = await createInvoice({
-        client_id: clientId,
+      await updateInvoice(id, {
         invoice_number: invoiceNumber || undefined,
         issue_date: new Date(issueDate).toISOString(),
         due_date: new Date(dueDate).toISOString(),
@@ -375,8 +383,7 @@ export default function NewInvoicePage() {
         })),
       });
 
-      // Then send it
-      await sendInvoice(invoice.id);
+      await sendInvoice(id);
 
       toastManager.add({
         type: "success",
@@ -395,6 +402,14 @@ export default function NewInvoicePage() {
       setIsSaving(false);
     }
   };
+
+  if (invoiceLoading || !initialized) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -423,20 +438,16 @@ export default function NewInvoicePage() {
         </div>
       </div>
 
-      <h1 className="text-2xl font-semibold">New Invoice</h1>
+      <h1 className="text-2xl font-semibold">Edit Invoice</h1>
 
       {/* Invoice Details */}
       <div className="grid gap-4 sm:grid-cols-2">
         <Field>
-          <FieldLabel>Client *</FieldLabel>
-          <Select value={clientId} onValueChange={(value) => {
-              setClientId(value || "");
-              // Reset line items when client changes
-              setLineItems([]);
-            }}>
+          <FieldLabel>Client</FieldLabel>
+          <Select value={clientId} disabled>
             <SelectTrigger>
-              <SelectValue placeholder={clientsLoading ? "Loading..." : "Select client..."}>
-                {selectedClient?.name}
+              <SelectValue>
+                {selectedClient?.name || "Loading..."}
               </SelectValue>
             </SelectTrigger>
             <SelectPopup>
@@ -447,11 +458,9 @@ export default function NewInvoicePage() {
               ))}
             </SelectPopup>
           </Select>
-          {selectedClient && !selectedClient.email && (
-            <p className="mt-1 text-xs text-amber-600">
-              Warning: This client has no email address. You can save as draft but cannot send.
-            </p>
-          )}
+          <p className="mt-1 text-xs text-muted-foreground">
+            Client cannot be changed after invoice creation
+          </p>
         </Field>
 
         <Field>
@@ -460,7 +469,6 @@ export default function NewInvoicePage() {
             value={invoiceNumber}
             onChange={(e) => setInvoiceNumber(e.target.value)}
             className="font-mono"
-            placeholder="Auto-generated"
           />
         </Field>
 
@@ -711,8 +719,8 @@ export default function NewInvoicePage() {
           </DialogHeader>
           <DialogPanel>
             <p className="mb-4 text-sm text-muted-foreground">
-              {hasImportedLineItems
-                ? `Select time entries to add as line items. Only ${requiredCurrency} entries can be imported to match existing items.`
+              {hasLineItems
+                ? `Select time entries to add as line items. Only ${requiredCurrency} entries can be imported to match the invoice currency.`
                 : "Select time entries to add as line items. The invoice currency will be set to the project's currency."}
             </p>
             {entriesLoading ? (

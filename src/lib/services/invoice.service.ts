@@ -8,6 +8,7 @@ import type {
   PublicInvoiceResponse,
   InvoicesQuery,
   InvoiceLineItemInput,
+  InvoicePdfData,
 } from '@/types/api'
 import { Resend } from 'resend'
 
@@ -426,4 +427,99 @@ export async function getPublicInvoice(token: string): Promise<PublicInvoiceResp
   }
 
   return data
+}
+
+export async function getInvoicePdfData(id: string): Promise<InvoicePdfData> {
+  const currentUser = await requireAuth()
+  const supabase = await createClient()
+
+  // Get invoice with details
+  const invoice = await getInvoiceById(id)
+
+  // Get user settings
+  const { data: settings } = await supabase
+    .from('user_settings')
+    .select('date_format, default_currency')
+    .eq('user_id', currentUser.id)
+    .single()
+
+  return {
+    invoice,
+    user: {
+      full_name: currentUser.full_name,
+      company_name: currentUser.company_name,
+      email: currentUser.email,
+    },
+    settings: settings || { date_format: 'MMM d, yyyy', default_currency: 'USD' },
+  }
+}
+
+export async function getPublicInvoicePdfData(token: string): Promise<InvoicePdfData> {
+  const publicData = await getPublicInvoice(token)
+
+  return {
+    invoice: publicData.invoice,
+    user: publicData.user,
+    settings: { date_format: 'MMM d, yyyy', default_currency: publicData.invoice.currency },
+  }
+}
+
+export interface InvoiceStats {
+  outstanding: {
+    amounts: { currency: string; amount: number }[]
+    count: number
+  }
+  overdue: {
+    amounts: { currency: string; amount: number }[]
+    count: number
+  }
+  paid_this_year: {
+    amounts: { currency: string; amount: number }[]
+    count: number
+  }
+}
+
+export async function getInvoiceStats(): Promise<InvoiceStats> {
+  const currentUser = await requireAuth()
+  const supabase = await createClient()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)('get_invoice_stats', {
+    p_user_id: currentUser.id,
+  }) as { data: InvoiceStats | null; error: { message: string } | null }
+
+  if (error) {
+    throw new ValidationError('Failed to fetch invoice stats')
+  }
+
+  return data || {
+    outstanding: { amounts: [], count: 0 },
+    overdue: { amounts: [], count: 0 },
+    paid_this_year: { amounts: [], count: 0 },
+  }
+}
+
+export async function duplicateInvoice(id: string): Promise<InvoiceWithDetails> {
+  const currentUser = await requireAuth()
+
+  // Get the original invoice with details
+  const original = await getInvoiceById(id)
+
+  // Create a new invoice with the same data but as draft
+  const newInvoice = await createInvoice({
+    client_id: original.client_id,
+    due_date: original.due_date,
+    notes: original.notes || undefined,
+    terms: original.terms || undefined,
+    tax_rate: original.tax_rate || undefined,
+    discount_amount: original.discount_amount || undefined,
+    line_items: original.line_items.map((item) => ({
+      description: item.description,
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+      time_entry_ids: [], // Don't link to same time entries
+    })),
+  })
+
+  return newInvoice
 }

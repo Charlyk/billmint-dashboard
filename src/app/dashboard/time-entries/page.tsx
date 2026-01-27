@@ -60,6 +60,7 @@ import {
 } from "@/lib/utils/date";
 import { TimeRangeDisplay } from "@/components/ui/time-display";
 import { toastManager } from "@/components/ui/toast";
+import { formatCurrency } from "@/lib/utils/currency";
 import type { TimeEntryWithDetails } from "@/types";
 
 // Color map for project colors
@@ -152,39 +153,6 @@ function groupEntriesByDate(entries: TimeEntryWithDetails[]) {
 
   // Sort groups by date (newest first)
   return Array.from(groups.values()).sort((a, b) => b.date.localeCompare(a.date));
-}
-
-// Currency to locale mapping for proper symbol placement
-const currencyLocales: Record<string, string> = {
-  USD: "en-US",
-  EUR: "de-DE",
-  GBP: "en-GB",
-  CAD: "en-CA",
-  AUD: "en-AU",
-  CHF: "de-CH",
-  JPY: "ja-JP",
-  INR: "en-IN",
-  BRL: "pt-BR",
-  MXN: "es-MX",
-  PLN: "pl-PL",
-  RON: "ro-RO",
-  SEK: "sv-SE",
-  NOK: "nb-NO",
-  DKK: "da-DK",
-  NZD: "en-NZ",
-  SGD: "en-SG",
-  HKD: "zh-HK",
-  ZAR: "en-ZA",
-  AED: "ar-AE",
-};
-
-// Format currency with proper symbol placement
-function formatCurrency(amount: number, currency: string = "USD"): string {
-  const locale = currencyLocales[currency] || "en-US";
-  return new Intl.NumberFormat(locale, {
-    style: "currency",
-    currency,
-  }).format(amount);
 }
 
 type EntryModalMode = "add" | "edit";
@@ -430,13 +398,13 @@ export default function TimeEntriesPage() {
 
     // Format each currency total
     const billableStrings = Object.entries(billableByCurrency)
-      .map(([currency, amount]) => formatCurrency(amount, currency))
+      .map(([currency, amount]) => formatCurrency(amount, currency, defaultCurrency))
       .join(" + ");
 
     return {
       count: pagination?.total ?? allEntries.length,
       totalTime: formatDurationHuman(totalSeconds),
-      totalBillable: billableStrings || formatCurrency(0, defaultCurrency),
+      totalBillable: billableStrings || formatCurrency(0, defaultCurrency, defaultCurrency),
     };
   }, [allEntries, pagination, defaultCurrency]);
 
@@ -881,7 +849,7 @@ export default function TimeEntriesPage() {
                       {/* Amount */}
                       <span className="w-20 text-right text-sm font-medium tabular-nums">
                         {entry.is_billable && entry.amount
-                          ? formatCurrency(entry.amount, entry.project?.currency ?? defaultCurrency)
+                          ? formatCurrency(entry.amount, entry.project?.currency ?? defaultCurrency, defaultCurrency)
                           : "–"}
                       </span>
 

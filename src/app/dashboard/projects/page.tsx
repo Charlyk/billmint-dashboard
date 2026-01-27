@@ -42,6 +42,7 @@ import { cn } from "@/lib/utils";
 import { projectsApi, clientsApi } from "@/lib/api";
 import { useUserSettings } from "@/contexts/user-settings-context";
 import { toastManager } from "@/components/ui/toast";
+import { formatCurrency } from "@/lib/utils/currency";
 import type { ProjectWithStats, ClientWithStats } from "@/types";
 import type { CreateProjectInput } from "@/lib/utils/validation";
 
@@ -155,48 +156,10 @@ export default function ProjectsPage() {
     return colorOptions.find((c) => c.value === colorValue)?.class || "bg-slate-500";
   };
 
-  // Currency to locale mapping for proper symbol placement
-  const currencyLocales: Record<string, string> = {
-    USD: "en-US",
-    EUR: "de-DE",
-    GBP: "en-GB",
-    CAD: "en-CA",
-    AUD: "en-AU",
-    CHF: "de-CH",
-    JPY: "ja-JP",
-    INR: "en-IN",
-    BRL: "pt-BR",
-    MXN: "es-MX",
-    PLN: "pl-PL",
-    RON: "ro-RO",
-    SEK: "sv-SE",
-    NOK: "nb-NO",
-    DKK: "da-DK",
-    NZD: "en-NZ",
-    SGD: "en-SG",
-    HKD: "zh-HK",
-    ZAR: "en-ZA",
-    AED: "ar-AE",
-  };
-
-  const formatCurrency = (amount: number, currency: string) => {
-    const locale = currencyLocales[currency] || "en-US";
-    return new Intl.NumberFormat(locale, {
-      style: "currency",
-      currency,
-    }).format(amount);
-  };
-
   const formatRate = (project: ProjectWithStats) => {
     const rate = project.hourly_rate ?? profileDefaults.rate;
     const currency = project.currency ?? profileDefaults.currency;
-    const locale = currencyLocales[currency] || "en-US";
-    const formattedRate = new Intl.NumberFormat(locale, {
-      style: "currency",
-      currency,
-      maximumFractionDigits: 0,
-    }).format(rate ?? 0);
-    const rateStr = `${formattedRate}/hr`;
+    const rateStr = `${formatCurrency(rate ?? 0, currency, profileDefaults.currency)}/hr`;
     return project.hourly_rate === null ? `${rateStr} (default)` : rateStr;
   };
 
@@ -349,7 +312,7 @@ export default function ProjectsPage() {
                   <p className="mt-1 text-sm text-muted-foreground">
                     {formatRate(project)} •{" "}
                     {project.total_hours}h tracked •{" "}
-                    {formatCurrency(project.total_amount, project.currency ?? profileDefaults.currency)} total
+                    {formatCurrency(project.total_amount, project.currency ?? profileDefaults.currency, profileDefaults.currency)} total
                   </p>
                 </div>
 
@@ -501,7 +464,7 @@ export default function ProjectsPage() {
                 </Field>
               </div>
               <p className="text-xs text-muted-foreground">
-                Leave empty to use profile default (currently: {formatCurrency(profileDefaults.rate ?? 0, profileDefaults.currency)}/hr)
+                Leave empty to use profile default (currently: {formatCurrency(profileDefaults.rate ?? 0, profileDefaults.currency, profileDefaults.currency)}/hr)
               </p>
 
               <Field>

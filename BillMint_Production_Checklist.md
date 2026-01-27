@@ -44,17 +44,17 @@ This checklist covers everything needed before launching BillMint to real users.
 - [ ] **[NICE]** Delete client (with projects/invoices check)
 
 ### Invoices
-- [ ] **[MUST]** Create invoice with line items
-- [ ] **[MUST]** Import unbilled time as line items
-- [ ] **[MUST]** Auto-calculate totals
-- [ ] **[MUST]** Save as draft
+- [x] **[MUST]** Create invoice with line items
+- [x] **[MUST]** Import unbilled time as line items
+- [x] **[MUST]** Auto-calculate totals
+- [x] **[MUST]** Save as draft
 - [ ] **[MUST]** Send invoice (mark as sent)
 - [ ] **[MUST]** Public invoice view (shareable link)
-- [ ] **[MUST]** Mark as paid
-- [ ] **[MUST]** Invoice number auto-generation
-- [ ] **[NICE]** PDF download
-- [ ] **[NICE]** Void invoice
-- [ ] **[NICE]** Duplicate invoice
+- [x] **[MUST]** Mark as paid
+- [x] **[MUST]** Invoice number auto-generation
+- [x] **[NICE]** PDF download
+- [x] **[NICE]** Void invoice
+- [x] **[NICE]** Duplicate invoice
 
 ### Dashboard
 - [x] **[MUST]** Today's time + earnings

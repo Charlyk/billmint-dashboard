@@ -1,51 +1,50 @@
-export type Currency = 'USD' | 'EUR' | 'GBP' | 'CAD' | 'AUD'
+export type Currency = string
 
-const currencyConfig: Record<
-  Currency,
-  { symbol: string; locale: string; position: 'before' | 'after' }
-> = {
-  USD: { symbol: '$', locale: 'en-US', position: 'before' },
-  EUR: { symbol: '\u20AC', locale: 'de-DE', position: 'after' },
-  GBP: { symbol: '\u00A3', locale: 'en-GB', position: 'before' },
-  CAD: { symbol: 'C$', locale: 'en-CA', position: 'before' },
-  AUD: { symbol: 'A$', locale: 'en-AU', position: 'before' },
+// Currency to locale mapping for number formatting
+export const currencyLocales: Record<string, string> = {
+  USD: 'en-US',
+  EUR: 'de-DE',
+  GBP: 'en-GB',
+  CAD: 'en-CA',
+  AUD: 'en-AU',
+  CHF: 'de-CH',
+  JPY: 'ja-JP',
+  INR: 'en-IN',
+  BRL: 'pt-BR',
+  MXN: 'es-MX',
+  PLN: 'pl-PL',
+  RON: 'ro-RO',
+  SEK: 'sv-SE',
+  NOK: 'nb-NO',
+  DKK: 'da-DK',
+  NZD: 'en-NZ',
+  SGD: 'en-SG',
+  HKD: 'zh-HK',
+  ZAR: 'en-ZA',
+  AED: 'ar-AE',
+}
+
+// Get locale for a currency
+export function getLocaleForCurrency(currency: string): string {
+  return currencyLocales[currency] || 'en-US'
 }
 
 /**
- * Format amount as currency string
+ * Format amount as currency string with currency code
+ * Uses userCurrency to determine locale for decimal/thousands separators
  */
 export function formatCurrency(
   amount: number,
-  currency: Currency = 'USD'
+  currency: string = 'USD',
+  userCurrency?: string
 ): string {
-  const config = currencyConfig[currency]
-  return new Intl.NumberFormat(config.locale, {
-    style: 'currency',
-    currency: currency,
+  const locale = getLocaleForCurrency(userCurrency || currency)
+  const formatted = new Intl.NumberFormat(locale, {
+    style: 'decimal',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amount)
-}
-
-/**
- * Format amount with just the symbol (no locale formatting)
- */
-export function formatAmountWithSymbol(
-  amount: number,
-  currency: Currency = 'USD'
-): string {
-  const config = currencyConfig[currency]
-  const formatted = amount.toFixed(2)
-  return config.position === 'before'
-    ? `${config.symbol}${formatted}`
-    : `${formatted}${config.symbol}`
-}
-
-/**
- * Get currency symbol
- */
-export function getCurrencySymbol(currency: Currency = 'USD'): string {
-  return currencyConfig[currency].symbol
+  return `${formatted} ${currency}`
 }
 
 /**
@@ -102,12 +101,27 @@ export function parseCurrencyString(value: string): number {
 /**
  * Get list of supported currencies with labels
  */
-export function getCurrencies(): Array<{ value: Currency; label: string }> {
+export function getCurrencies(): Array<{ value: string; label: string }> {
   return [
-    { value: 'USD', label: 'USD ($)' },
-    { value: 'EUR', label: 'EUR (\u20AC)' },
-    { value: 'GBP', label: 'GBP (\u00A3)' },
-    { value: 'CAD', label: 'CAD (C$)' },
-    { value: 'AUD', label: 'AUD (A$)' },
+    { value: 'USD', label: 'USD' },
+    { value: 'EUR', label: 'EUR' },
+    { value: 'GBP', label: 'GBP' },
+    { value: 'CAD', label: 'CAD' },
+    { value: 'AUD', label: 'AUD' },
+    { value: 'CHF', label: 'CHF' },
+    { value: 'JPY', label: 'JPY' },
+    { value: 'INR', label: 'INR' },
+    { value: 'BRL', label: 'BRL' },
+    { value: 'MXN', label: 'MXN' },
+    { value: 'PLN', label: 'PLN' },
+    { value: 'RON', label: 'RON' },
+    { value: 'SEK', label: 'SEK' },
+    { value: 'NOK', label: 'NOK' },
+    { value: 'DKK', label: 'DKK' },
+    { value: 'NZD', label: 'NZD' },
+    { value: 'SGD', label: 'SGD' },
+    { value: 'HKD', label: 'HKD' },
+    { value: 'ZAR', label: 'ZAR' },
+    { value: 'AED', label: 'AED' },
   ]
 }

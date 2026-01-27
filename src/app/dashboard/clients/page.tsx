@@ -38,31 +38,8 @@ import { cn } from "@/lib/utils";
 import { clientsApi, projectsApi } from "@/lib/api";
 import { useUserSettings } from "@/contexts/user-settings-context";
 import { toastManager } from "@/components/ui/toast";
+import { formatCurrency } from "@/lib/utils/currency";
 import type { ClientWithStats, ProjectWithStats } from "@/types";
-
-// Currency to locale mapping for proper symbol placement
-const currencyLocales: Record<string, string> = {
-  USD: "en-US",
-  EUR: "de-DE",
-  GBP: "en-GB",
-  CAD: "en-CA",
-  AUD: "en-AU",
-  CHF: "de-CH",
-  JPY: "ja-JP",
-  INR: "en-IN",
-  BRL: "pt-BR",
-  MXN: "es-MX",
-  PLN: "pl-PL",
-  RON: "ro-RO",
-  SEK: "sv-SE",
-  NOK: "nb-NO",
-  DKK: "da-DK",
-  NZD: "en-NZ",
-  SGD: "en-SG",
-  HKD: "zh-HK",
-  ZAR: "en-ZA",
-  AED: "ar-AE",
-};
 
 type ModalMode = "add" | "edit";
 
@@ -137,18 +114,10 @@ export default function ClientsPage() {
     (c) => showArchived || !c.is_archived
   );
 
-  const formatCurrency = (amount: number, currency: string = defaultCurrency) => {
-    const locale = currencyLocales[currency] || "en-US";
-    return new Intl.NumberFormat(locale, {
-      style: "currency",
-      currency,
-    }).format(amount);
-  };
-
   // Format multi-currency amounts
   const formatAmounts = (amounts: { currency: string; amount: number }[]) => {
-    if (amounts.length === 0) return formatCurrency(0);
-    return amounts.map(a => formatCurrency(a.amount, a.currency)).join(", ");
+    if (amounts.length === 0) return formatCurrency(0, defaultCurrency, defaultCurrency);
+    return amounts.map(a => formatCurrency(a.amount, a.currency, defaultCurrency)).join(", ");
   };
 
   const handleOpenAddModal = () => {

@@ -36,11 +36,13 @@ import {
   XCircle,
   Trash2,
   Loader2,
+  Copy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useInvoices, useInvoiceMutations, useClients, useProjects } from "@/lib/hooks";
+import { useInvoices, useInvoiceMutations, useInvoiceStats, useClients, useProjects } from "@/lib/hooks";
 import { useUserSettings } from "@/contexts/user-settings-context";
 import { toastManager } from "@/components/ui/toast";
+import { formatCurrency } from "@/lib/utils/currency";
 import type { InvoiceWithClient } from "@/types";
 
 type InvoiceStatus = "draft" | "sent" | "paid" | "overdue" | "void";
@@ -71,38 +73,6 @@ const statusConfig: Record<
   },
 };
 
-// Currency to locale mapping for proper symbol placement
-const currencyLocales: Record<string, string> = {
-  USD: "en-US",
-  EUR: "de-DE",
-  GBP: "en-GB",
-  CAD: "en-CA",
-  AUD: "en-AU",
-  CHF: "de-CH",
-  JPY: "ja-JP",
-  INR: "en-IN",
-  BRL: "pt-BR",
-  MXN: "es-MX",
-  PLN: "pl-PL",
-  RON: "ro-RO",
-  SEK: "sv-SE",
-  NOK: "nb-NO",
-  DKK: "da-DK",
-  NZD: "en-NZ",
-  SGD: "en-SG",
-  HKD: "zh-HK",
-  ZAR: "en-ZA",
-  AED: "ar-AE",
-};
-
-function formatCurrency(amount: number, currency: string = "USD"): string {
-  const locale = currencyLocales[currency] || "en-US";
-  return new Intl.NumberFormat(locale, {
-    style: "currency",
-    currency,
-  }).format(amount);
-}
-
 function formatDate(dateString: string): string {
   return new Date(dateString).toLocaleDateString("en-US", {
     month: "short",
@@ -113,17 +83,21 @@ function formatDate(dateString: string): string {
 
 function StatCard({
   title,
-  amount,
+  amounts,
   count,
-  currency,
+  userCurrency,
   isLoading,
 }: {
   title: string;
-  amount: number;
+  amounts: { currency: string; amount: number }[];
   count: number;
-  currency: string;
+  userCurrency: string;
   isLoading?: boolean;
 }) {
+  const displayAmounts = amounts.length > 0
+    ? amounts.map(a => formatCurrency(a.amount, a.currency, userCurrency)).join(", ")
+    : formatCurrency(0, userCurrency, userCurrency);
+
   return (
     <Card>
       <CardContent className="pt-6">
@@ -133,7 +107,7 @@ function StatCard({
         ) : (
           <>
             <p className="mt-1 text-2xl font-semibold">
-              {formatCurrency(amount, currency)}
+              {displayAmounts}
             </p>
             <p className="mt-0.5 text-sm text-muted-foreground">
               {count} {count === 1 ? "invoice" : "invoices"}
@@ -161,7 +135,7 @@ export default function InvoicesPage() {
     open: false,
     invoice: null,
   });
-  const [isActionLoading, setIsActionLoading] = useState(false);
+  const [loadingInvoiceId, setLoadingInvoiceId] = useState<string | null>(null);
 
   // Fetch clients and projects for filter dropdowns
   const { clients } = useClients({ limit: 100 });
@@ -185,33 +159,10 @@ export default function InvoicesPage() {
   });
 
   // Mutations
-  const { deleteInvoice, markAsPaid, voidInvoice } = useInvoiceMutations();
+  const { deleteInvoice, markAsPaid, voidInvoice, duplicateInvoice } = useInvoiceMutations();
 
-  // Calculate stats from invoices
-  const stats = useMemo(() => {
-    const outstanding = invoices.filter((inv) => inv.status === "sent" || inv.status === "overdue");
-    const overdue = invoices.filter((inv) => inv.status === "overdue");
-    const paidThisYear = invoices.filter((inv) => {
-      if (inv.status !== "paid") return false;
-      const paidYear = inv.paid_date ? new Date(inv.paid_date).getFullYear() : null;
-      return paidYear === new Date().getFullYear();
-    });
-
-    return {
-      outstanding: {
-        amount: outstanding.reduce((sum, inv) => sum + inv.total, 0),
-        count: outstanding.length,
-      },
-      overdue: {
-        amount: overdue.reduce((sum, inv) => sum + inv.total, 0),
-        count: overdue.length,
-      },
-      paidThisYear: {
-        amount: paidThisYear.reduce((sum, inv) => sum + inv.total, 0),
-        count: paidThisYear.length,
-      },
-    };
-  }, [invoices]);
+  // Fetch invoice stats (from database, independent of filters/pagination)
+  const { stats, isLoading: isStatsLoading, mutate: mutateStats } = useInvoiceStats();
 
   const handleNewInvoice = () => {
     router.push("/dashboard/invoices/new");
@@ -225,13 +176,53 @@ export default function InvoicesPage() {
     }
   };
 
-  const handleDownloadPDF = (invoiceId: string) => {
-    // TODO: Generate and download PDF
-    window.open(`/api/invoices/${invoiceId}/pdf`, "_blank");
+  const handleDownloadPDF = async (invoice: InvoiceWithClient) => {
+    try {
+      const response = await fetch(`/api/invoices/${invoice.id}/pdf`);
+      if (!response.ok) {
+        throw new Error('Failed to download PDF');
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${invoice.invoice_number}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to download PDF:', error);
+      toastManager.add({
+        type: 'error',
+        title: 'Failed to download PDF',
+      });
+    }
+  };
+
+  const handleDuplicate = async (invoice: InvoiceWithClient) => {
+    setLoadingInvoiceId(invoice.id);
+    try {
+      const newInvoice = await duplicateInvoice(invoice.id);
+      toastManager.add({
+        type: "success",
+        title: "Invoice duplicated",
+        description: `Created ${newInvoice.invoice_number} as draft`,
+      });
+      mutate();
+    } catch (error) {
+      console.error("Failed to duplicate invoice:", error);
+      toastManager.add({
+        type: "error",
+        title: "Failed to duplicate invoice",
+      });
+    } finally {
+      setLoadingInvoiceId(null);
+    }
   };
 
   const handleMarkAsPaid = async (invoice: InvoiceWithClient) => {
-    setIsActionLoading(true);
+    setLoadingInvoiceId(invoice.id);
     try {
       await markAsPaid(invoice.id);
       toastManager.add({
@@ -239,6 +230,7 @@ export default function InvoicesPage() {
         title: "Invoice marked as paid",
       });
       mutate();
+      mutateStats();
     } catch (error) {
       console.error("Failed to mark invoice as paid:", error);
       toastManager.add({
@@ -246,7 +238,7 @@ export default function InvoicesPage() {
         title: "Failed to mark invoice as paid",
       });
     } finally {
-      setIsActionLoading(false);
+      setLoadingInvoiceId(null);
     }
   };
 
@@ -257,7 +249,7 @@ export default function InvoicesPage() {
   const handleVoidConfirm = async () => {
     if (!voidConfirm.invoice) return;
 
-    setIsActionLoading(true);
+    setLoadingInvoiceId(voidConfirm.invoice.id);
     try {
       await voidInvoice(voidConfirm.invoice.id);
       toastManager.add({
@@ -265,6 +257,7 @@ export default function InvoicesPage() {
         title: "Invoice voided",
       });
       mutate();
+      mutateStats();
       setVoidConfirm({ open: false, invoice: null });
     } catch (error) {
       console.error("Failed to void invoice:", error);
@@ -273,7 +266,7 @@ export default function InvoicesPage() {
         title: "Failed to void invoice",
       });
     } finally {
-      setIsActionLoading(false);
+      setLoadingInvoiceId(null);
     }
   };
 
@@ -284,7 +277,7 @@ export default function InvoicesPage() {
   const handleDeleteConfirm = async () => {
     if (!deleteConfirm.invoice) return;
 
-    setIsActionLoading(true);
+    setLoadingInvoiceId(deleteConfirm.invoice.id);
     try {
       await deleteInvoice(deleteConfirm.invoice.id);
       toastManager.add({
@@ -292,6 +285,7 @@ export default function InvoicesPage() {
         title: "Invoice deleted",
       });
       mutate();
+      mutateStats();
       setDeleteConfirm({ open: false, invoice: null });
     } catch (error) {
       console.error("Failed to delete invoice:", error);
@@ -300,7 +294,7 @@ export default function InvoicesPage() {
         title: "Failed to delete invoice",
       });
     } finally {
-      setIsActionLoading(false);
+      setLoadingInvoiceId(null);
     }
   };
 
@@ -322,24 +316,24 @@ export default function InvoicesPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard
           title="Outstanding"
-          amount={stats.outstanding.amount}
-          count={stats.outstanding.count}
-          currency={defaultCurrency}
-          isLoading={isLoading}
+          amounts={stats?.outstanding.amounts || []}
+          count={stats?.outstanding.count || 0}
+          userCurrency={defaultCurrency}
+          isLoading={isStatsLoading}
         />
         <StatCard
           title="Overdue"
-          amount={stats.overdue.amount}
-          count={stats.overdue.count}
-          currency={defaultCurrency}
-          isLoading={isLoading}
+          amounts={stats?.overdue.amounts || []}
+          count={stats?.overdue.count || 0}
+          userCurrency={defaultCurrency}
+          isLoading={isStatsLoading}
         />
         <StatCard
           title="Paid (this year)"
-          amount={stats.paidThisYear.amount}
-          count={stats.paidThisYear.count}
-          currency={defaultCurrency}
-          isLoading={isLoading}
+          amounts={stats?.paid_this_year.amounts || []}
+          count={stats?.paid_this_year.count || 0}
+          userCurrency={defaultCurrency}
+          isLoading={isStatsLoading}
         />
       </div>
 
@@ -476,61 +470,71 @@ export default function InvoicesPage() {
 
                 {/* Amount */}
                 <span className="w-24 text-right font-medium tabular-nums">
-                  {formatCurrency(invoice.total, invoice.currency)}
+                  {formatCurrency(invoice.total, invoice.currency, defaultCurrency)}
                 </span>
 
                 {/* Actions Menu */}
-                <Menu>
-                  <MenuTrigger className="flex size-8 items-center justify-center rounded-md hover:bg-accent">
-                    <MoreVertical className="size-4 text-muted-foreground" />
-                  </MenuTrigger>
-                  <MenuPopup align="end">
-                    <MenuItem onClick={() => handleView(invoice)}>
-                      {invoice.status === "draft" ? (
+                {loadingInvoiceId === invoice.id ? (
+                  <div className="flex size-8 items-center justify-center">
+                    <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                  <Menu>
+                    <MenuTrigger className="flex size-8 items-center justify-center rounded-md hover:bg-accent">
+                      <MoreVertical className="size-4 text-muted-foreground" />
+                    </MenuTrigger>
+                    <MenuPopup align="end">
+                      <MenuItem onClick={() => handleView(invoice)}>
+                        {invoice.status === "draft" ? (
+                          <>
+                            <Pencil className="size-4" />
+                            Edit
+                          </>
+                        ) : (
+                          <>
+                            <Eye className="size-4" />
+                            View
+                          </>
+                        )}
+                      </MenuItem>
+                      {invoice.status !== "draft" && (
+                        <MenuItem onClick={() => handleDownloadPDF(invoice)}>
+                          <Download className="size-4" />
+                          Download PDF
+                        </MenuItem>
+                      )}
+                      <MenuItem onClick={() => handleDuplicate(invoice)} disabled={loadingInvoiceId !== null}>
+                        <Copy className="size-4" />
+                        Duplicate
+                      </MenuItem>
+                      {(invoice.status === "sent" || invoice.status === "overdue") && (
+                        <MenuItem onClick={() => handleMarkAsPaid(invoice)} disabled={loadingInvoiceId !== null}>
+                          <CheckCircle className="size-4" />
+                          Mark as Paid
+                        </MenuItem>
+                      )}
+                      {invoice.status !== "paid" && invoice.status !== "void" && (
                         <>
-                          <Pencil className="size-4" />
-                          Edit
-                        </>
-                      ) : (
-                        <>
-                          <Eye className="size-4" />
-                          View
+                          <MenuSeparator />
+                          <MenuItem onClick={() => handleVoidClick(invoice)} disabled={loadingInvoiceId !== null}>
+                            <XCircle className="size-4" />
+                            Void
+                          </MenuItem>
                         </>
                       )}
-                    </MenuItem>
-                    {invoice.status !== "draft" && (
-                      <MenuItem onClick={() => handleDownloadPDF(invoice.id)}>
-                        <Download className="size-4" />
-                        Download PDF
-                      </MenuItem>
-                    )}
-                    {(invoice.status === "sent" || invoice.status === "overdue") && (
-                      <MenuItem onClick={() => handleMarkAsPaid(invoice)} disabled={isActionLoading}>
-                        <CheckCircle className="size-4" />
-                        Mark as Paid
-                      </MenuItem>
-                    )}
-                    {invoice.status !== "paid" && invoice.status !== "void" && (
-                      <>
-                        <MenuSeparator />
-                        <MenuItem onClick={() => handleVoidClick(invoice)} disabled={isActionLoading}>
-                          <XCircle className="size-4" />
-                          Void
+                      {invoice.status === "draft" && (
+                        <MenuItem
+                          variant="destructive"
+                          onClick={() => handleDeleteClick(invoice)}
+                          disabled={loadingInvoiceId !== null}
+                        >
+                          <Trash2 className="size-4" />
+                          Delete
                         </MenuItem>
-                      </>
-                    )}
-                    {invoice.status === "draft" && (
-                      <MenuItem
-                        variant="destructive"
-                        onClick={() => handleDeleteClick(invoice)}
-                        disabled={isActionLoading}
-                      >
-                        <Trash2 className="size-4" />
-                        Delete
-                      </MenuItem>
-                    )}
-                  </MenuPopup>
-                </Menu>
+                      )}
+                    </MenuPopup>
+                  </Menu>
+                )}
               </div>
             ))
           )}
@@ -551,7 +555,7 @@ export default function InvoicesPage() {
               <div className="mt-3 rounded-lg bg-muted p-3">
                 <p className="font-medium font-mono">{deleteConfirm.invoice.invoice_number}</p>
                 <p className="text-sm text-muted-foreground">
-                  {deleteConfirm.invoice.client.name} • {formatCurrency(deleteConfirm.invoice.total, deleteConfirm.invoice.currency)}
+                  {deleteConfirm.invoice.client.name} • {formatCurrency(deleteConfirm.invoice.total, deleteConfirm.invoice.currency, defaultCurrency)}
                 </p>
               </div>
             )}
@@ -560,16 +564,16 @@ export default function InvoicesPage() {
             <Button
               variant="outline"
               onClick={() => setDeleteConfirm({ open: false, invoice: null })}
-              disabled={isActionLoading}
+              disabled={loadingInvoiceId !== null}
             >
               Cancel
             </Button>
             <Button
               variant="destructive"
               onClick={handleDeleteConfirm}
-              disabled={isActionLoading}
+              disabled={loadingInvoiceId !== null}
             >
-              {isActionLoading ? (
+              {loadingInvoiceId === deleteConfirm.invoice?.id ? (
                 <>
                   <Loader2 className="mr-2 size-4 animate-spin" />
                   Deleting...
@@ -596,7 +600,7 @@ export default function InvoicesPage() {
               <div className="mt-3 rounded-lg bg-muted p-3">
                 <p className="font-medium font-mono">{voidConfirm.invoice.invoice_number}</p>
                 <p className="text-sm text-muted-foreground">
-                  {voidConfirm.invoice.client.name} • {formatCurrency(voidConfirm.invoice.total, voidConfirm.invoice.currency)}
+                  {voidConfirm.invoice.client.name} • {formatCurrency(voidConfirm.invoice.total, voidConfirm.invoice.currency, defaultCurrency)}
                 </p>
               </div>
             )}
@@ -605,16 +609,16 @@ export default function InvoicesPage() {
             <Button
               variant="outline"
               onClick={() => setVoidConfirm({ open: false, invoice: null })}
-              disabled={isActionLoading}
+              disabled={loadingInvoiceId !== null}
             >
               Cancel
             </Button>
             <Button
               variant="destructive"
               onClick={handleVoidConfirm}
-              disabled={isActionLoading}
+              disabled={loadingInvoiceId !== null}
             >
-              {isActionLoading ? (
+              {loadingInvoiceId === voidConfirm.invoice?.id ? (
                 <>
                   <Loader2 className="mr-2 size-4 animate-spin" />
                   Voiding...

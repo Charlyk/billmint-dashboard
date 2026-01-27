@@ -16,7 +16,10 @@
       "Bash(npm run lint:*)",
       "Bash(supabase --version:*)",
       "Bash(supabase migration:*)",
-      "Bash(npx supabase:*)"
+      "Bash(npx supabase:*)",
+      "Bash(grep:*)",
+      "Bash(xargs ls:*)",
+      "Bash(curl:*)"
     ]
   }
 }

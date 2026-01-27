@@ -211,6 +211,13 @@ export interface PortalSessionResponse {
   url: string
 }
 
+// PDF generation types
+export interface InvoicePdfData {
+  invoice: InvoiceWithDetails
+  user: Pick<User, 'full_name' | 'company_name' | 'email'>
+  settings: { date_format: string; default_currency: string }
+}
+
 // Report types
 export interface TimeReport {
   period: {

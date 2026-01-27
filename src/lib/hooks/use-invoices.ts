@@ -49,5 +49,22 @@ export function useInvoiceMutations() {
     sendReminder: invoicesApi.sendReminder,
     markAsPaid: invoicesApi.markInvoiceAsPaid,
     voidInvoice: invoicesApi.voidInvoice,
+    duplicateInvoice: invoicesApi.duplicateInvoice,
+  }
+}
+
+export function useInvoiceStats() {
+  const { data, error, isLoading, mutate } = useSWR(
+    'invoice-stats',
+    () => invoicesApi.getInvoiceStats(),
+    { revalidateOnMount: true }
+  )
+
+  return {
+    stats: data,
+    isLoading,
+    isError: !!error,
+    error,
+    mutate,
   }
 }

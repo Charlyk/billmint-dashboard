@@ -1,67 +1,108 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { Download } from "lucide-react";
+import { Download, Loader2 } from "lucide-react";
+import { getPublicInvoice } from "@/lib/api/invoices";
+import { formatCurrency } from "@/lib/utils/currency";
+import type { PublicInvoiceResponse } from "@/types";
+import { use } from "react";
 
-// Mock invoice data - in production this would be fetched by token
-const mockInvoice = {
-  number: "INV-2026-0012",
-  issueDate: "January 15, 2026",
-  dueDate: "January 30, 2026",
-  status: "sent",
-  from: {
-    name: "Your Name",
-    email: "your@email.com",
-    address: "123 Your Street\nCity, State 12345",
-  },
-  to: {
-    name: "ClientName Inc.",
-    email: "john@clientname.com",
-    address: "456 Client Street\nCity, State 67890",
-  },
-  lineItems: [
-    {
-      id: "1",
-      description: "API Integration - ProjectX",
-      quantity: "10h",
-      rate: 75.0,
-      amount: 750.0,
-    },
-    {
-      id: "2",
-      description: "Bug Fixes - ProjectX",
-      quantity: "5h",
-      rate: 75.0,
-      amount: 375.0,
-    },
-    {
-      id: "3",
-      description: "Client Meetings",
-      quantity: "2h",
-      rate: 75.0,
-      amount: 150.0,
-    },
-  ],
-  subtotal: 1275.0,
-  total: 1275.0,
-  notes: "Payment due within 15 days. Thank you for your business!",
-};
+function formatDate(dateString: string): string {
+  return new Date(dateString).toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
 
-export default async function InvoicePublicPage({
+export default function InvoicePublicPage({
   params,
 }: {
   params: Promise<{ token: string }>;
 }) {
-  const { token } = await params;
+  const { token } = use(params);
+  const [data, setData] = useState<PublicInvoiceResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
 
-  // TODO: Fetch invoice by token from API
-  // const invoice = await getInvoiceByToken(token);
-  const invoice = mockInvoice;
+  useEffect(() => {
+    async function fetchInvoice() {
+      try {
+        const invoiceData = await getPublicInvoice(token);
+        setData(invoiceData);
+      } catch (err) {
+        console.error("Failed to fetch invoice:", err);
+        setError("Invoice not found or has expired.");
+      } finally {
+        setIsLoading(false);
+      }
+    }
 
-  const handleDownloadPDF = () => {
-    // TODO: Generate and download PDF
-    console.log("Download PDF for token:", token);
+    fetchInvoice();
+  }, [token]);
+
+  const handleDownloadPDF = async () => {
+    if (!data) return;
+
+    setIsDownloading(true);
+    try {
+      const response = await fetch(`/api/invoices/public/${token}/pdf`);
+      if (!response.ok) {
+        throw new Error("Failed to download PDF");
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${data.invoice.invoice_number}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Failed to download PDF:", error);
+    } finally {
+      setIsDownloading(false);
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 py-8 dark:bg-slate-950">
+        <div className="mx-auto max-w-3xl px-4">
+          <Card className="overflow-hidden">
+            <CardContent className="flex items-center justify-center p-12">
+              <Loader2 className="size-8 animate-spin text-muted-foreground" />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="min-h-screen bg-slate-50 py-8 dark:bg-slate-950">
+        <div className="mx-auto max-w-3xl px-4">
+          <Card className="overflow-hidden">
+            <CardContent className="p-12 text-center">
+              <h1 className="text-2xl font-semibold text-muted-foreground">
+                {error || "Invoice not found"}
+              </h1>
+              <p className="mt-2 text-muted-foreground">
+                This invoice may have been deleted or the link is invalid.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  const { invoice, user } = data;
 
   return (
     <div className="min-h-screen bg-slate-50 py-8 dark:bg-slate-950">
@@ -69,7 +110,13 @@ export default async function InvoicePublicPage({
         <Card className="overflow-hidden">
           <CardContent className="p-8 sm:p-12">
             {/* Header */}
-            <div className="mb-8 text-center">
+            <div className="mb-8 flex items-start justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">
+                  {user.company_name || user.full_name || "Invoice"}
+                </h2>
+                <p className="text-sm text-muted-foreground">{user.email}</p>
+              </div>
               <h1 className="text-3xl font-bold tracking-tight">INVOICE</h1>
             </div>
 
@@ -79,29 +126,19 @@ export default async function InvoicePublicPage({
                 <p className="mb-2 text-sm font-medium text-muted-foreground">
                   From:
                 </p>
-                <p className="font-medium">{invoice.from.name}</p>
-                <p className="text-sm text-muted-foreground">
-                  {invoice.from.email}
+                <p className="font-medium">
+                  {user.company_name || user.full_name || "Your Business"}
                 </p>
-                {invoice.from.address && (
-                  <p className="mt-1 whitespace-pre-line text-sm text-muted-foreground">
-                    {invoice.from.address}
-                  </p>
-                )}
+                <p className="text-sm text-muted-foreground">{user.email}</p>
               </div>
               <div>
                 <p className="mb-2 text-sm font-medium text-muted-foreground">
-                  To:
+                  Bill To:
                 </p>
-                <p className="font-medium">{invoice.to.name}</p>
-                {invoice.to.email && (
+                <p className="font-medium">{invoice.client.name}</p>
+                {invoice.client.email && (
                   <p className="text-sm text-muted-foreground">
-                    {invoice.to.email}
-                  </p>
-                )}
-                {invoice.to.address && (
-                  <p className="mt-1 whitespace-pre-line text-sm text-muted-foreground">
-                    {invoice.to.address}
+                    {invoice.client.email}
                   </p>
                 )}
               </div>
@@ -111,15 +148,31 @@ export default async function InvoicePublicPage({
             <div className="mb-8 space-y-1">
               <p>
                 <span className="text-muted-foreground">Invoice:</span>{" "}
-                <span className="font-mono font-medium">{invoice.number}</span>
+                <span className="font-mono font-medium">
+                  {invoice.invoice_number}
+                </span>
               </p>
               <p>
                 <span className="text-muted-foreground">Issue Date:</span>{" "}
-                {invoice.issueDate}
+                {formatDate(invoice.issue_date)}
               </p>
               <p>
                 <span className="text-muted-foreground">Due Date:</span>{" "}
-                {invoice.dueDate}
+                {formatDate(invoice.due_date)}
+              </p>
+              <p>
+                <span className="text-muted-foreground">Status:</span>{" "}
+                <span
+                  className={`rounded px-2 py-0.5 text-xs font-medium ${
+                    invoice.status === "paid"
+                      ? "bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-400"
+                      : invoice.status === "overdue"
+                        ? "bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-400"
+                        : "bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-400"
+                  }`}
+                >
+                  {invoice.status.toUpperCase()}
+                </span>
               </p>
             </div>
 
@@ -135,7 +188,7 @@ export default async function InvoicePublicPage({
 
               {/* Table Body */}
               <div className="divide-y">
-                {invoice.lineItems.map((item) => (
+                {invoice.line_items.map((item) => (
                   <div
                     key={item.id}
                     className="grid grid-cols-[1fr_60px_80px_100px] gap-4 px-4 py-3 text-sm"
@@ -145,10 +198,10 @@ export default async function InvoicePublicPage({
                       {item.quantity}
                     </span>
                     <span className="text-right tabular-nums">
-                      ${item.rate.toFixed(2)}
+                      {formatCurrency(item.unit_price, invoice.currency, invoice.currency)}
                     </span>
                     <span className="text-right font-medium tabular-nums">
-                      ${item.amount.toFixed(2)}
+                      {formatCurrency(item.amount, invoice.currency, invoice.currency)}
                     </span>
                   </div>
                 ))}
@@ -161,13 +214,36 @@ export default async function InvoicePublicPage({
                     Subtotal:
                   </span>
                   <span className="text-right tabular-nums">
-                    ${invoice.subtotal.toFixed(2)}
+                    {formatCurrency(invoice.subtotal, invoice.currency, invoice.currency)}
                   </span>
                 </div>
+
+                {invoice.tax_rate > 0 && invoice.tax_amount > 0 && (
+                  <div className="grid grid-cols-[1fr_100px] gap-4 px-4 py-2 text-sm">
+                    <span className="text-right text-muted-foreground">
+                      Tax ({invoice.tax_rate}%):
+                    </span>
+                    <span className="text-right tabular-nums">
+                      {formatCurrency(invoice.tax_amount, invoice.currency, invoice.currency)}
+                    </span>
+                  </div>
+                )}
+
+                {invoice.discount_amount > 0 && (
+                  <div className="grid grid-cols-[1fr_100px] gap-4 px-4 py-2 text-sm">
+                    <span className="text-right text-muted-foreground">
+                      Discount:
+                    </span>
+                    <span className="text-right tabular-nums">
+                      -{formatCurrency(invoice.discount_amount, invoice.currency, invoice.currency)}
+                    </span>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-[1fr_100px] gap-4 border-t px-4 py-3 font-medium">
                   <span className="text-right">Total Due:</span>
                   <span className="text-right tabular-nums">
-                    ${invoice.total.toFixed(2)}
+                    {formatCurrency(invoice.total, invoice.currency, invoice.currency)}
                   </span>
                 </div>
               </div>
@@ -175,7 +251,7 @@ export default async function InvoicePublicPage({
 
             {/* Notes */}
             {invoice.notes && (
-              <div className="mb-8">
+              <div className="mb-4">
                 <p className="mb-2 text-sm font-medium text-muted-foreground">
                   Notes:
                 </p>
@@ -183,11 +259,34 @@ export default async function InvoicePublicPage({
               </div>
             )}
 
+            {/* Terms */}
+            {invoice.terms && (
+              <div className="mb-8">
+                <p className="mb-2 text-sm font-medium text-muted-foreground">
+                  Terms:
+                </p>
+                <p className="text-sm">{invoice.terms}</p>
+              </div>
+            )}
+
             {/* Download Button */}
             <div className="text-center">
-              <Button variant="outline" onClick={handleDownloadPDF}>
-                <Download className="mr-2 size-4" />
-                Download PDF
+              <Button
+                variant="outline"
+                onClick={handleDownloadPDF}
+                disabled={isDownloading}
+              >
+                {isDownloading ? (
+                  <>
+                    <Loader2 className="mr-2 size-4 animate-spin" />
+                    Downloading...
+                  </>
+                ) : (
+                  <>
+                    <Download className="mr-2 size-4" />
+                    Download PDF
+                  </>
+                )}
               </Button>
             </div>
           </CardContent>

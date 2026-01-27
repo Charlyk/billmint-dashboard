@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { useDashboard } from "@/lib/hooks/use-dashboard";
 import { useUserSettings } from "@/contexts/user-settings-context";
+import { formatCurrency } from "@/lib/utils/currency";
 import type { AmountByCurrency } from "@/types/api";
 
 // Project color name to hex mapping
@@ -21,43 +22,6 @@ const colorMap: Record<string, string> = {
 
 function getColorHex(colorName: string | null): string {
   return colorName ? colorMap[colorName] ?? "#64748b" : "#64748b";
-}
-
-// Currency to locale mapping for proper symbol placement
-const currencyLocales: Record<string, string> = {
-  USD: "en-US",
-  EUR: "de-DE",
-  GBP: "en-GB",
-  CAD: "en-CA",
-  AUD: "en-AU",
-  CHF: "de-CH",
-  JPY: "ja-JP",
-  INR: "en-IN",
-  BRL: "pt-BR",
-  MXN: "es-MX",
-  PLN: "pl-PL",
-  RON: "ro-RO",
-  SEK: "sv-SE",
-  NOK: "nb-NO",
-  DKK: "da-DK",
-  NZD: "en-NZ",
-  SGD: "en-SG",
-  HKD: "zh-HK",
-  ZAR: "en-ZA",
-  AED: "ar-AE",
-};
-
-function formatCurrency(amount: number, currency: string) {
-  const locale = currencyLocales[currency] || "en-US";
-  return new Intl.NumberFormat(locale, {
-    style: "currency",
-    currency,
-  }).format(amount);
-}
-
-function formatAmounts(amounts: AmountByCurrency[], defaultCurrency: string = "USD") {
-  if (amounts.length === 0) return formatCurrency(0, defaultCurrency);
-  return amounts.map(a => formatCurrency(a.amount, a.currency)).join(", ");
 }
 
 function formatHours(hours: number) {
@@ -117,6 +81,11 @@ export default function DashboardPage() {
   const defaultCurrency = settings?.default_currency ?? "USD";
   const { stats, groupedByDate, isLoading } = useDashboard(10);
 
+  const formatAmounts = (amounts: AmountByCurrency[]) => {
+    if (amounts.length === 0) return formatCurrency(0, defaultCurrency, defaultCurrency);
+    return amounts.map(a => formatCurrency(a.amount, a.currency, defaultCurrency)).join(", ");
+  };
+
   return (
     <div className="space-y-8">
       <h1 className="text-2xl font-semibold">Dashboard</h1>
@@ -126,18 +95,18 @@ export default function DashboardPage() {
         <StatCard
           title="Today"
           primary={stats ? formatHours(stats.today.hours) : "0h 00m"}
-          secondary={stats ? formatAmounts(stats.today.amounts, defaultCurrency) : formatCurrency(0, defaultCurrency)}
+          secondary={stats ? formatAmounts(stats.today.amounts) : formatCurrency(0, defaultCurrency, defaultCurrency)}
           isLoading={isLoading}
         />
         <StatCard
           title="This Week"
           primary={stats ? formatHours(stats.this_week.hours) : "0h 00m"}
-          secondary={stats ? formatAmounts(stats.this_week.amounts, defaultCurrency) : formatCurrency(0, defaultCurrency)}
+          secondary={stats ? formatAmounts(stats.this_week.amounts) : formatCurrency(0, defaultCurrency, defaultCurrency)}
           isLoading={isLoading}
         />
         <StatCard
           title="Unbilled"
-          primary={stats ? formatAmounts(stats.unbilled.amounts, defaultCurrency) : formatCurrency(0, defaultCurrency)}
+          primary={stats ? formatAmounts(stats.unbilled.amounts) : formatCurrency(0, defaultCurrency, defaultCurrency)}
           secondary={stats ? `${formatHours(stats.unbilled.hours)} tracked` : "0h 00m tracked"}
           isLoading={isLoading}
         />
@@ -195,7 +164,7 @@ export default function DashboardPage() {
                           {formatHours(entry.duration_seconds / 3600)}
                         </span>
                         <span className="w-20 text-right text-sm font-medium tabular-nums">
-                          {formatCurrency(entry.amount, entry.project?.currency || defaultCurrency)}
+                          {formatCurrency(entry.amount, entry.project?.currency || defaultCurrency, defaultCurrency)}
                         </span>
                       </div>
                     ))}
