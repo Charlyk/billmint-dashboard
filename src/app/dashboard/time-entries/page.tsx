@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -44,6 +44,7 @@ import {
   Filter,
   X,
   Receipt,
+  FileText,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTab, TabsPanel } from "@/components/ui/tabs";
 import { Tooltip, TooltipTrigger, TooltipPopup } from "@/components/ui/tooltip";
@@ -51,6 +52,7 @@ import { Collapsible, CollapsibleTrigger, CollapsiblePanel } from "@/components/
 import { cn } from "@/lib/utils";
 import { useTimeEntries, useTimeEntryMutations, useProjects, useClients } from "@/lib/hooks";
 import { bulkTimeEntryAction } from "@/lib/api/time-entries";
+import { createInvoice } from "@/lib/api/invoices";
 import { useUserSettings } from "@/contexts/user-settings-context";
 import {
   formatDurationHuman,
@@ -79,6 +81,14 @@ const colorMap: Record<string, string> = {
 
 function getColorHex(colorName: string | null): string {
   return colorName ? colorMap[colorName] ?? "#64748b" : "#64748b";
+}
+
+// Generate invoice number with prefix
+function generateInvoiceNumber(prefix?: string): string {
+  const invoicePrefix = prefix || "INV";
+  const year = new Date().getFullYear();
+  const num = Math.floor(Math.random() * 9000) + 1000;
+  return `${invoicePrefix}-${year}-${num}`;
 }
 
 // Get date range based on filter selection
@@ -182,6 +192,7 @@ export default function TimeEntriesPage() {
   const { settings } = useUserSettings();
   const defaultCurrency = settings?.default_currency ?? "USD";
   const searchParams = useSearchParams();
+  const router = useRouter();
 
   // Initialize filters from URL params
   const initialProjectFilter = searchParams.get("project") || "all";
@@ -203,11 +214,19 @@ export default function TimeEntriesPage() {
     open: false,
     entry: null,
   });
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Bulk selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
   const [isBulkActionLoading, setIsBulkActionLoading] = useState(false);
+
+  // Create invoice modal state
+  const [createInvoiceModal, setCreateInvoiceModal] = useState<{
+    open: boolean;
+    clientIds: string[];
+    selectedClientIds: Set<string>;
+  }>({ open: false, clientIds: [], selectedClientIds: new Set() });
 
   // Custom date range state (applied values)
   const [customStartDate, setCustomStartDate] = useState("");
@@ -385,6 +404,195 @@ export default function TimeEntriesPage() {
     [allEntries, selectedIds]
   );
 
+  // Group selected entries by client for invoice creation
+  const selectedEntriesByClient = useMemo(() => {
+    const byClient = new Map<string, { client: typeof selectedEntries[0]["client"]; entries: typeof selectedEntries }>();
+    for (const entry of selectedEntries) {
+      const clientId = entry.client?.id || "no-client";
+      if (!byClient.has(clientId)) {
+        byClient.set(clientId, { client: entry.client, entries: [] });
+      }
+      byClient.get(clientId)!.entries.push(entry);
+    }
+    return byClient;
+  }, [selectedEntries]);
+
+  const handleCreateInvoiceClick = async () => {
+    // Filter to only billable, non-invoiced entries
+    const validEntries = selectedEntries.filter((e) => e.is_billable && !e.invoice_id && e.client?.id);
+
+    if (validEntries.length === 0) {
+      toastManager.add({
+        type: "error",
+        title: "Cannot create invoice",
+        description: "Selected entries must be billable, not already invoiced, and have a client",
+      });
+      return;
+    }
+
+    // Get unique client IDs
+    const clientIds = [...new Set(validEntries.map((e) => e.client!.id))];
+
+    if (clientIds.length === 1) {
+      // Single client - create invoice directly
+      setIsBulkActionLoading(true);
+      try {
+        const clientId = clientIds[0];
+        const dueDate = new Date();
+        dueDate.setDate(dueDate.getDate() + 30);
+
+        const lineItems = validEntries.map((entry) => {
+          const hours = Math.round((entry.duration_seconds / 3600) * 100) / 100;
+          const rate = entry.hourly_rate || entry.project?.hourly_rate || settings?.default_hourly_rate || 75;
+          return {
+            description: entry.description || `${entry.project?.name || "Work"} - ${formatDurationHuman(entry.duration_seconds)}`,
+            quantity: hours,
+            unit_price: rate,
+            time_entry_id: entry.id,
+          };
+        });
+
+        const invoice = await createInvoice({
+          client_id: clientId,
+          invoice_number: generateInvoiceNumber(settings?.invoice_prefix),
+          due_date: dueDate.toISOString(),
+          line_items: lineItems,
+        });
+
+        toastManager.add({
+          type: "success",
+          title: "Invoice created",
+          description: "Draft invoice created successfully",
+        });
+
+        setSelectedIds(new Set());
+        router.push(`/dashboard/invoices/${invoice.id}/edit`);
+      } catch (error) {
+        console.error("Failed to create invoice:", error);
+        toastManager.add({
+          type: "error",
+          title: "Failed to create invoice",
+          description: "An error occurred while creating the invoice",
+        });
+      } finally {
+        setIsBulkActionLoading(false);
+      }
+    } else {
+      // Multiple clients - show modal
+      setCreateInvoiceModal({
+        open: true,
+        clientIds,
+        selectedClientIds: new Set(clientIds),
+      });
+    }
+  };
+
+  const handleCreateInvoicesConfirm = async () => {
+    const { selectedClientIds } = createInvoiceModal;
+
+    if (selectedClientIds.size === 0) {
+      return;
+    }
+
+    setIsBulkActionLoading(true);
+
+    try {
+      const validEntries = selectedEntries.filter(
+        (e) => e.is_billable && !e.invoice_id && e.client?.id && selectedClientIds.has(e.client.id)
+      );
+
+      // Group entries by client
+      const entriesByClient = new Map<string, typeof validEntries>();
+      for (const entry of validEntries) {
+        const clientId = entry.client!.id;
+        if (!entriesByClient.has(clientId)) {
+          entriesByClient.set(clientId, []);
+        }
+        entriesByClient.get(clientId)!.push(entry);
+      }
+
+      const createdInvoices: string[] = [];
+
+      // Create an invoice for each client
+      for (const [clientId, entries] of entriesByClient) {
+        const dueDate = new Date();
+        dueDate.setDate(dueDate.getDate() + 30);
+
+        const lineItems = entries.map((entry) => {
+          const hours = Math.round((entry.duration_seconds / 3600) * 100) / 100;
+          const rate = entry.hourly_rate || entry.project?.hourly_rate || settings?.default_hourly_rate || 75;
+          return {
+            description: entry.description || `${entry.project?.name || "Work"} - ${formatDurationHuman(entry.duration_seconds)}`,
+            quantity: hours,
+            unit_price: rate,
+            time_entry_id: entry.id,
+          };
+        });
+
+        const invoice = await createInvoice({
+          client_id: clientId,
+          invoice_number: generateInvoiceNumber(settings?.invoice_prefix),
+          due_date: dueDate.toISOString(),
+          line_items: lineItems,
+        });
+        createdInvoices.push(invoice.id);
+      }
+
+      toastManager.add({
+        type: "success",
+        title: "Invoices created",
+        description: `Created ${createdInvoices.length} draft invoice${createdInvoices.length > 1 ? "s" : ""}`,
+      });
+
+      setSelectedIds(new Set());
+      setCreateInvoiceModal({ open: false, clientIds: [], selectedClientIds: new Set() });
+      setPage(1);
+      mutate();
+
+      // Navigate to invoices page or to the single invoice if only one was created
+      if (createdInvoices.length === 1) {
+        router.push(`/dashboard/invoices/${createdInvoices[0]}/edit`);
+      } else {
+        router.push("/dashboard/invoices");
+      }
+    } catch (error) {
+      console.error("Failed to create invoices:", error);
+      toastManager.add({
+        type: "error",
+        title: "Failed to create invoices",
+        description: "An error occurred while creating invoices",
+      });
+    } finally {
+      setIsBulkActionLoading(false);
+    }
+  };
+
+  const handleToggleClientSelection = (clientId: string) => {
+    setCreateInvoiceModal((prev) => {
+      const next = new Set(prev.selectedClientIds);
+      if (next.has(clientId)) {
+        next.delete(clientId);
+      } else {
+        next.add(clientId);
+      }
+      return { ...prev, selectedClientIds: next };
+    });
+  };
+
+  const handleSelectAllClients = () => {
+    setCreateInvoiceModal((prev) => ({
+      ...prev,
+      selectedClientIds: new Set(prev.clientIds),
+    }));
+  };
+
+  const handleDeselectAllClients = () => {
+    setCreateInvoiceModal((prev) => ({
+      ...prev,
+      selectedClientIds: new Set(),
+    }));
+  };
+
   // Calculate summary
   const summary = useMemo(() => {
     const totalSeconds = allEntries.reduce((acc, e) => acc + e.duration_seconds, 0);
@@ -513,8 +721,9 @@ export default function TimeEntriesPage() {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!deleteConfirm.entry) return;
+    if (!deleteConfirm.entry || isDeleting) return;
 
+    setIsDeleting(true);
     try {
       await deleteTimeEntry(deleteConfirm.entry.id);
       setPage(1);
@@ -526,6 +735,8 @@ export default function TimeEntriesPage() {
         type: "error",
         title: "Failed to delete entry",
       });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -776,11 +987,13 @@ export default function TimeEntriesPage() {
                       {/* Billable toggle */}
                       <button
                         onClick={() => handleToggleBillable(entry)}
+                        disabled={!!entry.invoice_id}
                         className={cn(
                           "flex size-6 items-center justify-center rounded",
                           entry.is_billable
                             ? "bg-teal-500/10 text-teal-600"
-                            : "bg-muted text-muted-foreground"
+                            : "bg-muted text-muted-foreground",
+                          entry.invoice_id && "opacity-50 cursor-not-allowed"
                         )}
                         title={entry.is_billable ? "Billable" : "Non-billable"}
                       >
@@ -1004,11 +1217,22 @@ export default function TimeEntriesPage() {
             )}
           </DialogPanel>
           <DialogFooter variant="bare">
-            <Button variant="outline" onClick={() => setDeleteConfirm({ open: false, entry: null })}>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteConfirm({ open: false, entry: null })}
+              disabled={isDeleting}
+            >
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleDeleteConfirm}>
-              Delete
+            <Button variant="destructive" onClick={handleDeleteConfirm} disabled={isDeleting}>
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
             </Button>
           </DialogFooter>
         </DialogPopup>
@@ -1149,6 +1373,113 @@ export default function TimeEntriesPage() {
         </DialogPopup>
       </Dialog>
 
+      {/* Create Invoice Client Selection Modal */}
+      <Dialog
+        open={createInvoiceModal.open}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCreateInvoiceModal({ open: false, clientIds: [], selectedClientIds: new Set() });
+          }
+        }}
+      >
+        <DialogPopup>
+          <DialogHeader>
+            <DialogTitle>Create Invoices</DialogTitle>
+          </DialogHeader>
+          <DialogPanel>
+            <p className="text-sm text-muted-foreground">
+              The selected time entries belong to {createInvoiceModal.clientIds.length} different clients.
+              Select which clients to create invoices for:
+            </p>
+            <div className="mt-4 space-y-2">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-medium">Clients</span>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={handleSelectAllClients}
+                    className="h-7 text-xs"
+                  >
+                    Select all
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={handleDeselectAllClients}
+                    className="h-7 text-xs"
+                  >
+                    Clear
+                  </Button>
+                </div>
+              </div>
+              <div className="max-h-64 overflow-y-auto rounded-lg border divide-y">
+                {createInvoiceModal.clientIds.map((clientId) => {
+                  const clientData = selectedEntriesByClient.get(clientId);
+                  const client = clientData?.client;
+                  const entries = clientData?.entries.filter((e) => e.is_billable && !e.invoice_id) || [];
+                  const totalHours = entries.reduce((acc, e) => acc + e.duration_seconds / 3600, 0);
+                  const isSelected = createInvoiceModal.selectedClientIds.has(clientId);
+
+                  return (
+                    <label
+                      key={clientId}
+                      className={cn(
+                        "flex items-center gap-3 p-3 cursor-pointer hover:bg-accent/50 transition-colors",
+                        isSelected && "bg-accent/30"
+                      )}
+                    >
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => handleToggleClientSelection(clientId)}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{client?.name || "Unknown Client"}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {entries.length} entries • {totalHours.toFixed(1)}h
+                        </p>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+            {createInvoiceModal.selectedClientIds.size > 1 && (
+              <p className="mt-3 text-xs text-muted-foreground">
+                This will create {createInvoiceModal.selectedClientIds.size} separate draft invoices.
+              </p>
+            )}
+          </DialogPanel>
+          <DialogFooter variant="bare">
+            <Button
+              variant="outline"
+              onClick={() => setCreateInvoiceModal({ open: false, clientIds: [], selectedClientIds: new Set() })}
+              disabled={isBulkActionLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateInvoicesConfirm}
+              disabled={isBulkActionLoading || createInvoiceModal.selectedClientIds.size === 0}
+              className="bg-teal-500 hover:!bg-teal-600 border-teal-500"
+            >
+              {isBulkActionLoading ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Creating...
+                </>
+              ) : createInvoiceModal.selectedClientIds.size === 0 ? (
+                "Select clients"
+              ) : createInvoiceModal.selectedClientIds.size === 1 ? (
+                "Create Invoice"
+              ) : (
+                `Create ${createInvoiceModal.selectedClientIds.size} Invoices`
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogPopup>
+      </Dialog>
+
       {/* Floating Bulk Action Toolbar */}
       {selectedIds.size > 0 && (
         <div className="fixed bottom-18 sm:bottom-8 left-4 right-4 z-50 sm:left-1/2 sm:right-auto sm:-translate-x-1/2">
@@ -1198,6 +1529,22 @@ export default function TimeEntriesPage() {
                   }
                 />
                 <TooltipPopup className="sm:hidden">Mark Non-billable</TooltipPopup>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      size="sm"
+                      onClick={handleCreateInvoiceClick}
+                      disabled={isBulkActionLoading}
+                      className="px-2 sm:px-3 bg-teal-500 hover:!bg-teal-600 border-teal-500"
+                    >
+                      <FileText className="size-4 sm:mr-1" />
+                      <span className="hidden sm:inline">Invoice</span>
+                    </Button>
+                  }
+                />
+                <TooltipPopup className="sm:hidden">Create Invoice</TooltipPopup>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger

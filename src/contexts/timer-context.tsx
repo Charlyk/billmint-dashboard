@@ -354,7 +354,7 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
           return key === 'dashboard-stats'
         }
         if (Array.isArray(key)) {
-          return key[0] === 'time-entries' || key[0] === 'recent-activity'
+          return key[0] === 'time-entries' || key[0] === 'recent-activity' || key[0] === 'dashboard'
         }
         return false
       })
