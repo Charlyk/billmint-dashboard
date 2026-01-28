@@ -68,13 +68,14 @@ export interface ClientWithStats extends Client {
   total_invoiced: AmountByCurrency[]
   outstanding_amount: AmountByCurrency[]
   unbilled_amount: AmountByCurrency[]
+  // currency is inherited from Client type
 }
 
 export type ClientListResponse = PaginatedResponse<ClientWithStats>
 
 // Project responses
 export interface ProjectWithClient extends Project {
-  client: Pick<Client, 'id' | 'name'> | null
+  client: Pick<Client, 'id' | 'name' | 'currency'> | null
 }
 
 export interface ProjectWithStats extends ProjectWithClient {
@@ -88,11 +89,11 @@ export type ProjectListResponse = PaginatedResponse<ProjectWithStats>
 
 // Time entry responses
 export interface TimeEntryWithProject extends TimeEntry {
-  project: Pick<Project, 'id' | 'name' | 'color' | 'hourly_rate' | 'currency'> | null
+  project: Pick<Project, 'id' | 'name' | 'color' | 'hourly_rate'> | null
 }
 
 export interface TimeEntryWithDetails extends TimeEntryWithProject {
-  client: Pick<Client, 'id' | 'name'> | null
+  client: Pick<Client, 'id' | 'name' | 'currency'> | null
   amount: number
 }
 

@@ -16,22 +16,12 @@ import {
   SelectPopup,
   SelectItem,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogPopup,
-  DialogHeader,
-  DialogTitle,
-  DialogPanel,
-  DialogFooter,
-  DialogClose,
-} from "@/components/ui/dialog";
-import { ArrowLeft, Plus, X, Clock, Loader2 } from "lucide-react";
+import { ArrowLeft, Plus, Loader2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { useClients, useUnbilledTimeEntries, useInvoiceMutations } from "@/lib/hooks";
 import { useUserSettings } from "@/contexts/user-settings-context";
 import { toastManager } from "@/components/ui/toast";
-import { formatCurrency, currencyLocales } from "@/lib/utils/currency";
-import { cn } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils/currency";
 import type { TimeEntryWithDetails } from "@/types";
 
 interface LineItem {
@@ -58,32 +48,6 @@ function formatDuration(seconds: number): string {
   return hours.toFixed(2);
 }
 
-const supportedCurrencies = Object.keys(currencyLocales);
-
-// Currency symbols for display
-const currencySymbols: Record<string, string> = {
-  USD: "$",
-  EUR: "€",
-  GBP: "£",
-  CAD: "CA$",
-  AUD: "A$",
-  CHF: "CHF",
-  JPY: "¥",
-  INR: "₹",
-  BRL: "R$",
-  MXN: "MX$",
-  PLN: "zł",
-  RON: "lei",
-  SEK: "kr",
-  NOK: "kr",
-  DKK: "kr",
-  NZD: "NZ$",
-  SGD: "S$",
-  HKD: "HK$",
-  ZAR: "R",
-  AED: "د.إ",
-};
-
 export default function NewInvoicePage() {
   const router = useRouter();
   const today = new Date();
@@ -99,11 +63,8 @@ export default function NewInvoicePage() {
   const [taxRate, setTaxRate] = useState(0);
   const [discountAmount, setDiscountAmount] = useState(0);
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
-  const [invoiceCurrency, setInvoiceCurrency] = useState("");
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [selectedEntries, setSelectedEntries] = useState<string[]>([]);
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
   const [isSaving, setIsSaving] = useState(false);
-  const [isCurrencyModalOpen, setIsCurrencyModalOpen] = useState(false);
 
   // Fetch data
   const { clients, isLoading: clientsLoading } = useClients({ limit: 100 });
@@ -121,11 +82,6 @@ export default function NewInvoicePage() {
       const num = Math.floor(Math.random() * 9000) + 1000;
       setInvoiceNumber(`${prefix}-${year}-${num}`);
 
-      // Set default currency
-      if (!invoiceCurrency) {
-        setInvoiceCurrency(settings.default_currency || "USD");
-      }
-
       // Set default notes and terms
       if (settings.invoice_notes) {
         setNotes(settings.invoice_notes);
@@ -134,7 +90,7 @@ export default function NewInvoicePage() {
         setTerms(settings.invoice_terms);
       }
     }
-  }, [settings, settingsLoading, invoiceCurrency]);
+  }, [settings, settingsLoading]);
 
   // Get the selected client
   const selectedClient = useMemo(
@@ -142,12 +98,40 @@ export default function NewInvoicePage() {
     [clients, clientId]
   );
 
-  const displayCurrency = invoiceCurrency || settings?.default_currency || "USD";
+  // Currency is determined by the selected client
+  const displayCurrency = selectedClient?.currency || settings?.default_currency || "USD";
 
-  // Calculate totals
+  // Auto-import all unbilled entries when client is selected
+  useEffect(() => {
+    if (!clientId || entriesLoading) return;
+
+    // Convert all unbilled entries to line items
+    const newItems: LineItem[] = unbilledEntries.map((entry: TimeEntryWithDetails) => {
+      const hours = Math.round((entry.duration_seconds / 3600) * 100) / 100;
+      const rate = entry.hourly_rate || entry.project?.hourly_rate || settings?.default_hourly_rate || 75;
+      return {
+        id: `item-${Date.now()}-${entry.id}`,
+        description: entry.description || `${entry.project?.name || "Work"} - ${formatDuration(entry.duration_seconds)}h`,
+        quantity: hours,
+        rate: rate,
+        amount: Math.round(hours * rate * 100) / 100,
+        time_entry_id: entry.id,
+      };
+    });
+
+    setLineItems(newItems);
+    // Select all items by default
+    setSelectedItemIds(new Set(newItems.map((item) => item.id)));
+  }, [clientId, unbilledEntries, entriesLoading, settings?.default_hourly_rate]);
+
+  // Calculate totals (only for selected items)
+  const selectedItems = useMemo(() => {
+    return lineItems.filter((item) => selectedItemIds.has(item.id));
+  }, [lineItems, selectedItemIds]);
+
   const subtotal = useMemo(() => {
-    return lineItems.reduce((sum, item) => sum + item.amount, 0);
-  }, [lineItems]);
+    return selectedItems.reduce((sum, item) => sum + item.amount, 0);
+  }, [selectedItems]);
 
   const taxAmount = subtotal * (taxRate / 100);
   const total = subtotal + taxAmount - discountAmount;
@@ -163,6 +147,28 @@ export default function NewInvoicePage() {
       time_entry_id: null,
     };
     setLineItems([...lineItems, newItem]);
+    // Auto-select the new item
+    setSelectedItemIds((prev) => new Set([...prev, newItem.id]));
+  };
+
+  const toggleItemSelection = (itemId: string) => {
+    setSelectedItemIds((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(itemId)) {
+        newSet.delete(itemId);
+      } else {
+        newSet.add(itemId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedItemIds.size === lineItems.length) {
+      setSelectedItemIds(new Set());
+    } else {
+      setSelectedItemIds(new Set(lineItems.map((item) => item.id)));
+    }
   };
 
   const handleUpdateLineItem = (
@@ -184,128 +190,8 @@ export default function NewInvoicePage() {
     );
   };
 
-  const handleRemoveLineItem = (id: string) => {
-    setLineItems((prev) => prev.filter((item) => item.id !== id));
-  };
-
-  const handleImportEntries = () => {
-    const entriesToImport = unbilledEntries.filter((e) =>
-      selectedEntries.includes(e.id)
-    );
-
-    // Set invoice currency from the first entry's project currency
-    const firstEntry = entriesToImport[0];
-    if (firstEntry?.project?.currency) {
-      setInvoiceCurrency(firstEntry.project.currency);
-    }
-
-    const newItems: LineItem[] = entriesToImport.map((entry: TimeEntryWithDetails) => {
-      const hours = Math.round((entry.duration_seconds / 3600) * 100) / 100;
-      const rate = entry.hourly_rate || entry.project?.hourly_rate || settings?.default_hourly_rate || 75;
-      return {
-        id: `item-${Date.now()}-${entry.id}`,
-        description: entry.description || `${entry.project?.name || "Work"} - ${formatDuration(entry.duration_seconds)}h`,
-        quantity: hours,
-        rate: rate,
-        amount: Math.round(hours * rate * 100) / 100,
-        time_entry_id: entry.id,
-      };
-    });
-    setLineItems([...lineItems, ...newItems]);
-    setSelectedEntries([]);
-    setIsImportModalOpen(false);
-  };
-
-  const toggleEntrySelection = (entryId: string) => {
-    const entry = unbilledEntries.find((e) => e.id === entryId);
-    const entryCurrency = entry?.project?.currency || settings?.default_currency || "USD";
-
-    // If already selected, always allow deselection
-    if (selectedEntries.includes(entryId)) {
-      setSelectedEntries((prev) => prev.filter((id) => id !== entryId));
-      return;
-    }
-
-    // Check if currency matches before allowing selection
-    if (!requiredCurrency || entryCurrency === requiredCurrency) {
-      setSelectedEntries((prev) => [...prev, entryId]);
-    }
-  };
-
-  const selectAllEntries = () => {
-    if (selectedEntries.length === unbilledEntries.length) {
-      setSelectedEntries([]);
-    } else {
-      // If we have a required currency (from existing imports), only select matching entries
-      if (requiredCurrency) {
-        const matchingEntries = unbilledEntries.filter(
-          (e) => (e.project?.currency || settings?.default_currency || "USD") === requiredCurrency
-        );
-        setSelectedEntries(matchingEntries.map((e) => e.id));
-      } else {
-        // Otherwise, only select all if all entries have the same currency
-        const currencies = new Set(unbilledEntries.map((e) => e.project?.currency || settings?.default_currency || "USD"));
-        if (currencies.size === 1) {
-          setSelectedEntries(unbilledEntries.map((e) => e.id));
-        }
-      }
-    }
-  };
-
-  // Group entries by project
-  const entriesByProject = useMemo(() => {
-    const grouped: Record<string, { project: { id: string; name: string; currency: string } | null; entries: typeof unbilledEntries }> = {};
-    unbilledEntries.forEach((entry) => {
-      const projectId = entry.project?.id || "no-project";
-      if (!grouped[projectId]) {
-        grouped[projectId] = {
-          project: entry.project ? { id: entry.project.id, name: entry.project.name, currency: entry.project.currency || "USD" } : null,
-          entries: [],
-        };
-      }
-      grouped[projectId].entries.push(entry);
-    });
-    return grouped;
-  }, [unbilledEntries]);
-
-  // Check if there are already imported line items (have time_entry_id)
-  const hasImportedLineItems = useMemo(() => {
-    return lineItems.some((item) => item.time_entry_id);
-  }, [lineItems]);
-
-  // Get the currency constraint - either from already imported items or from current selection
-  const requiredCurrency = useMemo(() => {
-    // If we already have imported line items, use the invoice currency
-    if (hasImportedLineItems) {
-      return invoiceCurrency || settings?.default_currency || "USD";
-    }
-    // Otherwise, check the currently selected entries in the modal
-    if (selectedEntries.length === 0) return null;
-    const firstSelectedEntry = unbilledEntries.find((e) => selectedEntries.includes(e.id));
-    return firstSelectedEntry?.project?.currency || settings?.default_currency || "USD";
-  }, [hasImportedLineItems, invoiceCurrency, selectedEntries, unbilledEntries, settings?.default_currency]);
-
-  // Check if a project's currency matches the required currency
-  const canSelectProject = (projectId: string) => {
-    if (!requiredCurrency) return true;
-    const projectCurrency = entriesByProject[projectId]?.project?.currency || settings?.default_currency || "USD";
-    return projectCurrency === requiredCurrency;
-  };
-
-  const toggleProjectSelection = (projectId: string) => {
-    const projectEntries = entriesByProject[projectId]?.entries || [];
-    const projectEntryIds = projectEntries.map((e) => e.id);
-    const allSelected = projectEntryIds.every((id) => selectedEntries.includes(id));
-
-    if (allSelected) {
-      setSelectedEntries((prev) => prev.filter((id) => !projectEntryIds.includes(id)));
-    } else if (canSelectProject(projectId)) {
-      setSelectedEntries((prev) => [...new Set([...prev, ...projectEntryIds])]);
-    }
-  };
-
   const handleSaveDraft = async () => {
-    if (!clientId || lineItems.length === 0) return;
+    if (!clientId || selectedItems.length === 0) return;
 
     setIsSaving(true);
     try {
@@ -318,7 +204,7 @@ export default function NewInvoicePage() {
         terms: terms || undefined,
         tax_rate: taxRate,
         discount_amount: discountAmount,
-        line_items: lineItems.map((item) => ({
+        line_items: selectedItems.map((item) => ({
           description: item.description,
           quantity: item.quantity,
           unit_price: item.rate,
@@ -344,7 +230,7 @@ export default function NewInvoicePage() {
   };
 
   const handleSaveAndSend = async () => {
-    if (!clientId || lineItems.length === 0) return;
+    if (!clientId || selectedItems.length === 0) return;
 
     if (!selectedClient?.email) {
       toastManager.add({
@@ -367,7 +253,7 @@ export default function NewInvoicePage() {
         terms: terms || undefined,
         tax_rate: taxRate,
         discount_amount: discountAmount,
-        line_items: lineItems.map((item) => ({
+        line_items: selectedItems.map((item) => ({
           description: item.description,
           quantity: item.quantity,
           unit_price: item.rate,
@@ -482,17 +368,6 @@ export default function NewInvoicePage() {
           />
         </Field>
 
-        <Field>
-          <FieldLabel>Currency</FieldLabel>
-          <button
-            type="button"
-            onClick={() => setIsCurrencyModalOpen(true)}
-            className="h-9 w-full px-3 text-sm font-medium border rounded-md hover:bg-accent/50 transition-colors text-left flex items-center justify-between"
-          >
-            <span>{currencySymbols[displayCurrency] || displayCurrency} {displayCurrency}</span>
-            <span className="text-muted-foreground text-xs">Change</span>
-          </button>
-        </Field>
       </div>
 
       {/* Line Items */}
@@ -501,7 +376,13 @@ export default function NewInvoicePage() {
         <Card>
           <CardContent className="p-0">
             {/* Header */}
-            <div className="hidden border-b bg-muted/30 px-4 py-3 lg:grid lg:grid-cols-[1fr_80px_120px_120px_32px] lg:gap-2">
+            <div className="hidden border-b bg-muted/30 px-4 py-3 lg:grid lg:grid-cols-[32px_1fr_80px_120px_120px] lg:gap-2 lg:items-center">
+              <Checkbox
+                checked={lineItems.length > 0 && selectedItemIds.size === lineItems.length}
+                indeterminate={selectedItemIds.size > 0 && selectedItemIds.size < lineItems.length}
+                onCheckedChange={toggleSelectAll}
+                disabled={lineItems.length === 0}
+              />
               <span className="text-sm font-medium text-muted-foreground">
                 Description
               </span>
@@ -514,61 +395,61 @@ export default function NewInvoicePage() {
               <span className="text-right text-sm font-medium text-muted-foreground">
                 Amount
               </span>
-              <span></span>
             </div>
 
             {/* Line Items */}
             {lineItems.length === 0 ? (
               <div className="p-8 text-center text-muted-foreground">
-                No line items yet. Add items manually or import unbilled time.
+                {clientId ? "No unbilled time entries for this client." : "Select a client to see unbilled time entries."}
               </div>
             ) : (
               <div className="divide-y">
-                {lineItems.map((item) => (
-                  <div
-                    key={item.id}
-                    className="grid gap-2 p-4 lg:grid-cols-[1fr_80px_120px_120px_32px] lg:gap-2 lg:items-center"
-                  >
-                    <Input
-                      placeholder="Description"
-                      value={item.description}
-                      onChange={(e) =>
-                        handleUpdateLineItem(item.id, "description", e.target.value)
-                      }
-                    />
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="Qty"
-                      value={item.quantity.toFixed(2)}
-                      onChange={(e) =>
-                        handleUpdateLineItem(item.id, "quantity", parseFloat(e.target.value) || 0)
-                      }
-                      className="text-right"
-                    />
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="Rate"
-                      value={item.rate.toFixed(2)}
-                      onChange={(e) =>
-                        handleUpdateLineItem(item.id, "rate", parseFloat(e.target.value) || 0)
-                      }
-                      className="text-right"
-                    />
-                    <div className="text-right font-medium tabular-nums text-sm">
-                      {formatCurrency(item.amount, displayCurrency, displayCurrency)}
-                    </div>
-                    <button
-                      onClick={() => handleRemoveLineItem(item.id)}
-                      className="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                {lineItems.map((item) => {
+                  const isSelected = selectedItemIds.has(item.id);
+                  return (
+                    <div
+                      key={item.id}
+                      className={`grid gap-2 p-4 lg:grid-cols-[32px_1fr_80px_120px_120px] lg:gap-2 lg:items-center ${!isSelected ? "opacity-50" : ""}`}
                     >
-                      <X className="size-4" />
-                    </button>
-                  </div>
-                ))}
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => toggleItemSelection(item.id)}
+                      />
+                      <Input
+                        placeholder="Description"
+                        value={item.description}
+                        onChange={(e) =>
+                          handleUpdateLineItem(item.id, "description", e.target.value)
+                        }
+                      />
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="Qty"
+                        value={item.quantity.toFixed(2)}
+                        onChange={(e) =>
+                          handleUpdateLineItem(item.id, "quantity", parseFloat(e.target.value) || 0)
+                        }
+                        className="text-right"
+                      />
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="Rate"
+                        value={item.rate.toFixed(2)}
+                        onChange={(e) =>
+                          handleUpdateLineItem(item.id, "rate", parseFloat(e.target.value) || 0)
+                        }
+                        className="text-right"
+                      />
+                      <div className="text-right font-medium tabular-nums text-sm">
+                        {formatCurrency(item.amount, displayCurrency, displayCurrency)}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
 
@@ -577,20 +458,6 @@ export default function NewInvoicePage() {
               <Button variant="outline" size="sm" onClick={handleAddLineItem}>
                 <Plus className="mr-1 size-4" />
                 Add Line Item
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsImportModalOpen(true)}
-                disabled={!clientId}
-              >
-                <Clock className="mr-1 size-4" />
-                Import Unbilled Time
-                {clientId && unbilledEntries.length > 0 && (
-                  <span className="ml-1 rounded-full bg-teal-500 px-1.5 py-0.5 text-xs text-white">
-                    {unbilledEntries.length}
-                  </span>
-                )}
               </Button>
             </div>
           </CardContent>
@@ -671,173 +538,6 @@ export default function NewInvoicePage() {
         </Field>
       </div>
 
-      {/* Currency Picker Modal */}
-      <Dialog open={isCurrencyModalOpen} onOpenChange={setIsCurrencyModalOpen}>
-        <DialogPopup className="max-w-xs">
-          <DialogHeader>
-            <DialogTitle>Select Currency</DialogTitle>
-          </DialogHeader>
-          <DialogPanel>
-            <div className="grid grid-cols-3 gap-2">
-              {supportedCurrencies.map((curr) => {
-                const isSelected = displayCurrency === curr;
-                return (
-                  <button
-                    key={curr}
-                    type="button"
-                    onClick={() => {
-                      setInvoiceCurrency(curr);
-                      setIsCurrencyModalOpen(false);
-                    }}
-                    className={`flex flex-col items-center justify-center p-3 rounded-lg border text-sm transition-colors hover:bg-accent/50 ${
-                      isSelected ? "border-teal-500 bg-teal-500/10" : ""
-                    }`}
-                  >
-                    <span className="font-medium">{currencySymbols[curr] || curr}</span>
-                    <span className="text-xs text-muted-foreground">{curr}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </DialogPanel>
-        </DialogPopup>
-      </Dialog>
-
-      {/* Import Unbilled Time Modal */}
-      <Dialog open={isImportModalOpen} onOpenChange={setIsImportModalOpen}>
-        <DialogPopup className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Import Unbilled Time</DialogTitle>
-          </DialogHeader>
-          <DialogPanel>
-            <p className="mb-4 text-sm text-muted-foreground">
-              {hasImportedLineItems
-                ? `Select time entries to add as line items. Only ${requiredCurrency} entries can be imported to match existing items.`
-                : "Select time entries to add as line items. The invoice currency will be set to the project's currency."}
-            </p>
-            {entriesLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="size-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : unbilledEntries.length === 0 ? (
-              <div className="py-8 text-center text-muted-foreground">
-                No unbilled time entries for this client.
-              </div>
-            ) : (
-              <>
-                {(() => {
-                  const currencies = new Set(unbilledEntries.map((e) => e.project?.currency || settings?.default_currency || "USD"));
-                  const hasMultipleCurrencies = currencies.size > 1;
-                  const selectableEntries = requiredCurrency
-                    ? unbilledEntries.filter((e) => (e.project?.currency || settings?.default_currency || "USD") === requiredCurrency)
-                    : unbilledEntries;
-                  const allSelectableSelected = selectableEntries.length > 0 && selectableEntries.every((e) => selectedEntries.includes(e.id));
-                  return (
-                    <div className="mb-3 flex items-center gap-2">
-                      <Checkbox
-                        checked={allSelectableSelected}
-                        indeterminate={selectedEntries.length > 0 && !allSelectableSelected}
-                        onCheckedChange={selectAllEntries}
-                        disabled={hasMultipleCurrencies && !requiredCurrency && selectedEntries.length === 0}
-                      />
-                      <span className="text-sm font-medium">Select All</span>
-                      {hasMultipleCurrencies && !requiredCurrency && selectedEntries.length === 0 && (
-                        <span className="text-xs text-muted-foreground">(mixed currencies)</span>
-                      )}
-                      {requiredCurrency && hasMultipleCurrencies && (
-                        <span className="text-xs text-muted-foreground">({requiredCurrency} only)</span>
-                      )}
-                    </div>
-                  );
-                })()}
-                <div className="max-h-80 space-y-4 overflow-y-auto">
-                  {Object.entries(entriesByProject).map(([projectId, { project, entries }]) => {
-                    const projectCurrency = project?.currency || settings?.default_currency || "USD";
-                    const projectEntryIds = entries.map((e) => e.id);
-                    const allProjectSelected = projectEntryIds.every((id) => selectedEntries.includes(id));
-                    const someProjectSelected = projectEntryIds.some((id) => selectedEntries.includes(id));
-                    const isDisabled = !canSelectProject(projectId) && !someProjectSelected;
-
-                    return (
-                      <div key={projectId} className={cn("rounded-lg border", isDisabled && "opacity-50")}>
-                        {/* Project Header */}
-                        <div className="flex items-center gap-3 border-b bg-muted/30 px-3 py-2">
-                          <Checkbox
-                            checked={allProjectSelected}
-                            indeterminate={someProjectSelected && !allProjectSelected}
-                            onCheckedChange={() => toggleProjectSelection(projectId)}
-                            disabled={isDisabled}
-                          />
-                          <div className="flex-1 min-w-0">
-                            <span className="text-sm font-medium">
-                              {project?.name || "No Project"}
-                            </span>
-                            {isDisabled && (
-                              <p className="text-xs text-muted-foreground">Currency doesn&apos;t match</p>
-                            )}
-                          </div>
-                          <span className="text-xs font-medium bg-muted px-2 py-0.5 rounded">
-                            {projectCurrency}
-                          </span>
-                        </div>
-
-                        {/* Project Entries */}
-                        <div className="divide-y">
-                          {entries.map((entry) => {
-                            const hours = entry.duration_seconds / 3600;
-                            const rate = entry.hourly_rate || entry.project?.hourly_rate || settings?.default_hourly_rate || 75;
-                            const amount = hours * rate;
-                            return (
-                              <div
-                                key={entry.id}
-                                className={cn("flex items-center gap-3 px-3 py-2", !isDisabled && "hover:bg-accent/30")}
-                              >
-                                <Checkbox
-                                  checked={selectedEntries.includes(entry.id)}
-                                  onCheckedChange={() => toggleEntrySelection(entry.id)}
-                                  disabled={isDisabled}
-                                />
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm truncate">
-                                    {entry.description || <span className="italic text-muted-foreground">No description</span>}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground">
-                                    {new Date(entry.start_time).toLocaleDateString()}
-                                  </p>
-                                </div>
-                                <div className="text-right shrink-0">
-                                  <p className="text-sm tabular-nums">
-                                    {hours.toFixed(2)}h × {formatCurrency(rate, projectCurrency, projectCurrency)}
-                                  </p>
-                                  <p className="text-sm font-medium tabular-nums">
-                                    {formatCurrency(amount, projectCurrency, projectCurrency)}
-                                  </p>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-          </DialogPanel>
-          <DialogFooter variant="bare">
-            <DialogClose render={<Button variant="outline" />}>
-              Cancel
-            </DialogClose>
-            <Button
-              onClick={handleImportEntries}
-              className="bg-teal-500 hover:!bg-teal-600 border-teal-500"
-              disabled={selectedEntries.length === 0}
-            >
-              Import Selected ({selectedEntries.length})
-            </Button>
-          </DialogFooter>
-        </DialogPopup>
-      </Dialog>
     </div>
   );
 }

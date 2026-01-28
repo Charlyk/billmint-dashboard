@@ -18,6 +18,13 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectPopup,
+  SelectItem,
+} from "@/components/ui/select";
+import {
   Menu,
   MenuTrigger,
   MenuPopup,
@@ -48,6 +55,7 @@ interface ClientFormData {
   contactName: string;
   email: string;
   address: string;
+  currency: string;
   projectIds: string[];
 }
 
@@ -56,6 +64,7 @@ const defaultFormData: ClientFormData = {
   contactName: "",
   email: "",
   address: "",
+  currency: "",
   projectIds: [],
 };
 
@@ -123,7 +132,7 @@ export default function ClientsPage() {
   const handleOpenAddModal = () => {
     setModalMode("add");
     setEditingId(null);
-    setFormData(defaultFormData);
+    setFormData({ ...defaultFormData, currency: defaultCurrency });
     setIsModalOpen(true);
   };
 
@@ -139,6 +148,7 @@ export default function ClientsPage() {
       contactName: client.contact_name || "",
       email: client.email || "",
       address: client.address || "",
+      currency: client.currency || defaultCurrency,
       projectIds: clientProjectIds,
     });
     setIsModalOpen(true);
@@ -154,6 +164,7 @@ export default function ClientsPage() {
         contact_name: formData.contactName || undefined,
         email: formData.email || undefined,
         address: formData.address || undefined,
+        currency: (formData.currency || defaultCurrency) as 'USD' | 'EUR' | 'GBP' | 'CAD' | 'AUD' | 'CHF' | 'JPY' | 'INR' | 'BRL' | 'MXN' | 'PLN' | 'RON' | 'SEK' | 'NOK' | 'DKK' | 'NZD' | 'SGD' | 'HKD' | 'ZAR' | 'AED',
       };
 
       let clientId: string;
@@ -407,6 +418,47 @@ export default function ClientsPage() {
                   }
                   rows={3}
                 />
+              </Field>
+
+              <Field>
+                <FieldLabel>Currency</FieldLabel>
+                <Select
+                  value={formData.currency}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, currency: value || defaultCurrency })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={defaultCurrency}>
+                      {formData.currency || defaultCurrency}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectPopup>
+                    <SelectItem value="USD">USD - US Dollar</SelectItem>
+                    <SelectItem value="EUR">EUR - Euro</SelectItem>
+                    <SelectItem value="GBP">GBP - British Pound</SelectItem>
+                    <SelectItem value="CAD">CAD - Canadian Dollar</SelectItem>
+                    <SelectItem value="AUD">AUD - Australian Dollar</SelectItem>
+                    <SelectItem value="CHF">CHF - Swiss Franc</SelectItem>
+                    <SelectItem value="JPY">JPY - Japanese Yen</SelectItem>
+                    <SelectItem value="INR">INR - Indian Rupee</SelectItem>
+                    <SelectItem value="BRL">BRL - Brazilian Real</SelectItem>
+                    <SelectItem value="MXN">MXN - Mexican Peso</SelectItem>
+                    <SelectItem value="PLN">PLN - Polish Zloty</SelectItem>
+                    <SelectItem value="RON">RON - Romanian Leu</SelectItem>
+                    <SelectItem value="SEK">SEK - Swedish Krona</SelectItem>
+                    <SelectItem value="NOK">NOK - Norwegian Krone</SelectItem>
+                    <SelectItem value="DKK">DKK - Danish Krone</SelectItem>
+                    <SelectItem value="NZD">NZD - New Zealand Dollar</SelectItem>
+                    <SelectItem value="SGD">SGD - Singapore Dollar</SelectItem>
+                    <SelectItem value="HKD">HKD - Hong Kong Dollar</SelectItem>
+                    <SelectItem value="ZAR">ZAR - South African Rand</SelectItem>
+                    <SelectItem value="AED">AED - UAE Dirham</SelectItem>
+                  </SelectPopup>
+                </Select>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  All invoices for this client will use this currency
+                </p>
               </Field>
 
               <Field>

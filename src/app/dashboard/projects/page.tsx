@@ -64,7 +64,6 @@ interface ProjectFormData {
   name: string;
   client: string;
   rate: string;
-  currency: string;
   color: string;
   isBillable: boolean;
 }
@@ -73,7 +72,6 @@ const defaultFormData: ProjectFormData = {
   name: "",
   client: "",
   rate: "",
-  currency: "",
   color: "emerald",
   isBillable: true,
 };
@@ -158,7 +156,7 @@ export default function ProjectsPage() {
 
   const formatRate = (project: ProjectWithStats) => {
     const rate = project.hourly_rate ?? profileDefaults.rate;
-    const currency = project.currency ?? profileDefaults.currency;
+    const currency = project.client?.currency ?? profileDefaults.currency;
     const rateStr = `${formatCurrency(rate ?? 0, currency, profileDefaults.currency)}/hr`;
     return project.hourly_rate === null ? `${rateStr} (default)` : rateStr;
   };
@@ -177,7 +175,6 @@ export default function ProjectsPage() {
       name: project.name,
       client: project.client_id || "",
       rate: project.hourly_rate?.toString() ?? "",
-      currency: project.currency ?? "",
       color: project.color ?? "blue",
       isBillable: project.is_billable ?? true,
     });
@@ -194,7 +191,6 @@ export default function ProjectsPage() {
         client_id: formData.client || null,
         color: formData.color as CreateProjectInput["color"],
         hourly_rate: formData.rate ? parseFloat(formData.rate) : null,
-        currency: (formData.currency || profileDefaults.currency) as CreateProjectInput["currency"],
         is_billable: formData.isBillable,
         is_default: false,
       };
@@ -312,7 +308,7 @@ export default function ProjectsPage() {
                   <p className="mt-1 text-sm text-muted-foreground">
                     {formatRate(project)} •{" "}
                     {project.total_hours}h tracked •{" "}
-                    {formatCurrency(project.total_amount, project.currency ?? profileDefaults.currency, profileDefaults.currency)} total
+                    {formatCurrency(project.total_amount, project.client?.currency ?? profileDefaults.currency, profileDefaults.currency)} total
                   </p>
                 </div>
 
@@ -427,44 +423,29 @@ export default function ProjectsPage() {
 
                 <Field>
                   <FieldLabel>Currency</FieldLabel>
-                  <Select
-                    value={formData.currency}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, currency: value || "" })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={profileDefaults.currency}>
-                        {formData.currency || profileDefaults.currency}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectPopup>
-                      <SelectItem value="USD">USD - US Dollar</SelectItem>
-                      <SelectItem value="EUR">EUR - Euro</SelectItem>
-                      <SelectItem value="GBP">GBP - British Pound</SelectItem>
-                      <SelectItem value="CAD">CAD - Canadian Dollar</SelectItem>
-                      <SelectItem value="AUD">AUD - Australian Dollar</SelectItem>
-                      <SelectItem value="CHF">CHF - Swiss Franc</SelectItem>
-                      <SelectItem value="JPY">JPY - Japanese Yen</SelectItem>
-                      <SelectItem value="INR">INR - Indian Rupee</SelectItem>
-                      <SelectItem value="BRL">BRL - Brazilian Real</SelectItem>
-                      <SelectItem value="MXN">MXN - Mexican Peso</SelectItem>
-                      <SelectItem value="PLN">PLN - Polish Zloty</SelectItem>
-                      <SelectItem value="RON">RON - Romanian Leu</SelectItem>
-                      <SelectItem value="SEK">SEK - Swedish Krona</SelectItem>
-                      <SelectItem value="NOK">NOK - Norwegian Krone</SelectItem>
-                      <SelectItem value="DKK">DKK - Danish Krone</SelectItem>
-                      <SelectItem value="NZD">NZD - New Zealand Dollar</SelectItem>
-                      <SelectItem value="SGD">SGD - Singapore Dollar</SelectItem>
-                      <SelectItem value="HKD">HKD - Hong Kong Dollar</SelectItem>
-                      <SelectItem value="ZAR">ZAR - South African Rand</SelectItem>
-                      <SelectItem value="AED">AED - UAE Dirham</SelectItem>
-                    </SelectPopup>
-                  </Select>
+                  <div className="h-9 px-3 flex items-center rounded-md border bg-muted/30 text-sm">
+                    {(() => {
+                      const selectedClient = clients.find(c => c.id === formData.client);
+                      if (selectedClient) {
+                        return (
+                          <span>
+                            {selectedClient.currency || profileDefaults.currency}
+                            <span className="ml-1 text-muted-foreground">(from client)</span>
+                          </span>
+                        );
+                      }
+                      return (
+                        <span>
+                          {profileDefaults.currency}
+                          <span className="ml-1 text-muted-foreground">(from settings)</span>
+                        </span>
+                      );
+                    })()}
+                  </div>
                 </Field>
               </div>
               <p className="text-xs text-muted-foreground">
-                Leave empty to use profile default (currently: {formatCurrency(profileDefaults.rate ?? 0, profileDefaults.currency, profileDefaults.currency)}/hr)
+                Leave rate empty to use profile default ({formatCurrency(profileDefaults.rate ?? 0, profileDefaults.currency, profileDefaults.currency)}/hr). Currency is inherited from client.
               </p>
 
               <Field>

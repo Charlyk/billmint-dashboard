@@ -101,6 +101,7 @@ export type Database = {
           phone: string | null
           address: string | null
           notes: string | null
+          currency: string
           is_archived: boolean
           created_at: string
           updated_at: string
@@ -114,6 +115,7 @@ export type Database = {
           phone?: string | null
           address?: string | null
           notes?: string | null
+          currency?: string
           is_archived?: boolean
           created_at?: string
           updated_at?: string
@@ -127,6 +129,7 @@ export type Database = {
           phone?: string | null
           address?: string | null
           notes?: string | null
+          currency?: string
           is_archived?: boolean
           created_at?: string
           updated_at?: string
@@ -140,7 +143,6 @@ export type Database = {
           name: string
           color: string
           hourly_rate: number | null
-          currency: string
           is_billable: boolean
           is_default: boolean
           is_archived: boolean
@@ -155,7 +157,6 @@ export type Database = {
           name: string
           color?: string
           hourly_rate?: number | null
-          currency?: string
           is_billable?: boolean
           is_default?: boolean
           is_archived?: boolean
@@ -170,7 +171,6 @@ export type Database = {
           name?: string
           color?: string
           hourly_rate?: number | null
-          currency?: string
           is_billable?: boolean
           is_default?: boolean
           is_archived?: boolean

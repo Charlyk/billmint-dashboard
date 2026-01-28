@@ -164,7 +164,7 @@ export default function DashboardPage() {
                           {formatHours(entry.duration_seconds / 3600)}
                         </span>
                         <span className="w-20 text-right text-sm font-medium tabular-nums">
-                          {formatCurrency(entry.amount, entry.project?.currency || defaultCurrency, defaultCurrency)}
+                          {formatCurrency(entry.amount, entry.client?.currency || defaultCurrency, defaultCurrency)}
                         </span>
                       </div>
                     ))}

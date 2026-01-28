@@ -72,6 +72,7 @@ export async function createClient(
     phone?: string | null
     address?: string | null
     notes?: string | null
+    currency?: string
   }
 ): Promise<Client> {
   const currentUser = await requireAuth()

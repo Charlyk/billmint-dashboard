@@ -154,7 +154,6 @@ export function ProjectPicker({
       const newProject = await createProject({
         name: newProjectName.trim(),
         color: newProjectColor,
-        currency: "USD",
         is_billable: true,
         is_default: false,
       });

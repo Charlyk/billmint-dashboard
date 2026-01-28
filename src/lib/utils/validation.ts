@@ -8,6 +8,10 @@ export const createClientSchema = z.object({
   phone: z.string().max(50).optional(),
   address: z.string().max(500).optional(),
   notes: z.string().max(1000).optional(),
+  currency: z.enum([
+    'USD', 'EUR', 'GBP', 'CAD', 'AUD', 'CHF', 'JPY', 'INR', 'BRL', 'MXN',
+    'PLN', 'RON', 'SEK', 'NOK', 'DKK', 'NZD', 'SGD', 'HKD', 'ZAR', 'AED'
+  ]).optional(),
 })
 
 export const updateClientSchema = createClientSchema.extend({
@@ -36,7 +40,6 @@ export const createProjectSchema = z.object({
   client_id: z.string().uuid().optional().nullable(),
   color: projectColorSchema.default('blue'),
   hourly_rate: z.number().min(0).optional().nullable(),
-  currency: currencySchema.default('USD'),
   is_billable: z.boolean().default(true),
   is_default: z.boolean().default(false),
   notes: z.string().max(1000).optional(),
@@ -48,7 +51,6 @@ export const updateProjectSchema = z.object({
   client_id: z.string().uuid().nullable().optional(),
   color: projectColorSchema.optional(),
   hourly_rate: z.number().min(0).nullable().optional(),
-  currency: currencySchema.optional(),
   is_billable: z.boolean().optional(),
   is_default: z.boolean().optional(),
   is_archived: z.boolean().optional(),

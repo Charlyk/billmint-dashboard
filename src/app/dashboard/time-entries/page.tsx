@@ -43,8 +43,10 @@ import {
   ChevronDown,
   Filter,
   X,
+  Receipt,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTab, TabsPanel } from "@/components/ui/tabs";
+import { Tooltip, TooltipTrigger, TooltipPopup } from "@/components/ui/tooltip";
 import { Collapsible, CollapsibleTrigger, CollapsiblePanel } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { useTimeEntries, useTimeEntryMutations, useProjects, useClients } from "@/lib/hooks";
@@ -391,7 +393,7 @@ export default function TimeEntriesPage() {
     const billableByCurrency = allEntries
       .filter((e) => e.is_billable && e.amount)
       .reduce<Record<string, number>>((acc, e) => {
-        const currency = e.project?.currency ?? defaultCurrency;
+        const currency = e.client?.currency ?? defaultCurrency;
         acc[currency] = (acc[currency] || 0) + (e.amount || 0);
         return acc;
       }, {});
@@ -528,7 +530,7 @@ export default function TimeEntriesPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className={cn("space-y-6", selectedIds.size > 0 && "pb-24")}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Time Entries</h1>
@@ -707,58 +709,6 @@ export default function TimeEntriesPage() {
         </Collapsible>
       </Card>
 
-      {/* Bulk Action Toolbar */}
-      {selectedIds.size > 0 && (
-        <div className="flex items-center gap-3 rounded-lg border bg-muted/50 px-4 py-3">
-          <Checkbox
-            checked={allSelected}
-            indeterminate={someSelected}
-            onCheckedChange={handleSelectAll}
-          />
-          <span className="text-sm font-medium">
-            {selectedIds.size} selected
-          </span>
-          <div className="flex-1" />
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => handleBulkAction('mark-billable')}
-              disabled={isBulkActionLoading}
-            >
-              <DollarSign className="mr-1 size-4" />
-              Mark Billable
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => handleBulkAction('mark-non-billable')}
-              disabled={isBulkActionLoading}
-            >
-              <Minus className="mr-1 size-4" />
-              Mark Non-billable
-            </Button>
-            <Button
-              size="sm"
-              variant="destructive"
-              onClick={() => handleBulkAction('delete')}
-              disabled={isBulkActionLoading}
-            >
-              <Trash2 className="mr-1 size-4" />
-              Delete
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setSelectedIds(new Set())}
-              disabled={isBulkActionLoading}
-            >
-              <X className="size-4" />
-            </Button>
-          </div>
-        </div>
-      )}
-
       {/* Entries List */}
       <Card>
         <CardContent className="p-0">
@@ -797,7 +747,12 @@ export default function TimeEntriesPage() {
                           className="shrink-0"
                         />
                       ) : (
-                        <div className="size-4 shrink-0" />
+                        <Tooltip>
+                          <TooltipTrigger className="shrink-0">
+                            <Receipt className="size-4 text-muted-foreground" />
+                          </TooltipTrigger>
+                          <TooltipPopup>Invoiced</TooltipPopup>
+                        </Tooltip>
                       )}
 
                       {/* Color dot */}
@@ -849,7 +804,7 @@ export default function TimeEntriesPage() {
                       {/* Amount */}
                       <span className="w-20 text-right text-sm font-medium tabular-nums">
                         {entry.is_billable && entry.amount
-                          ? formatCurrency(entry.amount, entry.project?.currency ?? defaultCurrency, defaultCurrency)
+                          ? formatCurrency(entry.amount, entry.client?.currency ?? defaultCurrency, defaultCurrency)
                           : "–"}
                       </span>
 
@@ -861,7 +816,10 @@ export default function TimeEntriesPage() {
                           <MoreVertical className="size-4 text-muted-foreground" />
                         </MenuTrigger>
                         <MenuPopup align="end">
-                          <MenuItem onClick={() => handleOpenEditModal(entry)}>
+                          <MenuItem
+                            onClick={() => handleOpenEditModal(entry)}
+                            disabled={!!entry.invoice_id}
+                          >
                             <Pencil className="size-4" />
                             Edit
                           </MenuItem>
@@ -873,6 +831,7 @@ export default function TimeEntriesPage() {
                           <MenuItem
                             variant="destructive"
                             onClick={() => handleDeleteClick(entry)}
+                            disabled={!!entry.invoice_id}
                           >
                             <Trash2 className="size-4" />
                             Delete
@@ -1189,6 +1148,87 @@ export default function TimeEntriesPage() {
           </DialogFooter>
         </DialogPopup>
       </Dialog>
+
+      {/* Floating Bulk Action Toolbar */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-18 sm:bottom-8 left-4 right-4 z-50 sm:left-1/2 sm:right-auto sm:-translate-x-1/2">
+          <div className="flex items-center justify-between gap-2 rounded-lg border bg-background/95 px-3 py-2.5 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:gap-3 sm:px-4 sm:py-3">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Checkbox
+                checked={allSelected}
+                indeterminate={someSelected}
+                onCheckedChange={handleSelectAll}
+              />
+              <span className="text-sm font-medium whitespace-nowrap">
+                {selectedIds.size} selected
+              </span>
+            </div>
+            <div className="hidden sm:block mx-2 h-4 w-px bg-border" />
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleBulkAction('mark-billable')}
+                      disabled={isBulkActionLoading}
+                      className="px-2 sm:px-3"
+                    >
+                      <DollarSign className="size-4 sm:mr-1" />
+                      <span className="hidden sm:inline">Billable</span>
+                    </Button>
+                  }
+                />
+                <TooltipPopup className="sm:hidden">Mark Billable</TooltipPopup>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleBulkAction('mark-non-billable')}
+                      disabled={isBulkActionLoading}
+                      className="px-2 sm:px-3"
+                    >
+                      <Minus className="size-4 sm:mr-1" />
+                      <span className="hidden sm:inline">Non-billable</span>
+                    </Button>
+                  }
+                />
+                <TooltipPopup className="sm:hidden">Mark Non-billable</TooltipPopup>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => handleBulkAction('delete')}
+                      disabled={isBulkActionLoading}
+                      className="px-2 sm:px-3"
+                    >
+                      <Trash2 className="size-4 sm:mr-1" />
+                      <span className="hidden sm:inline">Delete</span>
+                    </Button>
+                  }
+                />
+                <TooltipPopup className="sm:hidden">Delete</TooltipPopup>
+              </Tooltip>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setSelectedIds(new Set())}
+                disabled={isBulkActionLoading}
+                className="px-2"
+              >
+                <X className="size-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
