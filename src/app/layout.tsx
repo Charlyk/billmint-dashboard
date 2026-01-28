@@ -14,8 +14,23 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "BillMint - Time Tracking & Invoicing",
-  description: "Track your time, manage projects, and send invoices with ease",
+  title: "BillMint - Simple Time Tracking & Invoicing for Freelancers",
+  description:
+    "Track time, create invoices, and get paid faster. Simple time tracking and invoicing for freelancers and small teams. Start free.",
+  openGraph: {
+    title: "BillMint - Simple Time Tracking & Invoicing",
+    description:
+      "Track time, create invoices, and get paid faster. Start free.",
+    url: "https://billmint.io",
+    siteName: "BillMint",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "BillMint - Simple Time Tracking & Invoicing",
+    description:
+      "Track time, create invoices, and get paid faster. Start free.",
+  },
 };
 
 export default function RootLayout({
