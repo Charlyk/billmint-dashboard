@@ -100,7 +100,43 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
   const descriptionDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const descriptionInputRef = useRef<HTMLInputElement | null>(null)
   const projectSelectRef = useRef<HTMLButtonElement | null>(null)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const timerStartRef = useRef<{ startTime: number; elapsedSeconds: number } | null>(null)
   const { mutate } = useSWRConfig()
+
+  // Start the ticking interval immediately
+  const startTicking = useCallback((startTime: number, elapsedSeconds: number) => {
+    // Store in ref so interval can access without causing re-renders
+    timerStartRef.current = { startTime, elapsedSeconds }
+
+    // Clear any existing interval
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+    }
+
+    // Set initial display time
+    const initialElapsed = elapsedSeconds + Math.max(0, Math.floor((Date.now() - startTime) / 1000))
+    setDisplayTime(initialElapsed)
+
+    // Start ticking every second
+    intervalRef.current = setInterval(() => {
+      if (timerStartRef.current) {
+        const { startTime: start, elapsedSeconds: elapsed } = timerStartRef.current
+        const now = Date.now()
+        const total = elapsed + Math.max(0, Math.floor((now - start) / 1000))
+        setDisplayTime(total)
+      }
+    }, 1000)
+  }, [])
+
+  // Stop the ticking interval
+  const stopTicking = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+      intervalRef.current = null
+    }
+    timerStartRef.current = null
+  }, [])
 
   // Fetch timer from server
   const fetchTimer = useCallback(async () => {
@@ -177,29 +213,38 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
     }
   }, [displayTime, timer.isRunning, timer.isPaused])
 
-  // Calculate display time
+  // Handle timer state changes (for initial load and pause/resume from server)
   useEffect(() => {
-    if (!timer.isRunning || timer.isPaused) {
-      setDisplayTime(timer.elapsedSeconds)
+    if (!timer.isRunning) {
+      stopTicking()
+      setDisplayTime(0)
       return
     }
 
-    // Calculate initial display time immediately
-    const start = new Date(timer.startTime!).getTime()
-    const now = Date.now()
-    setDisplayTime(timer.elapsedSeconds + Math.floor((now - start) / 1000))
+    if (timer.isPaused) {
+      stopTicking()
+      setDisplayTime(Math.max(0, timer.elapsedSeconds))
+      return
+    }
 
-    const interval = setInterval(() => {
-      const start = new Date(timer.startTime!).getTime()
-      const now = Date.now()
-      const elapsed = timer.elapsedSeconds + Math.floor((now - start) / 1000)
-      setDisplayTime(elapsed)
-    }, 1000)
+    // Only start ticking from useEffect if we don't have an active interval
+    // (interval is started immediately in startTimer/resumeTimer for instant feedback)
+    if (!intervalRef.current && timer.startTime) {
+      const startTime = new Date(timer.startTime).getTime()
+      startTicking(startTime, timer.elapsedSeconds)
+    }
+  }, [timer.isRunning, timer.isPaused, timer.startTime, timer.elapsedSeconds, startTicking, stopTicking])
 
-    return () => clearInterval(interval)
-  }, [timer.isRunning, timer.isPaused, timer.startTime, timer.elapsedSeconds])
+  // Cleanup interval on unmount
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+      }
+    }
+  }, [])
 
-  // Optimistic start timer
+  // Optimistic start timer - starts ticking immediately, syncs with server in background
   const startTimer = useCallback(
     async (options?: {
       description?: string
@@ -209,12 +254,16 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
       if (isSubmitting) return
       setIsSubmitting(true)
 
-      const startedAt = new Date().toISOString()
+      const startedAtMs = Date.now()
+      const startedAt = new Date(startedAtMs).toISOString()
       const desc = options?.description ?? timer.description
       const projId = options?.projectId !== undefined ? options.projectId : timer.projectId
       const billable = options?.isBillable ?? timer.isBillable
 
-      // Optimistic update
+      // Start ticking IMMEDIATELY - don't wait for API
+      startTicking(startedAtMs, 0)
+
+      // Update timer state
       setTimer((prev) => ({
         ...prev,
         isRunning: true,
@@ -233,26 +282,25 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
           is_billable: billable,
         })
 
-        // Sync with server response
+        // Sync with server response (don't restart interval - just update metadata)
         const serverTimer = response.timer!
-        setTimer({
-          isRunning: true,
-          isPaused: false,
-          startTime: serverTimer.start_time,
-          elapsedSeconds: 0,
+        setTimer((prev) => ({
+          ...prev,
           description: serverTimer.description || '',
           projectId: serverTimer.project_id,
           project: response.project,
           isBillable: serverTimer.is_billable,
-        })
+        }))
       } catch (error: unknown) {
-        // On conflict (409), fetch the existing timer instead of reverting to idle
+        // Stop ticking and revert on error
+        stopTicking()
+
         if (isApiError(error) && error.statusCode === 409) {
-          // Fetch the existing timer from server
+          // Timer already running on server - fetch it
           await fetchTimer()
           toastManager.add({ type: 'info', title: 'Timer already running' })
         } else {
-          // Revert on other errors
+          // Revert to idle state
           setTimer({
             isRunning: false,
             isPaused: false,
@@ -263,13 +311,14 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
             project: timer.project,
             isBillable: billable,
           })
+          setDisplayTime(0)
           toastManager.add({ type: 'error', title: 'Failed to start timer' })
         }
       } finally {
         setIsSubmitting(false)
       }
     },
-    [timer.description, timer.projectId, timer.project, timer.isBillable, isSubmitting, fetchTimer]
+    [timer.description, timer.projectId, timer.project, timer.isBillable, isSubmitting, fetchTimer, startTicking, stopTicking]
   )
 
   // Optimistic stop timer
@@ -279,6 +328,10 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
 
     const prevTimer = { ...timer }
     const savedDuration = displayTime
+    const prevTimerStart = timerStartRef.current
+
+    // Stop ticking immediately
+    stopTicking()
 
     // Optimistic update
     setTimer({
@@ -291,6 +344,7 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
       project: null,
       isBillable: true,
     })
+    setDisplayTime(0)
 
     try {
       await timerApi.stopTimer()
@@ -309,13 +363,18 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
         title: `Entry saved: ${formatDurationHuman(savedDuration)}`,
       })
     } catch {
-      // Revert on error
+      // Revert on error - restart ticking
       setTimer(prevTimer)
+      if (prevTimerStart && !prevTimer.isPaused) {
+        startTicking(prevTimerStart.startTime, prevTimerStart.elapsedSeconds)
+      } else {
+        setDisplayTime(prevTimer.elapsedSeconds)
+      }
       toastManager.add({ type: 'error', title: 'Failed to stop timer' })
     } finally {
       setIsSubmitting(false)
     }
-  }, [timer, displayTime, isSubmitting, mutate])
+  }, [timer, displayTime, isSubmitting, mutate, stopTicking, startTicking])
 
   // Optimistic pause timer
   const pauseTimer = useCallback(async () => {
@@ -323,6 +382,10 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
     setIsSubmitting(true)
 
     const currentDisplayTime = displayTime
+    const prevTimerStart = timerStartRef.current
+
+    // Stop ticking immediately
+    stopTicking()
 
     // Optimistic update
     setTimer((prev) => ({
@@ -334,23 +397,31 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
     try {
       await timerApi.pauseTimer()
     } catch {
-      // Revert on error
+      // Revert on error - restart ticking
       setTimer((prev) => ({
         ...prev,
         isPaused: false,
       }))
+      if (prevTimerStart) {
+        startTicking(prevTimerStart.startTime, prevTimerStart.elapsedSeconds)
+      }
       toastManager.add({ type: 'error', title: 'Failed to pause timer' })
     } finally {
       setIsSubmitting(false)
     }
-  }, [displayTime, isSubmitting])
+  }, [displayTime, isSubmitting, stopTicking, startTicking])
 
-  // Optimistic resume timer
+  // Optimistic resume timer - starts ticking immediately
   const resumeTimer = useCallback(async () => {
     if (isSubmitting) return
     setIsSubmitting(true)
 
-    const resumedAt = new Date().toISOString()
+    const resumedAtMs = Date.now()
+    const resumedAt = new Date(resumedAtMs).toISOString()
+    const currentElapsed = timer.elapsedSeconds
+
+    // Start ticking IMMEDIATELY with current elapsed time
+    startTicking(resumedAtMs, currentElapsed)
 
     // Optimistic update
     setTimer((prev) => ({
@@ -362,16 +433,18 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
     try {
       await timerApi.resumeTimer()
     } catch {
-      // Revert on error
+      // Stop ticking and revert on error
+      stopTicking()
       setTimer((prev) => ({
         ...prev,
         isPaused: true,
       }))
+      setDisplayTime(currentElapsed)
       toastManager.add({ type: 'error', title: 'Failed to resume timer' })
     } finally {
       setIsSubmitting(false)
     }
-  }, [isSubmitting])
+  }, [isSubmitting, timer.elapsedSeconds, startTicking, stopTicking])
 
   // Optimistic discard timer
   const discardTimer = useCallback(async () => {
@@ -379,6 +452,10 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
     setIsSubmitting(true)
 
     const prevTimer = { ...timer }
+    const prevTimerStart = timerStartRef.current
+
+    // Stop ticking immediately
+    stopTicking()
 
     // Optimistic update
     setTimer({
@@ -391,18 +468,24 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
       project: null,
       isBillable: true,
     })
+    setDisplayTime(0)
 
     try {
       await timerApi.discardTimer()
       toastManager.add({ type: 'info', title: 'Timer discarded' })
     } catch {
-      // Revert on error
+      // Revert on error - restart ticking if was running
       setTimer(prevTimer)
+      if (prevTimerStart && !prevTimer.isPaused) {
+        startTicking(prevTimerStart.startTime, prevTimerStart.elapsedSeconds)
+      } else {
+        setDisplayTime(prevTimer.elapsedSeconds)
+      }
       toastManager.add({ type: 'error', title: 'Failed to discard timer' })
     } finally {
       setIsSubmitting(false)
     }
-  }, [timer, isSubmitting])
+  }, [timer, isSubmitting, stopTicking, startTicking])
 
   // Debounced description update
   const setDescription = useCallback(
