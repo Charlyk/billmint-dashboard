@@ -37,6 +37,7 @@ import {
   Trash2,
   Loader2,
   Copy,
+  Mail,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useInvoices, useInvoiceMutations, useInvoiceStats, useClients, useProjects } from "@/lib/hooks";
@@ -159,7 +160,7 @@ export default function InvoicesPage() {
   });
 
   // Mutations
-  const { deleteInvoice, markAsPaid, voidInvoice, duplicateInvoice } = useInvoiceMutations();
+  const { deleteInvoice, markAsPaid, voidInvoice, duplicateInvoice, sendReminder } = useInvoiceMutations();
 
   // Fetch invoice stats (from database, independent of filters/pagination)
   const { stats, isLoading: isStatsLoading, mutate: mutateStats } = useInvoiceStats();
@@ -236,6 +237,27 @@ export default function InvoicesPage() {
       toastManager.add({
         type: "error",
         title: "Failed to mark invoice as paid",
+      });
+    } finally {
+      setLoadingInvoiceId(null);
+    }
+  };
+
+  const handleSendReminder = async (invoice: InvoiceWithClient) => {
+    setLoadingInvoiceId(invoice.id);
+    try {
+      await sendReminder(invoice.id);
+      toastManager.add({
+        type: "success",
+        title: "Reminder sent",
+        description: `Payment reminder sent to ${invoice.client.email || invoice.client.name}`,
+      });
+      mutate();
+    } catch (error) {
+      console.error("Failed to send reminder:", error);
+      toastManager.add({
+        type: "error",
+        title: "Failed to send reminder",
       });
     } finally {
       setLoadingInvoiceId(null);
@@ -508,10 +530,16 @@ export default function InvoicesPage() {
                         Duplicate
                       </MenuItem>
                       {(invoice.status === "sent" || invoice.status === "overdue") && (
-                        <MenuItem onClick={() => handleMarkAsPaid(invoice)} disabled={loadingInvoiceId !== null}>
-                          <CheckCircle className="size-4" />
-                          Mark as Paid
-                        </MenuItem>
+                        <>
+                          <MenuItem onClick={() => handleSendReminder(invoice)} disabled={loadingInvoiceId !== null}>
+                            <Mail className="size-4" />
+                            Send Reminder
+                          </MenuItem>
+                          <MenuItem onClick={() => handleMarkAsPaid(invoice)} disabled={loadingInvoiceId !== null}>
+                            <CheckCircle className="size-4" />
+                            Mark as Paid
+                          </MenuItem>
+                        </>
                       )}
                       {invoice.status !== "paid" && invoice.status !== "void" && (
                         <>

@@ -97,7 +97,7 @@ export async function sendWelcomeEmail(data: WelcomeEmailData) {
   <div style="max-width: 560px; margin: 0 auto; padding: 40px 20px;">
     <div style="background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; padding: 32px;">
 
-      <a href="${APP_URL}" style="text-decoration: none; margin-bottom: 24px; display: block;"><img src="${APP_URL}/billmint_logo.webp" alt="BillMint" width="32" style="height: auto; display: block;"></a>
+      <a href="${APP_URL}" style="text-decoration: none; margin-bottom: 24px; display: block;"><img src="${APP_URL}/billmint_logo_wbg.webp" alt="BillMint" width="32" style="height: auto; display: block;"></a>
 
       <h1 style="font-size: 20px; font-weight: 600; margin: 0 0 16px 0; color: #1e293b;">Welcome to BillMint!</h1>
 
@@ -182,7 +182,7 @@ export async function sendWeeklySummaryEmail(data: WeeklySummaryEmailData) {
   <div style="max-width: 560px; margin: 0 auto; padding: 40px 20px;">
     <div style="background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; padding: 32px;">
 
-      <a href="${APP_URL}" style="text-decoration: none; margin-bottom: 24px; display: block;"><img src="${APP_URL}/billmint_logo.webp" alt="BillMint" width="32" style="height: auto; display: block;"></a>
+      <a href="${APP_URL}" style="text-decoration: none; margin-bottom: 24px; display: block;"><img src="${APP_URL}/billmint_logo_wbg.webp" alt="BillMint" width="32" style="height: auto; display: block;"></a>
 
       <h1 style="font-size: 20px; font-weight: 600; margin: 0 0 16px 0; color: #1e293b;">Your week in review</h1>
 
@@ -266,7 +266,7 @@ export async function sendTimerAutoPausedEmail(data: TimerAutoPausedEmailData) {
   <div style="max-width: 560px; margin: 0 auto; padding: 40px 20px;">
     <div style="background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; padding: 32px;">
 
-      <a href="${APP_URL}" style="text-decoration: none; margin-bottom: 24px; display: block;"><img src="${APP_URL}/billmint_logo.webp" alt="BillMint" width="32" style="height: auto; display: block;"></a>
+      <a href="${APP_URL}" style="text-decoration: none; margin-bottom: 24px; display: block;"><img src="${APP_URL}/billmint_logo_wbg.webp" alt="BillMint" width="32" style="height: auto; display: block;"></a>
 
       <h1 style="font-size: 20px; font-weight: 600; margin: 0 0 16px 0; color: #1e293b;">Your timer was paused</h1>
 
@@ -355,7 +355,7 @@ export async function sendTimerReminderEmail(data: TimerReminderEmailData) {
   <div style="max-width: 560px; margin: 0 auto; padding: 40px 20px;">
     <div style="background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; padding: 32px;">
 
-      <a href="${APP_URL}" style="text-decoration: none; margin-bottom: 24px; display: block;"><img src="${APP_URL}/billmint_logo.webp" alt="BillMint" width="32" style="height: auto; display: block;"></a>
+      <a href="${APP_URL}" style="text-decoration: none; margin-bottom: 24px; display: block;"><img src="${APP_URL}/billmint_logo_wbg.webp" alt="BillMint" width="32" style="height: auto; display: block;"></a>
 
       <h1 style="font-size: 20px; font-weight: 600; margin: 0 0 16px 0; color: #1e293b;">Timer check-in</h1>
 
@@ -439,7 +439,7 @@ export async function sendInvoiceOverdueEmail(data: InvoiceOverdueEmailData) {
   <div style="max-width: 560px; margin: 0 auto; padding: 40px 20px;">
     <div style="background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; padding: 32px;">
 
-      <a href="${APP_URL}" style="text-decoration: none; margin-bottom: 24px; display: block;"><img src="${APP_URL}/billmint_logo.webp" alt="BillMint" width="32" style="height: auto; display: block;"></a>
+      <a href="${APP_URL}" style="text-decoration: none; margin-bottom: 24px; display: block;"><img src="${APP_URL}/billmint_logo_wbg.webp" alt="BillMint" width="32" style="height: auto; display: block;"></a>
 
       <h1 style="font-size: 20px; font-weight: 600; margin: 0 0 16px 0; color: #1e293b;">Invoice overdue</h1>
 
@@ -556,7 +556,7 @@ export async function sendMonthlySummaryEmail(data: MonthlySummaryEmailData) {
   <div style="max-width: 560px; margin: 0 auto; padding: 40px 20px;">
     <div style="background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; padding: 32px;">
 
-      <a href="${APP_URL}" style="text-decoration: none; margin-bottom: 24px; display: block;"><img src="${APP_URL}/billmint_logo.webp" alt="BillMint" width="32" style="height: auto; display: block;"></a>
+      <a href="${APP_URL}" style="text-decoration: none; margin-bottom: 24px; display: block;"><img src="${APP_URL}/billmint_logo_wbg.webp" alt="BillMint" width="32" style="height: auto; display: block;"></a>
 
       <h1 style="font-size: 20px; font-weight: 600; margin: 0 0 16px 0; color: #1e293b;">${monthName} in review</h1>
 

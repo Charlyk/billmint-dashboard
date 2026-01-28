@@ -200,6 +200,8 @@ interface InvoiceEmailData {
     id: string
     invoice_number: string
     total: number
+    currency: string
+    issue_date: string
     due_date: string
     status: string
     public_token: string
@@ -248,7 +250,7 @@ export async function sendInvoice(id: string): Promise<Invoice> {
   // Send email
   try {
     await getResend().emails.send({
-      from: 'BillMint <noreply@billmint.app>',
+      from: 'BillMint <noreply@billmint.io>',
       to: emailData.client.email,
       subject: `Invoice ${emailData.invoice.invoice_number} from ${emailData.user.company_name || emailData.user.full_name || 'BillMint'}`,
       html: `
@@ -314,19 +316,103 @@ export async function sendReminder(id: string): Promise<Invoice> {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
   const invoiceUrl = `${appUrl}/invoice/${emailData.invoice.public_token}`
 
-  try {
-    await getResend().emails.send({
-      from: 'BillMint <noreply@billmint.app>',
-      to: emailData.client.email,
-      subject: `Reminder: Invoice ${emailData.invoice.invoice_number} from ${emailData.user.company_name || emailData.user.full_name || 'BillMint'}`,
-      html: `
-        <h1>Payment Reminder</h1>
-        <p>This is a friendly reminder that invoice #${emailData.invoice.invoice_number} is ${emailData.invoice.status === 'overdue' ? 'overdue' : 'due soon'}.</p>
-        <p>Amount: $${emailData.invoice.total.toFixed(2)}</p>
-        <p>Due date: ${new Date(emailData.invoice.due_date).toLocaleDateString()}</p>
-        <p><a href="${invoiceUrl}">View Invoice</a></p>
-      `,
+  // Calculate status text and days
+  const dueDate = new Date(emailData.invoice.due_date)
+  const today = new Date()
+  const diffTime = dueDate.getTime() - today.getTime()
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+
+  const isOverdue = emailData.invoice.status === 'overdue'
+  const statusText = isOverdue
+    ? `${Math.abs(diffDays)} days overdue`
+    : diffDays === 0
+      ? 'due today'
+      : diffDays === 1
+        ? 'due tomorrow'
+        : `due in ${diffDays} days`
+  const dueDateColor = isOverdue ? '#ef4444' : '#1e293b'
+
+  // Format dates
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
     })
+  }
+
+  // Format currency
+  const formatAmount = (amount: number, currency: string) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency || 'USD',
+    }).format(amount)
+  }
+
+  const fromName = emailData.user.company_name || emailData.user.full_name || 'BillMint'
+
+  try {
+    console.log('[Invoice] Sending reminder email to:', emailData.client.email)
+    const result = await getResend().emails.send({
+      from: 'BillMint <noreply@billmint.io>',
+      to: emailData.client.email,
+      subject: `Reminder: Invoice ${emailData.invoice.invoice_number} from ${fromName}`,
+      html: `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1e293b; background-color: #f8fafc; margin: 0; padding: 0;">
+  <div style="max-width: 560px; margin: 0 auto; padding: 40px 20px;">
+    <div style="background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; padding: 32px;">
+
+      <a href="https://billmint.io" style="text-decoration: none; margin-bottom: 24px; display: block;">
+        <img src="https://billmint.io/billmint_logo_wbg.webp" alt="BillMint" width="32" style="height: auto; display: block;">
+      </a>
+
+      <h1 style="font-size: 20px; font-weight: 600; margin: 0 0 16px 0; color: #1e293b;">Payment Reminder</h1>
+
+      <p style="margin: 0 0 16px 0; color: #475569;">Hi ${emailData.client.name},</p>
+
+      <p style="margin: 0 0 16px 0; color: #475569;">This is a friendly reminder that invoice <strong>${emailData.invoice.invoice_number}</strong> is ${statusText}.</p>
+
+      <div style="background: #f1f5f9; border-radius: 8px; padding: 20px; margin: 20px 0;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="color: #64748b; font-size: 14px; padding: 8px 0; border-bottom: 1px solid #e2e8f0;">Invoice</td>
+            <td style="font-weight: 600; color: #1e293b; text-align: right; padding: 8px 0; border-bottom: 1px solid #e2e8f0;">${emailData.invoice.invoice_number}</td>
+          </tr>
+          <tr>
+            <td style="color: #64748b; font-size: 14px; padding: 8px 0; border-bottom: 1px solid #e2e8f0;">Amount Due</td>
+            <td style="font-weight: 600; color: #14b8a6; text-align: right; padding: 8px 0; border-bottom: 1px solid #e2e8f0;">${formatAmount(emailData.invoice.total, emailData.invoice.currency)}</td>
+          </tr>
+          <tr>
+            <td style="color: #64748b; font-size: 14px; padding: 8px 0; border-bottom: 1px solid #e2e8f0;">Issue Date</td>
+            <td style="font-weight: 600; color: #1e293b; text-align: right; padding: 8px 0; border-bottom: 1px solid #e2e8f0;">${formatDate(emailData.invoice.issue_date)}</td>
+          </tr>
+          <tr>
+            <td style="color: #64748b; font-size: 14px; padding: 8px 0;">Due Date</td>
+            <td style="font-weight: 600; color: ${dueDateColor}; text-align: right; padding: 8px 0;">${formatDate(emailData.invoice.due_date)}</td>
+          </tr>
+        </table>
+      </div>
+
+      <a href="${invoiceUrl}" style="display: inline-block; background: #14b8a6; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500;">View Invoice</a>
+
+      <p style="margin: 24px 0 0 0; color: #475569;">If you've already sent payment, please disregard this reminder.</p>
+
+      <p style="margin: 16px 0 0 0; color: #475569;">Thanks,<br>${fromName}</p>
+
+      <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e2e8f0; font-size: 13px; color: #94a3b8;">
+        <p style="margin: 0;">Sent via <a href="https://billmint.io" style="color: #64748b; text-decoration: none;">BillMint</a></p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`,
+    })
+    console.log('[Invoice] Reminder email sent, result:', result)
   } catch (emailError) {
     console.error('Failed to send reminder email:', emailError)
     throw new ValidationError('Failed to send reminder email')

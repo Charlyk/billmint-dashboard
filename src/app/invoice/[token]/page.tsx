@@ -110,32 +110,26 @@ export default function InvoicePublicPage({
         <Card className="overflow-hidden">
           <CardContent className="p-8 sm:p-12">
             {/* Header */}
-            <div className="mb-8 flex items-start justify-between">
-              <div>
-                <h2 className="text-lg font-semibold">
-                  {user.company_name || user.full_name || "Invoice"}
-                </h2>
-                <p className="text-sm text-muted-foreground">{user.email}</p>
-              </div>
+            <div className="mb-8 flex justify-end">
               <h1 className="text-3xl font-bold tracking-tight">INVOICE</h1>
             </div>
 
             {/* From / To */}
             <div className="mb-8 grid gap-8 sm:grid-cols-2">
               <div>
-                <p className="mb-2 text-sm font-medium text-muted-foreground">
-                  From:
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  From
                 </p>
-                <p className="font-medium">
+                <p className="font-semibold">
                   {user.company_name || user.full_name || "Your Business"}
                 </p>
                 <p className="text-sm text-muted-foreground">{user.email}</p>
               </div>
               <div>
-                <p className="mb-2 text-sm font-medium text-muted-foreground">
-                  Bill To:
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Bill To
                 </p>
-                <p className="font-medium">{invoice.client.name}</p>
+                <p className="font-semibold">{invoice.client.name}</p>
                 {invoice.client.email && (
                   <p className="text-sm text-muted-foreground">
                     {invoice.client.email}
@@ -146,24 +140,22 @@ export default function InvoicePublicPage({
 
             {/* Invoice Details */}
             <div className="mb-8 space-y-1">
-              <p>
-                <span className="text-muted-foreground">Invoice:</span>{" "}
-                <span className="font-mono font-medium">
-                  {invoice.invoice_number}
-                </span>
-              </p>
-              <p>
-                <span className="text-muted-foreground">Issue Date:</span>{" "}
-                {formatDate(invoice.issue_date)}
-              </p>
-              <p>
-                <span className="text-muted-foreground">Due Date:</span>{" "}
-                {formatDate(invoice.due_date)}
-              </p>
-              <p>
-                <span className="text-muted-foreground">Status:</span>{" "}
+              <div className="flex">
+                <span className="w-24 text-muted-foreground">Invoice #:</span>
+                <span className="font-semibold">{invoice.invoice_number}</span>
+              </div>
+              <div className="flex">
+                <span className="w-24 text-muted-foreground">Issue Date:</span>
+                <span className="font-semibold">{formatDate(invoice.issue_date)}</span>
+              </div>
+              <div className="flex">
+                <span className="w-24 text-muted-foreground">Due Date:</span>
+                <span className="font-semibold">{formatDate(invoice.due_date)}</span>
+              </div>
+              <div className="flex items-center">
+                <span className="w-24 text-muted-foreground">Status:</span>
                 <span
-                  className={`rounded px-2 py-0.5 text-xs font-medium ${
+                  className={`rounded px-2 py-0.5 text-xs font-semibold uppercase ${
                     invoice.status === "paid"
                       ? "bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-400"
                       : invoice.status === "overdue"
@@ -171,9 +163,9 @@ export default function InvoicePublicPage({
                         : "bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-400"
                   }`}
                 >
-                  {invoice.status.toUpperCase()}
+                  {invoice.status}
                 </span>
-              </p>
+              </div>
             </div>
 
             {/* Line Items Table */}
@@ -240,8 +232,8 @@ export default function InvoicePublicPage({
                   </div>
                 )}
 
-                <div className="grid grid-cols-[1fr_100px] gap-4 border-t px-4 py-3 font-medium">
-                  <span className="text-right">Total Due:</span>
+                <div className="grid grid-cols-[1fr_100px] gap-4 border-t px-4 py-3 font-semibold">
+                  <span className="text-right">Total:</span>
                   <span className="text-right tabular-nums">
                     {formatCurrency(invoice.total, invoice.currency, invoice.currency)}
                   </span>
@@ -249,23 +241,25 @@ export default function InvoicePublicPage({
               </div>
             </div>
 
-            {/* Notes */}
-            {invoice.notes && (
-              <div className="mb-4">
-                <p className="mb-2 text-sm font-medium text-muted-foreground">
-                  Notes:
-                </p>
-                <p className="text-sm">{invoice.notes}</p>
-              </div>
-            )}
-
-            {/* Terms */}
-            {invoice.terms && (
-              <div className="mb-8">
-                <p className="mb-2 text-sm font-medium text-muted-foreground">
-                  Terms:
-                </p>
-                <p className="text-sm">{invoice.terms}</p>
+            {/* Notes & Terms */}
+            {(invoice.notes || invoice.terms) && (
+              <div className="mb-8 space-y-4">
+                {invoice.notes && (
+                  <div>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Notes
+                    </p>
+                    <p className="text-sm text-muted-foreground">{invoice.notes}</p>
+                  </div>
+                )}
+                {invoice.terms && (
+                  <div>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Terms
+                    </p>
+                    <p className="text-sm text-muted-foreground">{invoice.terms}</p>
+                  </div>
+                )}
               </div>
             )}
 
@@ -296,7 +290,14 @@ export default function InvoicePublicPage({
         <div className="mt-6 text-center text-sm text-muted-foreground">
           <p>
             Powered by{" "}
-            <span className="font-medium text-teal-600">BillMint.io</span>
+            <a
+              href="https://billmint.io"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-teal-600 hover:text-teal-700 hover:underline"
+            >
+              BillMint.io
+            </a>
           </p>
         </div>
       </div>
