@@ -48,8 +48,8 @@ This checklist covers everything needed before launching BillMint to real users.
 - [x] **[MUST]** Import unbilled time as line items
 - [x] **[MUST]** Auto-calculate totals
 - [x] **[MUST]** Save as draft
-- [ ] **[MUST]** Send invoice (mark as sent)
-- [ ] **[MUST]** Public invoice view (shareable link)
+- [x] **[MUST]** Send invoice (mark as sent)
+- [x] **[MUST]** Public invoice view (shareable link)
 - [x] **[MUST]** Mark as paid
 - [x] **[MUST]** Invoice number auto-generation
 - [x] **[NICE]** PDF download

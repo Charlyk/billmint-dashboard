@@ -126,6 +126,7 @@ export interface InvoicesQuery {
   page?: number
   limit?: number
   client_id?: string
+  project_id?: string
   status?: string
   start_date?: string
   end_date?: string

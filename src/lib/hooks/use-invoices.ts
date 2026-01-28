@@ -6,8 +6,17 @@ import type { InvoiceListResponse, InvoiceWithDetails } from '@/types'
 import type { InvoicesQuery } from '@/lib/utils/validation'
 
 export function useInvoices(options?: InvoicesQuery) {
+  // Serialize options into the key for reliable change detection
+  const key = options
+    ? `invoices?${new URLSearchParams(
+        Object.entries(options)
+          .filter(([, v]) => v !== undefined)
+          .map(([k, v]) => [k, String(v)])
+      ).toString()}`
+    : 'invoices'
+
   const { data, error, isLoading, mutate } = useSWR<InvoiceListResponse>(
-    ['invoices', options],
+    key,
     () => invoicesApi.listInvoices(options),
     { revalidateOnMount: true, dedupingInterval: 0 }
   )

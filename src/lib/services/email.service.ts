@@ -80,6 +80,30 @@ export interface MonthlySummaryEmailData {
   nextMonthName: string
 }
 
+export interface InvoiceSentEmailData {
+  to: string
+  clientName: string
+  invoiceNumber: string
+  amount: string
+  issueDate: string
+  dueDate: string
+  invoiceUrl: string
+  fromName: string
+}
+
+export interface InvoiceReminderEmailData {
+  to: string
+  clientName: string
+  invoiceNumber: string
+  amount: string
+  issueDate: string
+  dueDate: string
+  dueDateColor: string
+  statusText: string
+  invoiceUrl: string
+  fromName: string
+}
+
 // ============================================================================
 // Email Functions
 // ============================================================================
@@ -634,6 +658,184 @@ Here's to a great ${nextMonthName}!`
 
   if (error) {
     console.error('Failed to send monthly summary email:', error)
+    throw error
+  }
+}
+
+export async function sendInvoiceSentEmail(data: InvoiceSentEmailData) {
+  const { to, clientName, invoiceNumber, amount, issueDate, dueDate, invoiceUrl, fromName } = data
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1e293b; background-color: #f8fafc; margin: 0; padding: 0;">
+  <div style="max-width: 560px; margin: 0 auto; padding: 40px 20px;">
+    <div style="background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; padding: 32px;">
+
+      <a href="${APP_URL}" style="text-decoration: none; margin-bottom: 24px; display: block;">
+        <img src="${APP_URL}/billmint_logo_wbg.webp" alt="BillMint" width="32" style="height: auto; display: block;">
+      </a>
+
+      <h1 style="font-size: 20px; font-weight: 600; margin: 0 0 16px 0; color: #1e293b;">You have a new invoice</h1>
+
+      <p style="margin: 0 0 16px 0; color: #475569;">Hi ${clientName},</p>
+
+      <p style="margin: 0 0 16px 0; color: #475569;">Please find below the details of your invoice from <strong>${fromName}</strong>.</p>
+
+      <div style="background: #f1f5f9; border-radius: 8px; padding: 20px; margin: 20px 0;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="color: #64748b; font-size: 14px; padding: 8px 0; border-bottom: 1px solid #e2e8f0;">Invoice</td>
+            <td style="font-weight: 600; color: #1e293b; text-align: right; padding: 8px 0; border-bottom: 1px solid #e2e8f0;">${invoiceNumber}</td>
+          </tr>
+          <tr>
+            <td style="color: #64748b; font-size: 14px; padding: 8px 0; border-bottom: 1px solid #e2e8f0;">Amount Due</td>
+            <td style="font-weight: 600; color: #14b8a6; text-align: right; padding: 8px 0; border-bottom: 1px solid #e2e8f0;">${amount}</td>
+          </tr>
+          <tr>
+            <td style="color: #64748b; font-size: 14px; padding: 8px 0; border-bottom: 1px solid #e2e8f0;">Issue Date</td>
+            <td style="font-weight: 600; color: #1e293b; text-align: right; padding: 8px 0; border-bottom: 1px solid #e2e8f0;">${issueDate}</td>
+          </tr>
+          <tr>
+            <td style="color: #64748b; font-size: 14px; padding: 8px 0;">Due Date</td>
+            <td style="font-weight: 600; color: #1e293b; text-align: right; padding: 8px 0;">${dueDate}</td>
+          </tr>
+        </table>
+      </div>
+
+      <a href="${invoiceUrl}" style="display: inline-block; background: #14b8a6; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500;">View Invoice</a>
+
+      <p style="margin: 24px 0 0 0; color: #475569;">Thanks,<br>${fromName}</p>
+
+      <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e2e8f0; font-size: 13px; color: #94a3b8;">
+        <p style="margin: 0;">Sent via <a href="${APP_URL}" style="color: #64748b; text-decoration: none;">BillMint</a></p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`
+
+  const text = `You have a new invoice
+
+Hi ${clientName},
+
+Please find below the details of your invoice from ${fromName}.
+
+Invoice Details:
+- Invoice: ${invoiceNumber}
+- Amount Due: ${amount}
+- Issue Date: ${issueDate}
+- Due Date: ${dueDate}
+
+View Invoice: ${invoiceUrl}
+
+Thanks,
+${fromName}`
+
+  const { error } = await getResend().emails.send({
+    from: FROM_EMAIL,
+    to,
+    subject: `Invoice ${invoiceNumber} from ${fromName}`,
+    html,
+    text,
+  })
+
+  if (error) {
+    console.error('Failed to send invoice email:', error)
+    throw error
+  }
+}
+
+export async function sendInvoiceReminderEmail(data: InvoiceReminderEmailData) {
+  const { to, clientName, invoiceNumber, amount, issueDate, dueDate, dueDateColor, statusText, invoiceUrl, fromName } = data
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1e293b; background-color: #f8fafc; margin: 0; padding: 0;">
+  <div style="max-width: 560px; margin: 0 auto; padding: 40px 20px;">
+    <div style="background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; padding: 32px;">
+
+      <a href="${APP_URL}" style="text-decoration: none; margin-bottom: 24px; display: block;">
+        <img src="${APP_URL}/billmint_logo_wbg.webp" alt="BillMint" width="32" style="height: auto; display: block;">
+      </a>
+
+      <h1 style="font-size: 20px; font-weight: 600; margin: 0 0 16px 0; color: #1e293b;">Payment Reminder</h1>
+
+      <p style="margin: 0 0 16px 0; color: #475569;">Hi ${clientName},</p>
+
+      <p style="margin: 0 0 16px 0; color: #475569;">This is a friendly reminder that invoice <strong>${invoiceNumber}</strong> is ${statusText}.</p>
+
+      <div style="background: #f1f5f9; border-radius: 8px; padding: 20px; margin: 20px 0;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="color: #64748b; font-size: 14px; padding: 8px 0; border-bottom: 1px solid #e2e8f0;">Invoice</td>
+            <td style="font-weight: 600; color: #1e293b; text-align: right; padding: 8px 0; border-bottom: 1px solid #e2e8f0;">${invoiceNumber}</td>
+          </tr>
+          <tr>
+            <td style="color: #64748b; font-size: 14px; padding: 8px 0; border-bottom: 1px solid #e2e8f0;">Amount Due</td>
+            <td style="font-weight: 600; color: #14b8a6; text-align: right; padding: 8px 0; border-bottom: 1px solid #e2e8f0;">${amount}</td>
+          </tr>
+          <tr>
+            <td style="color: #64748b; font-size: 14px; padding: 8px 0; border-bottom: 1px solid #e2e8f0;">Issue Date</td>
+            <td style="font-weight: 600; color: #1e293b; text-align: right; padding: 8px 0; border-bottom: 1px solid #e2e8f0;">${issueDate}</td>
+          </tr>
+          <tr>
+            <td style="color: #64748b; font-size: 14px; padding: 8px 0;">Due Date</td>
+            <td style="font-weight: 600; color: ${dueDateColor}; text-align: right; padding: 8px 0;">${dueDate}</td>
+          </tr>
+        </table>
+      </div>
+
+      <a href="${invoiceUrl}" style="display: inline-block; background: #14b8a6; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500;">View Invoice</a>
+
+      <p style="margin: 24px 0 0 0; color: #475569;">If you've already sent payment, please disregard this reminder.</p>
+
+      <p style="margin: 16px 0 0 0; color: #475569;">Thanks,<br>${fromName}</p>
+
+      <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e2e8f0; font-size: 13px; color: #94a3b8;">
+        <p style="margin: 0;">Sent via <a href="${APP_URL}" style="color: #64748b; text-decoration: none;">BillMint</a></p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`
+
+  const text = `Payment Reminder
+
+Hi ${clientName},
+
+This is a friendly reminder that invoice ${invoiceNumber} is ${statusText}.
+
+Invoice Details:
+- Invoice: ${invoiceNumber}
+- Amount Due: ${amount}
+- Issue Date: ${issueDate}
+- Due Date: ${dueDate}
+
+View Invoice: ${invoiceUrl}
+
+If you've already sent payment, please disregard this reminder.
+
+Thanks,
+${fromName}`
+
+  const { error } = await getResend().emails.send({
+    from: FROM_EMAIL,
+    to,
+    subject: `Reminder: Invoice ${invoiceNumber} from ${fromName}`,
+    html,
+    text,
+  })
+
+  if (error) {
+    console.error('Failed to send invoice reminder email:', error)
     throw error
   }
 }

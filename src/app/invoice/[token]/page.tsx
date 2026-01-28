@@ -29,19 +29,31 @@ export default function InvoicePublicPage({
   const [isDownloading, setIsDownloading] = useState(false);
 
   useEffect(() => {
+    const abortController = new AbortController();
+
     async function fetchInvoice() {
       try {
         const invoiceData = await getPublicInvoice(token);
-        setData(invoiceData);
+        if (!abortController.signal.aborted) {
+          setData(invoiceData);
+        }
       } catch (err) {
-        console.error("Failed to fetch invoice:", err);
-        setError("Invoice not found or has expired.");
+        if (!abortController.signal.aborted) {
+          console.error("Failed to fetch invoice:", err);
+          setError("Invoice not found or has expired.");
+        }
       } finally {
-        setIsLoading(false);
+        if (!abortController.signal.aborted) {
+          setIsLoading(false);
+        }
       }
     }
 
     fetchInvoice();
+
+    return () => {
+      abortController.abort();
+    };
   }, [token]);
 
   const handleDownloadPDF = async () => {

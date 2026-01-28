@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -142,21 +142,13 @@ export default function InvoicesPage() {
   const { clients } = useClients({ limit: 100 });
   const { projects } = useProjects({ limit: 100 });
 
-  // Get the effective client filter (from project if selected, otherwise from client filter)
-  const effectiveClientId = useMemo(() => {
-    if (projectFilter !== "all") {
-      const project = projects.find((p) => p.id === projectFilter);
-      return project?.client_id || null;
-    }
-    return clientFilter !== "all" ? clientFilter : undefined;
-  }, [projectFilter, clientFilter, projects]);
-
   // Fetch invoices with filters
   const { invoices, isLoading, mutate } = useInvoices({
     page: 1,
     limit: 100,
     status: statusFilter !== "all" ? statusFilter : undefined,
-    client_id: effectiveClientId || undefined,
+    client_id: clientFilter !== "all" ? clientFilter : undefined,
+    project_id: projectFilter !== "all" ? projectFilter : undefined,
   });
 
   // Mutations
@@ -388,13 +380,7 @@ export default function InvoicesPage() {
 
           <Select
             value={clientFilter}
-            onValueChange={(value) => {
-              setClientFilter(value || "all");
-              // Reset project filter when client changes
-              if (value !== "all") {
-                setProjectFilter("all");
-              }
-            }}
+            onValueChange={(value) => setClientFilter(value || "all")}
           >
             <SelectTrigger className="w-40">
               <SelectValue>
@@ -415,13 +401,7 @@ export default function InvoicesPage() {
 
           <Select
             value={projectFilter}
-            onValueChange={(value) => {
-              setProjectFilter(value || "all");
-              // When a project is selected, reset the client filter since project determines client
-              if (value !== "all") {
-                setClientFilter("all");
-              }
-            }}
+            onValueChange={(value) => setProjectFilter(value || "all")}
           >
             <SelectTrigger className="w-40">
               <SelectValue>

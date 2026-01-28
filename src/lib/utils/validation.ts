@@ -189,6 +189,7 @@ export const timeEntriesQuerySchema = paginationSchema.extend({
 
 export const invoicesQuerySchema = paginationSchema.extend({
   client_id: z.string().uuid().optional(),
+  project_id: z.string().uuid().optional(),
   status: invoiceStatusSchema.optional(),
   start_date: z.string().optional(),
   end_date: z.string().optional(),

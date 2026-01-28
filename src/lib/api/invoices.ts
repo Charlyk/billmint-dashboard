@@ -19,6 +19,7 @@ export async function listInvoices(
       page: options?.page,
       limit: options?.limit,
       client_id: options?.client_id,
+      project_id: options?.project_id,
       status: options?.status,
       start_date: options?.start_date,
       end_date: options?.end_date,
