@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight, Loader2, AlertTriangle } from "lucide-react";
 import { useDashboard } from "@/lib/hooks/use-dashboard";
 import { useUserSettings } from "@/contexts/user-settings-context";
 import { formatCurrency } from "@/lib/utils/currency";
@@ -86,9 +86,64 @@ export default function DashboardPage() {
     return amounts.map(a => formatCurrency(a.amount, a.currency, defaultCurrency)).join(", ");
   };
 
+  const overdueCount = stats?.overdue_invoices?.count ?? 0;
+  const overdueInvoices = stats?.overdue_invoices?.invoices ?? [];
+
   return (
     <div className="space-y-8">
       <h1 className="text-2xl font-semibold">Dashboard</h1>
+
+      {/* Overdue Invoices Warning */}
+      {overdueCount > 0 && (
+        <Card className="border-amber-500/50 bg-amber-500/10">
+          <CardContent className="py-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 size-5 shrink-0 text-amber-500" />
+              <div className="flex-1">
+                <p className="font-medium text-amber-700 dark:text-amber-400">
+                  {overdueCount === 1
+                    ? "You have 1 overdue invoice"
+                    : `You have ${overdueCount} overdue invoices`}
+                </p>
+                <div className="mt-2 space-y-1">
+                  {overdueInvoices.slice(0, 3).map((invoice) => (
+                    <div
+                      key={invoice.id}
+                      className="flex items-center justify-between text-sm"
+                    >
+                      <span className="text-muted-foreground">
+                        <Link
+                          href={`/dashboard/invoices/${invoice.id}`}
+                          className="font-medium text-foreground hover:underline"
+                        >
+                          {invoice.invoice_number}
+                        </Link>
+                        {" - "}
+                        {invoice.client_name}
+                      </span>
+                      <span className="text-amber-600 dark:text-amber-400">
+                        {invoice.days_overdue} {invoice.days_overdue === 1 ? "day" : "days"} overdue
+                      </span>
+                    </div>
+                  ))}
+                  {overdueCount > 3 && (
+                    <p className="text-sm text-muted-foreground">
+                      and {overdueCount - 3} more...
+                    </p>
+                  )}
+                </div>
+                <Link
+                  href="/dashboard/invoices?status=overdue"
+                  className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-amber-700 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300"
+                >
+                  View all overdue invoices
+                  <ArrowRight className="size-4" />
+                </Link>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stat Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

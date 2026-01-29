@@ -61,7 +61,7 @@ This checklist covers everything needed before launching BillMint to real users.
 - [x] **[MUST]** This week's time + earnings
 - [x] **[MUST]** Unbilled amount
 - [x] **[MUST]** Recent entries list
-- [ ] **[NICE]** Overdue invoices alert
+- [x] **[NICE]** Overdue invoices alert
 
 ### Settings
 - [ ] **[MUST]** Update profile (name)

@@ -159,6 +159,22 @@ export interface PublicInvoiceResponse {
 }
 
 // Dashboard responses
+export interface OverdueInvoiceSummary {
+  id: string
+  invoice_number: string
+  client_name: string
+  total: number
+  currency: string
+  due_date: string
+  days_overdue: number
+}
+
+export interface OverdueInvoicesInfo {
+  count: number
+  amounts: AmountByCurrency[]
+  invoices: OverdueInvoiceSummary[]
+}
+
 export interface DashboardStats {
   today: {
     hours: number
@@ -182,6 +198,7 @@ export interface DashboardStats {
   }
   active_projects: number
   active_clients: number
+  overdue_invoices: OverdueInvoicesInfo
 }
 
 export interface RecentActivity {

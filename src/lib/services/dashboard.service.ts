@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from './auth.service'
-import type { DashboardStats, RecentActivity, TimeEntryWithDetails, AmountByCurrency } from '@/types/api'
+import type { DashboardStats, RecentActivity, TimeEntryWithDetails, AmountByCurrency, OverdueInvoiceSummary } from '@/types/api'
 
 // Type for the Supabase function response
 interface DashboardDataResponse {
@@ -27,6 +27,11 @@ interface DashboardDataResponse {
     }
     active_projects: number
     active_clients: number
+    overdue_invoices: {
+      count: number
+      amounts: AmountByCurrency[]
+      invoices: OverdueInvoiceSummary[]
+    }
   }
   recent_entries: TimeEntryWithDetails[]
 }
@@ -83,6 +88,11 @@ export async function getDashboardData(recentEntriesLimit: number = 10): Promise
     },
     active_projects: data.stats.active_projects || 0,
     active_clients: data.stats.active_clients || 0,
+    overdue_invoices: {
+      count: data.stats.overdue_invoices?.count || 0,
+      amounts: data.stats.overdue_invoices?.amounts || [],
+      invoices: data.stats.overdue_invoices?.invoices || [],
+    },
   }
 
   // Group entries by date for the recent activity
