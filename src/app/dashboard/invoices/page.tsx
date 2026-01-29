@@ -101,10 +101,12 @@ function StatCard({
 
   return (
     <Card>
-      <CardContent className="pt-6">
+      <CardContent>
         <p className="text-sm text-muted-foreground">{title}</p>
         {isLoading ? (
-          <div className="mt-1 h-8 w-24 animate-pulse rounded bg-muted" />
+          <div className="mt-1 flex items-center gap-2">
+            <Loader2 className="size-4 animate-spin text-muted-foreground" />
+          </div>
         ) : (
           <>
             <p className="mt-1 text-2xl font-semibold">
