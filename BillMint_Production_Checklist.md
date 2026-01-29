@@ -64,10 +64,10 @@ This checklist covers everything needed before launching BillMint to real users.
 - [x] **[NICE]** Overdue invoices alert
 
 ### Settings
-- [ ] **[MUST]** Update profile (name)
+- [x] **[MUST]** Update profile (name)
 - [x] **[MUST]** Set default hourly rate
 - [x] **[MUST]** Set default currency
-- [ ] **[MUST]** Set timezone
+- [x] **[MUST]** Set timezone
 - [x] **[NICE]** Auto-pause timer setting
 - [x] **[NICE]** Delete account
 

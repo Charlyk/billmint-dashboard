@@ -4,23 +4,31 @@
 -- Step 1: Add currency column to clients with default USD
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS currency TEXT NOT NULL DEFAULT 'USD';
 
--- Step 2: Migrate existing data - use most common currency from client's projects
-WITH client_currency_stats AS (
-    SELECT
-        p.client_id,
-        p.currency,
-        COUNT(*) as cnt,
-        ROW_NUMBER() OVER (PARTITION BY p.client_id ORDER BY COUNT(*) DESC, p.currency ASC) as rn
-    FROM projects p
-    WHERE p.client_id IS NOT NULL
-    GROUP BY p.client_id, p.currency
-)
-UPDATE clients c
-SET currency = COALESCE(
-    (SELECT ccs.currency FROM client_currency_stats ccs WHERE ccs.client_id = c.id AND ccs.rn = 1),
-    (SELECT us.default_currency FROM user_settings us WHERE us.user_id = c.user_id),
-    'USD'
-);
+-- Step 2: Migrate existing data - only if projects.currency column exists
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'projects' AND column_name = 'currency'
+    ) THEN
+        WITH client_currency_stats AS (
+            SELECT
+                p.client_id,
+                p.currency,
+                COUNT(*) as cnt,
+                ROW_NUMBER() OVER (PARTITION BY p.client_id ORDER BY COUNT(*) DESC, p.currency ASC) as rn
+            FROM projects p
+            WHERE p.client_id IS NOT NULL
+            GROUP BY p.client_id, p.currency
+        )
+        UPDATE clients c
+        SET currency = COALESCE(
+            (SELECT ccs.currency FROM client_currency_stats ccs WHERE ccs.client_id = c.id AND ccs.rn = 1),
+            (SELECT us.default_currency FROM user_settings us WHERE us.user_id = c.user_id),
+            'USD'
+        );
+    END IF;
+END $$;
 
 -- Step 3: Drop currency column from projects
 ALTER TABLE projects DROP COLUMN IF EXISTS currency;

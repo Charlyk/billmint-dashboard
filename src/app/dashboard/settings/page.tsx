@@ -57,6 +57,33 @@ const timeFormats = [
   { value: "24h", label: "24-hour" },
 ];
 
+const timezones = [
+  { value: "Pacific/Honolulu", label: "(UTC-10:00) Hawaii" },
+  { value: "America/Anchorage", label: "(UTC-09:00) Alaska" },
+  { value: "America/Los_Angeles", label: "(UTC-08:00) Pacific Time" },
+  { value: "America/Denver", label: "(UTC-07:00) Mountain Time" },
+  { value: "America/Chicago", label: "(UTC-06:00) Central Time" },
+  { value: "America/New_York", label: "(UTC-05:00) Eastern Time" },
+  { value: "America/Halifax", label: "(UTC-04:00) Atlantic Time" },
+  { value: "America/Sao_Paulo", label: "(UTC-03:00) São Paulo" },
+  { value: "Atlantic/South_Georgia", label: "(UTC-02:00) Mid-Atlantic" },
+  { value: "Atlantic/Azores", label: "(UTC-01:00) Azores" },
+  { value: "UTC", label: "(UTC+00:00) UTC" },
+  { value: "Europe/London", label: "(UTC+00:00) London" },
+  { value: "Europe/Paris", label: "(UTC+01:00) Paris, Berlin" },
+  { value: "Europe/Bucharest", label: "(UTC+02:00) Bucharest, Athens" },
+  { value: "Europe/Moscow", label: "(UTC+03:00) Moscow" },
+  { value: "Asia/Dubai", label: "(UTC+04:00) Dubai" },
+  { value: "Asia/Karachi", label: "(UTC+05:00) Karachi" },
+  { value: "Asia/Kolkata", label: "(UTC+05:30) Mumbai, Delhi" },
+  { value: "Asia/Dhaka", label: "(UTC+06:00) Dhaka" },
+  { value: "Asia/Bangkok", label: "(UTC+07:00) Bangkok" },
+  { value: "Asia/Singapore", label: "(UTC+08:00) Singapore, Hong Kong" },
+  { value: "Asia/Tokyo", label: "(UTC+09:00) Tokyo" },
+  { value: "Australia/Sydney", label: "(UTC+10:00) Sydney" },
+  { value: "Pacific/Auckland", label: "(UTC+12:00) Auckland" },
+];
+
 const plans = {
   free: {
     name: "Free",
@@ -73,8 +100,8 @@ const plans = {
       "Payment reminders",
     ],
   },
-  team: {
-    name: "Team",
+  business: {
+    name: "Business",
     price: "$10/month",
     features: [
       "Up to 50 team members",
@@ -86,11 +113,13 @@ const plans = {
 };
 
 export default function SettingsPage() {
-  const { settings, isLoading, refetchSettings } = useUserSettings();
+  const { settings, isLoading: isLoadingSettings } = useUserSettings();
 
   // Profile state
   const [name, setName] = useState("");
-  const [email] = useState("your@email.com"); // Email is managed by auth provider
+  const [email, setEmail] = useState("");
+  const [userTier, setUserTier] = useState<"free" | "pro" | "business">("free");
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
 
   // Settings state
   const [defaultHourlyRate, setDefaultHourlyRate] = useState("");
@@ -98,11 +127,29 @@ export default function SettingsPage() {
   const [timeFormat, setTimeFormat] = useState<"12h" | "24h">("12h");
   const [weekStartsOn, setWeekStartsOn] = useState(0);
   const [maxTimerHours, setMaxTimerHours] = useState<string | null>("8");
+  const [timezone, setTimezone] = useState("UTC");
 
-  const [currentPlan] = useState("free");
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isSavingAppSettings, setIsSavingAppSettings] = useState(false);
+
+  // Fetch user profile on mount
+  useEffect(() => {
+    async function fetchProfile() {
+      try {
+        const profile = await userApi.getProfile();
+        setName(profile.full_name || "");
+        setEmail(profile.email || "");
+        setUserTier(profile.tier || "free");
+      } catch (error) {
+        console.error("Failed to fetch profile:", error);
+      } finally {
+        setIsLoadingProfile(false);
+      }
+    }
+    fetchProfile();
+  }, []);
 
   // Initialize form values from settings
   useEffect(() => {
@@ -112,26 +159,48 @@ export default function SettingsPage() {
       setTimeFormat(settings.time_format || "12h");
       setWeekStartsOn(settings.week_starts_on ?? 0);
       setMaxTimerHours(settings.max_timer_hours?.toString() ?? null);
+      setTimezone(settings.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone);
     }
   }, [settings]);
 
   const handleSaveProfile = async () => {
-    setIsSaving(true);
+    setIsSavingProfile(true);
     try {
-      await userApi.updateSettings({
-        default_hourly_rate: defaultHourlyRate ? parseFloat(defaultHourlyRate) : undefined,
-        default_currency: defaultCurrency || undefined,
+      const hourlyRate = parseFloat(defaultHourlyRate);
+      await Promise.all([
+        userApi.updateProfile({
+          full_name: name || undefined,
+        }),
+        userApi.updateBillingDefaults({
+          default_hourly_rate: !isNaN(hourlyRate) ? hourlyRate : undefined,
+          default_currency: defaultCurrency || undefined,
+        }),
+      ]);
+      toastManager.add({ type: "success", title: "Profile saved" });
+    } catch (error) {
+      console.error("Failed to save profile:", error);
+      toastManager.add({ type: "error", title: "Failed to save profile" });
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
+  const handleSaveAppSettings = async () => {
+    setIsSavingAppSettings(true);
+    try {
+      const timerHours = maxTimerHours ? parseFloat(maxTimerHours) : null;
+      await userApi.updateAppSettings({
         time_format: timeFormat,
         week_starts_on: weekStartsOn,
-        max_timer_hours: maxTimerHours ? parseFloat(maxTimerHours) : null,
+        max_timer_hours: timerHours !== null && !isNaN(timerHours) ? timerHours : null,
+        timezone,
       });
-      await refetchSettings();
       toastManager.add({ type: "success", title: "Settings saved" });
     } catch (error) {
       console.error("Failed to save settings:", error);
       toastManager.add({ type: "error", title: "Failed to save settings" });
     } finally {
-      setIsSaving(false);
+      setIsSavingAppSettings(false);
     }
   };
 
@@ -148,7 +217,7 @@ export default function SettingsPage() {
     console.log("Upgrade to:", plan);
   };
 
-  if (isLoading) {
+  if (isLoadingSettings || isLoadingProfile) {
     return (
       <div className="space-y-6">
         <h1 className="text-2xl font-semibold">Settings</h1>
@@ -164,6 +233,7 @@ export default function SettingsPage() {
       <Tabs defaultValue="profile">
         <TabsList>
           <TabsTab value="profile">Profile</TabsTab>
+          <TabsTab value="app">App</TabsTab>
           <TabsTab value="billing">Billing</TabsTab>
         </TabsList>
 
@@ -172,7 +242,7 @@ export default function SettingsPage() {
           <div>
             <h2 className="text-lg font-medium">Profile Settings</h2>
             <p className="text-sm text-muted-foreground">
-              Manage your account information and preferences.
+              Manage your account information.
             </p>
           </div>
 
@@ -236,7 +306,43 @@ export default function SettingsPage() {
             </Field>
           </div>
 
+          <div className="pt-2">
+            <Button
+              onClick={handleSaveProfile}
+              className="bg-teal-500 hover:!bg-teal-600 border-teal-500"
+              disabled={isSavingProfile}
+            >
+              {isSavingProfile ? "Saving..." : "Save Changes"}
+            </Button>
+          </div>
+
           <Separator />
+
+          {/* Danger Zone */}
+          <div>
+            <h3 className="text-base font-medium text-destructive">
+              Danger Zone
+            </h3>
+            <p className="mb-4 text-sm text-muted-foreground">
+              Permanently delete your account and all associated data.
+            </p>
+            <Button
+              variant="destructive"
+              onClick={() => setIsDeleteDialogOpen(true)}
+            >
+              Delete Account
+            </Button>
+          </div>
+        </TabsPanel>
+
+        {/* App Tab */}
+        <TabsPanel value="app" className="space-y-6 pt-6">
+          <div>
+            <h2 className="text-lg font-medium">App Settings</h2>
+            <p className="text-sm text-muted-foreground">
+              Customize display preferences and app behavior.
+            </p>
+          </div>
 
           <div>
             <h3 className="text-base font-medium">Display Preferences</h3>
@@ -244,6 +350,27 @@ export default function SettingsPage() {
               Customize how dates and times are displayed.
             </p>
           </div>
+
+          <Field className="max-w-md">
+            <FieldLabel>Timezone</FieldLabel>
+            <Select value={timezone} onValueChange={(value) => setTimezone(value || "UTC")}>
+              <SelectTrigger>
+                <SelectValue>
+                  {timezones.find((tz) => tz.value === timezone)?.label || timezone}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectPopup>
+                {timezones.map((tz) => (
+                  <SelectItem key={tz.value} value={tz.value}>
+                    {tz.label}
+                  </SelectItem>
+                ))}
+              </SelectPopup>
+            </Select>
+            <FieldDescription>
+              All dates and times in the app will be displayed in this timezone.
+            </FieldDescription>
+          </Field>
 
           <div className="grid max-w-md gap-4 sm:grid-cols-2">
             <Field>
@@ -320,31 +447,13 @@ export default function SettingsPage() {
             </FieldDescription>
           </Field>
 
-          <div>
+          <div className="pt-2">
             <Button
-              onClick={handleSaveProfile}
+              onClick={handleSaveAppSettings}
               className="bg-teal-500 hover:!bg-teal-600 border-teal-500"
-              disabled={isSaving}
+              disabled={isSavingAppSettings}
             >
-              {isSaving ? "Saving..." : "Save Changes"}
-            </Button>
-          </div>
-
-          <Separator />
-
-          {/* Danger Zone */}
-          <div>
-            <h3 className="text-base font-medium text-destructive">
-              Danger Zone
-            </h3>
-            <p className="mb-4 text-sm text-muted-foreground">
-              Permanently delete your account and all associated data.
-            </p>
-            <Button
-              variant="destructive"
-              onClick={() => setIsDeleteDialogOpen(true)}
-            >
-              Delete Account
+              {isSavingAppSettings ? "Saving..." : "Save Changes"}
             </Button>
           </div>
         </TabsPanel>
@@ -356,7 +465,7 @@ export default function SettingsPage() {
             <p className="text-sm text-muted-foreground">
               Current Plan:{" "}
               <span className="font-medium text-foreground">
-                {plans[currentPlan as keyof typeof plans].name}
+                {plans[userTier].name}
               </span>
             </p>
           </div>
@@ -383,25 +492,25 @@ export default function SettingsPage() {
                 <Button
                   onClick={() => handleUpgrade("pro")}
                   className="w-full bg-teal-500 hover:!bg-teal-600 border-teal-500"
-                  disabled={currentPlan === "pro" || currentPlan === "team"}
+                  disabled={userTier === "pro" || userTier === "business"}
                 >
-                  {currentPlan === "pro" ? "Current Plan" : "Upgrade to Pro"}
+                  {userTier === "pro" ? "Current Plan" : "Upgrade to Pro"}
                 </Button>
               </CardContent>
             </Card>
 
-            {/* Team Plan */}
+            {/* Business Plan */}
             <Card>
               <CardContent className="p-6">
                 <div className="mb-4">
-                  <h3 className="text-lg font-semibold">Team Plan</h3>
+                  <h3 className="text-lg font-semibold">Business Plan</h3>
                   <p className="text-2xl font-bold">
                     $10<span className="text-base font-normal">/month</span>
                   </p>
                 </div>
                 <Separator className="mb-4" />
                 <ul className="mb-6 space-y-2">
-                  {plans.team.features.map((feature) => (
+                  {plans.business.features.map((feature) => (
                     <li key={feature} className="flex items-center gap-2 text-sm">
                       <Check className="size-4 text-teal-500" />
                       {feature}
@@ -409,11 +518,11 @@ export default function SettingsPage() {
                   ))}
                 </ul>
                 <Button
-                  onClick={() => handleUpgrade("team")}
+                  onClick={() => handleUpgrade("business")}
                   className="w-full bg-teal-500 hover:!bg-teal-600 border-teal-500"
-                  disabled={currentPlan === "team"}
+                  disabled={userTier === "business"}
                 >
-                  {currentPlan === "team" ? "Current Plan" : "Upgrade to Team"}
+                  {userTier === "business" ? "Current Plan" : "Upgrade to Business"}
                 </Button>
               </CardContent>
             </Card>

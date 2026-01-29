@@ -99,6 +99,58 @@ export async function updateSettings(
   return settings
 }
 
+export async function updateBillingDefaults(
+  data: { default_currency?: string; default_hourly_rate?: number }
+): Promise<UserSettings> {
+  const currentUser = await requireAuth()
+  const supabase = await createClient()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: settings, error } = await (supabase.rpc as any)('update_billing_defaults', {
+    p_user_id: currentUser.id,
+    p_default_currency: data.default_currency || null,
+    p_default_hourly_rate: data.default_hourly_rate ?? null,
+  }) as { data: UserSettings | null; error: Error | null }
+
+  if (error) {
+    console.error('[User] update_billing_defaults RPC error:', error)
+    throw new ValidationError('Failed to update billing defaults')
+  }
+
+  if (!settings) {
+    throw new ValidationError('Failed to update billing defaults')
+  }
+
+  return settings
+}
+
+export async function updateAppSettings(
+  data: { time_format?: '12h' | '24h'; week_starts_on?: number; max_timer_hours?: number | null; timezone?: string }
+): Promise<UserSettings> {
+  const currentUser = await requireAuth()
+  const supabase = await createClient()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: settings, error } = await (supabase.rpc as any)('update_app_settings', {
+    p_user_id: currentUser.id,
+    p_time_format: data.time_format || null,
+    p_week_starts_on: data.week_starts_on ?? null,
+    p_max_timer_hours: data.max_timer_hours ?? null,
+    p_timezone: data.timezone || null,
+  }) as { data: UserSettings | null; error: Error | null }
+
+  if (error) {
+    console.error('[User] update_app_settings RPC error:', error)
+    throw new ValidationError('Failed to update app settings')
+  }
+
+  if (!settings) {
+    throw new ValidationError('Failed to update app settings')
+  }
+
+  return settings
+}
+
 export async function deleteAccount(): Promise<void> {
   const currentUser = await requireAuth()
   const supabase = await createClient()
@@ -139,6 +191,7 @@ function getDefaultSettings(userId: string): UserSettings {
     invoice_notes: null,
     invoice_terms: null,
     max_timer_hours: 8,
+    timezone: 'UTC',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   }

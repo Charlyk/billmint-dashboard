@@ -40,3 +40,25 @@ export async function updateSettings(data: {
     body: JSON.stringify(data),
   })
 }
+
+export async function updateBillingDefaults(data: {
+  default_currency?: string
+  default_hourly_rate?: number
+}): Promise<UserSettings> {
+  return fetcher<UserSettings>('/api/users/me/settings/billing', {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  })
+}
+
+export async function updateAppSettings(data: {
+  time_format?: '12h' | '24h'
+  week_starts_on?: number
+  max_timer_hours?: number | null
+  timezone?: string
+}): Promise<UserSettings> {
+  return fetcher<UserSettings>('/api/users/me/settings/app', {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  })
+}
