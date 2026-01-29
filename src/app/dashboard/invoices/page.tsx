@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -122,12 +122,20 @@ function StatCard({
 
 export default function InvoicesPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { settings } = useUserSettings();
   const defaultCurrency = settings?.default_currency ?? "USD";
 
-  const [statusFilter, setStatusFilter] = useState<"all" | InvoiceStatus>("all");
-  const [clientFilter, setClientFilter] = useState("all");
-  const [projectFilter, setProjectFilter] = useState("all");
+  // Initialize filters from URL query params
+  const initialStatus = searchParams.get("status") as InvoiceStatus | null;
+  const initialClient = searchParams.get("client");
+  const initialProject = searchParams.get("project");
+
+  const [statusFilter, setStatusFilter] = useState<"all" | InvoiceStatus>(
+    initialStatus && ["draft", "sent", "paid", "overdue", "void"].includes(initialStatus) ? initialStatus : "all"
+  );
+  const [clientFilter, setClientFilter] = useState(initialClient || "all");
+  const [projectFilter, setProjectFilter] = useState(initialProject || "all");
   const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; invoice: InvoiceWithClient | null }>({
     open: false,
     invoice: null,
