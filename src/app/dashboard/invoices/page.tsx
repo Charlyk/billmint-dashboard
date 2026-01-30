@@ -41,7 +41,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useInvoices, useInvoiceMutations, useInvoiceStats, useClients, useProjects } from "@/lib/hooks";
-import { useUserSettings } from "@/contexts/user-settings-context";
+import { useUserSettings, useTimezone } from "@/contexts/user-settings-context";
 import { toastManager } from "@/components/ui/toast";
 import { formatCurrency } from "@/lib/utils/currency";
 import type { InvoiceWithClient } from "@/types";
@@ -74,11 +74,12 @@ const statusConfig: Record<
   },
 };
 
-function formatDate(dateString: string): string {
+function formatDate(dateString: string, timezone: string): string {
   return new Date(dateString).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
+    timeZone: timezone,
   });
 }
 
@@ -126,6 +127,7 @@ export default function InvoicesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { settings } = useUserSettings();
+  const timezone = useTimezone();
   const defaultCurrency = settings?.default_currency ?? "USD";
 
   // Initialize filters from URL query params
@@ -461,11 +463,11 @@ export default function InvoicesPage() {
                     <span className="text-sm">{invoice.client.name}</span>
                   </div>
                   <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                    <span>{formatDate(invoice.issue_date)}</span>
+                    <span>{formatDate(invoice.issue_date, timezone)}</span>
                     <span>
                       {invoice.status === "paid" && invoice.paid_date
-                        ? `Paid: ${formatDate(invoice.paid_date)}`
-                        : `Due: ${formatDate(invoice.due_date)}`}
+                        ? `Paid: ${formatDate(invoice.paid_date, timezone)}`
+                        : `Due: ${formatDate(invoice.due_date, timezone)}`}
                     </span>
                   </div>
                 </div>

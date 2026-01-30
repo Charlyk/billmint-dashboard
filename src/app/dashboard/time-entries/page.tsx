@@ -53,7 +53,7 @@ import { cn } from "@/lib/utils";
 import { useTimeEntries, useTimeEntryMutations, useProjects, useClients } from "@/lib/hooks";
 import { bulkTimeEntryAction } from "@/lib/api/time-entries";
 import { createInvoice } from "@/lib/api/invoices";
-import { useUserSettings } from "@/contexts/user-settings-context";
+import { useUserSettings, useTimezone } from "@/contexts/user-settings-context";
 import {
   formatDurationHuman,
   getStartOfDay,
@@ -145,14 +145,15 @@ function getDateRange(filter: string, customStart?: string, customEnd?: string):
   }
 }
 
-// Group entries by date
-function groupEntriesByDate(entries: TimeEntryWithDetails[]) {
+// Group entries by date in the user's timezone
+function groupEntriesByDate(entries: TimeEntryWithDetails[], timezone: string) {
   const groups: Map<string, { date: string; displayDate: string; entries: TimeEntryWithDetails[]; totalSeconds: number }> = new Map();
 
   for (const entry of entries) {
     const date = new Date(entry.start_time);
-    const dateKey = date.toISOString().split("T")[0];
-    const displayDate = date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+    // Format the date in the user's timezone to get the correct date key
+    const dateKey = date.toLocaleDateString("en-CA", { timeZone: timezone }); // en-CA gives YYYY-MM-DD format
+    const displayDate = date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: timezone });
 
     if (!groups.has(dateKey)) {
       groups.set(dateKey, { date: dateKey, displayDate, entries: [], totalSeconds: 0 });
@@ -190,6 +191,7 @@ const defaultFormData: EntryFormData = {
 
 export default function TimeEntriesPage() {
   const { settings } = useUserSettings();
+  const timezone = useTimezone();
   const defaultCurrency = settings?.default_currency ?? "USD";
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -308,7 +310,7 @@ export default function TimeEntriesPage() {
   const { createTimeEntry, updateTimeEntry, deleteTimeEntry } = useTimeEntryMutations();
 
   // Group entries by date
-  const groupedEntries = useMemo(() => groupEntriesByDate(allEntries), [allEntries]);
+  const groupedEntries = useMemo(() => groupEntriesByDate(allEntries, timezone), [allEntries, timezone]);
 
   // Get selectable entries (non-invoiced only)
   const selectableEntries = useMemo(

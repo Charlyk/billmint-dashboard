@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowRight, Loader2, AlertTriangle } from "lucide-react";
 import { useDashboard } from "@/lib/hooks/use-dashboard";
-import { useUserSettings } from "@/contexts/user-settings-context";
+import { useUserSettings, useTimezone } from "@/contexts/user-settings-context";
 import { formatCurrency } from "@/lib/utils/currency";
 import type { AmountByCurrency } from "@/types/api";
 
@@ -30,19 +30,25 @@ function formatHours(hours: number) {
   return `${h}h ${m.toString().padStart(2, "0")}m`;
 }
 
-function formatDate(dateStr: string) {
+function formatDate(dateStr: string, timezone: string) {
   const date = new Date(dateStr);
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
+  const now = new Date();
 
-  if (date.toDateString() === today.toDateString()) return "Today";
-  if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
+  // Get date strings in the user's timezone for comparison
+  const dateInTz = date.toLocaleDateString("en-CA", { timeZone: timezone });
+  const todayInTz = now.toLocaleDateString("en-CA", { timeZone: timezone });
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayInTz = yesterday.toLocaleDateString("en-CA", { timeZone: timezone });
+
+  if (dateInTz === todayInTz) return "Today";
+  if (dateInTz === yesterdayInTz) return "Yesterday";
 
   return date.toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
     day: "numeric",
+    timeZone: timezone,
   });
 }
 
@@ -78,6 +84,7 @@ function StatCard({
 
 export default function DashboardPage() {
   const { settings } = useUserSettings();
+  const timezone = useTimezone();
   const defaultCurrency = settings?.default_currency ?? "USD";
   const { stats, groupedByDate, isLoading } = useDashboard(10);
 
@@ -196,7 +203,7 @@ export default function DashboardPage() {
                   {groupIndex > 0 && <div className="border-t" />}
                   <div className="px-4 py-3">
                     <p className="text-sm font-medium text-muted-foreground">
-                      {formatDate(group.date)}
+                      {formatDate(group.date, timezone)}
                     </p>
                   </div>
                   <div className="space-y-1 px-4 pb-4">

@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft, Download, Send, CheckCircle, Loader2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { useInvoice, useInvoiceMutations } from "@/lib/hooks";
-import { useUserSettings } from "@/contexts/user-settings-context";
+import { useUserSettings, useTimezone } from "@/contexts/user-settings-context";
 import { toastManager } from "@/components/ui/toast";
 import { formatCurrency } from "@/lib/utils/currency";
 import { cn } from "@/lib/utils";
@@ -23,17 +23,19 @@ const statusConfig: Record<InvoiceStatus, { label: string; className: string }> 
   void: { label: "Void", className: "bg-gray-100 text-gray-500" },
 };
 
-function formatDate(dateString: string) {
+function formatDate(dateString: string, timezone: string) {
   return new Date(dateString).toLocaleDateString("en-US", {
     year: "numeric",
     month: "short",
     day: "numeric",
+    timeZone: timezone,
   });
 }
 
 export default function ViewInvoicePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { settings } = useUserSettings();
+  const timezone = useTimezone();
   const { invoice, isLoading, mutate } = useInvoice(id);
   const { sendReminder, markAsPaid } = useInvoiceMutations();
   const [isActionLoading, setIsActionLoading] = useState(false);
@@ -186,16 +188,16 @@ export default function ViewInvoicePage({ params }: { params: Promise<{ id: stri
         <CardContent className="grid gap-4 pt-6 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <p className="text-sm text-muted-foreground">Issue Date</p>
-            <p className="font-medium">{formatDate(invoice.issue_date)}</p>
+            <p className="font-medium">{formatDate(invoice.issue_date, timezone)}</p>
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Due Date</p>
-            <p className="font-medium">{formatDate(invoice.due_date)}</p>
+            <p className="font-medium">{formatDate(invoice.due_date, timezone)}</p>
           </div>
           {invoice.paid_date && (
             <div>
               <p className="text-sm text-muted-foreground">Paid Date</p>
-              <p className="font-medium">{formatDate(invoice.paid_date)}</p>
+              <p className="font-medium">{formatDate(invoice.paid_date, timezone)}</p>
             </div>
           )}
           <div>

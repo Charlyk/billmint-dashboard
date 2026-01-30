@@ -156,3 +156,15 @@ export function useTimeFormat(): TimeFormat {
   // Return default if context is not available (SSR or outside provider)
   return context?.timeFormat ?? DEFAULT_TIME_FORMAT
 }
+
+/**
+ * Hook to get the user's timezone setting
+ * Falls back to browser timezone if not set
+ */
+export function useTimezone(): string {
+  const context = useContext(UserSettingsContext)
+  const browserTimezone = typeof window !== 'undefined'
+    ? Intl.DateTimeFormat().resolvedOptions().timeZone
+    : 'UTC'
+  return context?.settings?.timezone ?? browserTimezone
+}
