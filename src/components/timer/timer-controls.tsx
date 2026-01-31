@@ -94,7 +94,7 @@ export function TimerControls({ variant }: TimerControlsProps) {
 
           <span className={cn(
             "font-mono text-2xl font-semibold tabular-nums",
-            timerState === "running" && "text-teal-500 animate-pulse"
+            timerState === "running" && "text-teal-500"
           )}>
             {formatDuration(displayTime)}
           </span>
@@ -225,7 +225,7 @@ export function TimerControls({ variant }: TimerControlsProps) {
 
       <div className={cn(
         "min-w-28 text-center font-mono text-2xl font-semibold tabular-nums",
-        timerState === "running" && "text-teal-500 animate-pulse"
+        timerState === "running" && "text-teal-500"
       )}>
         {formatDuration(displayTime)}
       </div>
