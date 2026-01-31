@@ -233,7 +233,7 @@ export async function confirmAccountDeletion(otpCode: string): Promise<void> {
     .eq('user_id', currentUser.id)
     .eq('otp_code', otpCode)
 
-  // Delete the account
+  // Delete the account data from public schema
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.rpc as any)('delete_user_account', {
     p_user_id: currentUser.id,
@@ -244,7 +244,15 @@ export async function confirmAccountDeletion(otpCode: string): Promise<void> {
     throw new ValidationError('Failed to delete account')
   }
 
-  // Sign out the user
+  // Delete the user from auth.users using admin client
+  const { error: authDeleteError } = await adminClient.auth.admin.deleteUser(currentUser.id)
+
+  if (authDeleteError) {
+    console.error('[User] Failed to delete auth user:', authDeleteError)
+    // Don't throw here - the user data is already deleted, auth record will be orphaned but harmless
+  }
+
+  // Sign out the user (clears session)
   await supabase.auth.signOut()
 }
 

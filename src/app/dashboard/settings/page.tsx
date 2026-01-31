@@ -27,7 +27,7 @@ import { Separator } from "@/components/ui/separator";
 import { LogoUpload } from "@/components/ui/logo-upload";
 import { Check } from "lucide-react";
 import { useUserSettings } from "@/contexts/user-settings-context";
-import { userApi } from "@/lib/api";
+import { userApi, authApi } from "@/lib/api";
 import { toastManager } from "@/components/ui/toast";
 
 const currencies = [
@@ -237,6 +237,12 @@ export default function SettingsPage() {
 
     try {
       await userApi.confirmAccountDeletion(otpCode);
+      // Sign out to clear client-side session/cookies
+      try {
+        await authApi.logout();
+      } catch {
+        // Ignore logout errors since account is already deleted
+      }
       // Redirect to login after account deletion
       window.location.href = "/login";
     } catch (error) {

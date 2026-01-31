@@ -94,18 +94,18 @@ This checklist covers everything needed before launching BillMint to real users.
 ## 3. Data Integrity
 
 ### Validation
-- [ ] **[MUST]** Required fields enforced (client-side)
-- [ ] **[MUST]** Required fields enforced (server-side)
-- [ ] **[MUST]** Email format validation
-- [ ] **[MUST]** Positive numbers for rates/amounts
-- [ ] **[MUST]** Duration cannot be negative
-- [ ] **[MUST]** Invoice totals match line items
+- [x] **[MUST]** Required fields enforced (client-side)
+- [x] **[MUST]** Required fields enforced (server-side)
+- [x] **[MUST]** Email format validation
+- [x] **[MUST]** Positive numbers for rates/amounts
+- [x] **[MUST]** Duration cannot be negative
+- [x] **[MUST]** Invoice totals match line items
 
 ### Edge Cases
 - [ ] **[MUST]** Can't delete project with unbilled entries (warn first)
 - [ ] **[MUST]** Can't delete client with unpaid invoices (warn first)
-- [ ] **[MUST]** Archiving works correctly (hidden from lists, data preserved)
-- [ ] **[MUST]** Currency consistency on invoices
+- [x] **[MUST]** Archiving works correctly (hidden from lists, data preserved)
+- [x] **[MUST]** Currency consistency on invoices
 
 ---
 
@@ -130,7 +130,7 @@ This checklist covers everything needed before launching BillMint to real users.
 ## 5. UI/UX Polish
 
 ### Loading States
-- [ ] **[MUST]** Loading spinner/skeleton for lists
+- [ ] **[MUST]** Loading spinner for lists
 - [ ] **[MUST]** Button loading state (disabled + spinner)
 - [ ] **[MUST]** No layout shift when data loads
 

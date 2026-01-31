@@ -24,6 +24,12 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogPopup,
+  AlertDialogTitle,
+  AlertDialogDescription,
+} from "@/components/ui/alert-dialog";
+import {
   Menu,
   MenuTrigger,
   MenuPopup,
@@ -96,6 +102,11 @@ export default function ProjectsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<ProjectFormData>(defaultFormData);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Archive warning dialog state
+  const [archiveWarningOpen, setArchiveWarningOpen] = useState(false);
+  const [projectToArchive, setProjectToArchive] = useState<ProjectWithStats | null>(null);
+  const [isArchiving, setIsArchiving] = useState(false);
 
   // Profile defaults from user settings
   const profileDefaults = {
@@ -221,7 +232,19 @@ export default function ProjectsPage() {
     router.push(`/dashboard/time-entries?project=${projectId}`);
   };
 
+  const handleArchiveClick = (project: ProjectWithStats) => {
+    // If unarchiving or no unbilled entries, proceed directly
+    if (project.is_archived || project.unbilled_hours === 0) {
+      handleArchive(project);
+    } else {
+      // Show warning dialog for projects with unbilled entries
+      setProjectToArchive(project);
+      setArchiveWarningOpen(true);
+    }
+  };
+
   const handleArchive = async (project: ProjectWithStats) => {
+    setIsArchiving(true);
     try {
       await projectsApi.updateProject(project.id, {
         is_archived: !project.is_archived,
@@ -231,9 +254,13 @@ export default function ProjectsPage() {
         title: project.is_archived ? "Project unarchived" : "Project archived",
       });
       await fetchProjects();
+      setArchiveWarningOpen(false);
+      setProjectToArchive(null);
     } catch (error) {
       console.error("Failed to archive project:", error);
       toastManager.add({ type: "error", title: "Failed to update project" });
+    } finally {
+      setIsArchiving(false);
     }
   };
 
@@ -327,7 +354,7 @@ export default function ProjectsPage() {
                       View entries
                     </MenuItem>
                     <MenuSeparator />
-                    <MenuItem onClick={() => handleArchive(project)}>
+                    <MenuItem onClick={() => handleArchiveClick(project)}>
                       <Archive className="size-4" />
                       {project.is_archived ? "Unarchive" : "Archive"}
                     </MenuItem>
@@ -503,6 +530,51 @@ export default function ProjectsPage() {
           </DialogFooter>
         </DialogPopup>
       </Dialog>
+
+      {/* Archive Warning Dialog */}
+      <AlertDialog open={archiveWarningOpen} onOpenChange={setArchiveWarningOpen}>
+        <AlertDialogPopup>
+          <AlertDialogTitle>Archive project with unbilled entries?</AlertDialogTitle>
+          <AlertDialogDescription>
+            <strong>{projectToArchive?.name}</strong> has{" "}
+            <strong>{projectToArchive?.unbilled_hours}h</strong> of unbilled time entries worth{" "}
+            <strong>
+              {formatCurrency(
+                projectToArchive?.unbilled_amount ?? 0,
+                projectToArchive?.client?.currency ?? profileDefaults.currency,
+                profileDefaults.currency
+              )}
+            </strong>
+            . These entries will remain unbilled after archiving.
+          </AlertDialogDescription>
+          <div className="mt-4 flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setArchiveWarningOpen(false);
+                setProjectToArchive(null);
+              }}
+              disabled={isArchiving}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => projectToArchive && handleArchive(projectToArchive)}
+              disabled={isArchiving}
+            >
+              {isArchiving ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Archiving...
+                </>
+              ) : (
+                "Archive anyway"
+              )}
+            </Button>
+          </div>
+        </AlertDialogPopup>
+      </AlertDialog>
     </div>
   );
 }
