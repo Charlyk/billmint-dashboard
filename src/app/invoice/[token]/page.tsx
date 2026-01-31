@@ -122,7 +122,16 @@ export default function InvoicePublicPage({
         <Card className="overflow-hidden">
           <CardContent className="p-4 sm:p-8 md:p-12">
             {/* Header */}
-            <div className="mb-6 flex justify-end sm:mb-8">
+            <div className="mb-6 flex items-start justify-between gap-4 sm:mb-8">
+              {user.logo_url ? (
+                <img
+                  src={user.logo_url}
+                  alt="Logo"
+                  className="size-12 object-contain sm:size-16"
+                />
+              ) : (
+                <div />
+              )}
               <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">INVOICE</h1>
             </div>
 

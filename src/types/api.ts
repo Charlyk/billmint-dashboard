@@ -155,7 +155,7 @@ export interface InvoiceLineItemInput {
 
 export interface PublicInvoiceResponse {
   invoice: InvoiceWithDetails
-  user: Pick<User, 'full_name' | 'company_name' | 'email'>
+  user: Pick<User, 'full_name' | 'company_name' | 'email'> & { logo_url?: string | null }
 }
 
 // Dashboard responses
