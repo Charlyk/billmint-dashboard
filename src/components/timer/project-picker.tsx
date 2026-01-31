@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { FolderOpen, Plus, ArrowLeft, Loader2 } from "lucide-react";
+import { FolderOpen, Plus, ArrowLeft } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -265,7 +266,7 @@ export function ProjectPicker({
                 {/* Projects list */}
                 {isLoading && projects.length === 0 ? (
                   <div className="px-3 py-4 flex items-center justify-center text-muted-foreground">
-                    <Loader2 className="size-4 animate-spin" />
+                    <Spinner className="size-4" />
                   </div>
                 ) : projects.length > 0 ? (
                   projects.map((project) => (

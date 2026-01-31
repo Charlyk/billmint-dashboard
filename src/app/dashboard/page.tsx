@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowRight, Loader2, AlertTriangle } from "lucide-react";
+import { ArrowRight, AlertTriangle } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { useDashboard } from "@/lib/hooks/use-dashboard";
 import { useUserSettings, useTimezone } from "@/contexts/user-settings-context";
 import { formatCurrency } from "@/lib/utils/currency";
@@ -69,7 +70,7 @@ function StatCard({
         <p className="text-sm text-muted-foreground">{title}</p>
         {isLoading ? (
           <div className="mt-1 flex items-center gap-2">
-            <Loader2 className="size-4 animate-spin text-muted-foreground" />
+            <Spinner className="size-4 text-muted-foreground" />
           </div>
         ) : (
           <>
@@ -191,7 +192,7 @@ export default function DashboardPage() {
           <CardContent className="p-0">
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
-                <Loader2 className="size-6 animate-spin text-muted-foreground" />
+                <Spinner className="size-6 text-muted-foreground" />
               </div>
             ) : groupedByDate.length === 0 ? (
               <div className="p-8 text-center text-muted-foreground">

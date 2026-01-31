@@ -18,6 +18,15 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogPopup,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogClose,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectTrigger,
   SelectValue,
@@ -38,9 +47,9 @@ import {
   FolderOpen,
   FileText,
   Archive,
-  Loader2,
   X,
 } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { clientsApi, projectsApi } from "@/lib/api";
 import { useUserSettings } from "@/contexts/user-settings-context";
@@ -87,6 +96,11 @@ export default function ClientsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<ClientFormData>(defaultFormData);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Archive warning dialog state
+  const [archiveWarningOpen, setArchiveWarningOpen] = useState(false);
+  const [clientToArchive, setClientToArchive] = useState<ClientWithStats | null>(null);
+  const [isArchiving, setIsArchiving] = useState(false);
 
   // Fetch clients
   const fetchClients = useCallback(async () => {
@@ -224,7 +238,29 @@ export default function ClientsPage() {
     router.push(`/dashboard/invoices?client=${clientId}`);
   };
 
+  const handleArchiveClick = (client: ClientWithStats) => {
+    // If unarchiving, proceed directly
+    if (client.is_archived) {
+      handleArchive(client);
+      return;
+    }
+
+    // Check if client has unbilled entries or outstanding invoices
+    const hasUnbilled = client.unbilled_amount.some(a => a.amount > 0);
+    const hasOutstanding = client.outstanding_amount.some(a => a.amount > 0);
+
+    if (hasUnbilled || hasOutstanding) {
+      // Show warning dialog
+      setClientToArchive(client);
+      setArchiveWarningOpen(true);
+    } else {
+      // No warnings needed, proceed directly
+      handleArchive(client);
+    }
+  };
+
   const handleArchive = async (client: ClientWithStats) => {
+    setIsArchiving(true);
     try {
       await clientsApi.updateClient(client.id, {
         is_archived: !client.is_archived,
@@ -234,9 +270,13 @@ export default function ClientsPage() {
         title: client.is_archived ? "Client unarchived" : "Client archived",
       });
       await fetchClients();
+      setArchiveWarningOpen(false);
+      setClientToArchive(null);
     } catch (error) {
       console.error("Failed to archive client:", error);
       toastManager.add({ type: "error", title: "Failed to update client" });
+    } finally {
+      setIsArchiving(false);
     }
   };
 
@@ -256,7 +296,7 @@ export default function ClientsPage() {
           <h1 className="text-2xl font-semibold">Clients</h1>
         </div>
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="size-6 animate-spin text-muted-foreground" />
+          <Spinner className="size-6 text-muted-foreground" />
         </div>
       </div>
     );
@@ -340,7 +380,7 @@ export default function ClientsPage() {
                       View invoices
                     </MenuItem>
                     <MenuSeparator />
-                    <MenuItem onClick={() => handleArchive(client)}>
+                    <MenuItem onClick={() => handleArchiveClick(client)}>
                       <Archive className="size-4" />
                       {client.is_archived ? "Unarchive" : "Archive"}
                     </MenuItem>
@@ -543,7 +583,7 @@ export default function ClientsPage() {
             >
               {isSaving ? (
                 <>
-                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  <Spinner className="mr-2 size-4" />
                   {modalMode === "add" ? "Creating..." : "Updating..."}
                 </>
               ) : (
@@ -553,6 +593,53 @@ export default function ClientsPage() {
           </DialogFooter>
         </DialogPopup>
       </Dialog>
+
+      {/* Archive Warning Dialog */}
+      <AlertDialog open={archiveWarningOpen} onOpenChange={setArchiveWarningOpen}>
+        <AlertDialogPopup>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive client with pending amounts?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>{clientToArchive?.name}</strong> has:
+              {clientToArchive?.unbilled_amount.some(a => a.amount > 0) && (
+                <>
+                  <br />• <strong>{formatAmounts(clientToArchive.unbilled_amount)}</strong> in unbilled time entries
+                </>
+              )}
+              {clientToArchive?.outstanding_amount.some(a => a.amount > 0) && (
+                <>
+                  <br />• <strong>{formatAmounts(clientToArchive.outstanding_amount)}</strong> in unpaid invoices
+                </>
+              )}
+              <br /><br />
+              These amounts will remain pending after archiving.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter variant="bare">
+            <AlertDialogClose
+              render={<Button variant="outline" />}
+              disabled={isArchiving}
+              onClick={() => setClientToArchive(null)}
+            >
+              Cancel
+            </AlertDialogClose>
+            <Button
+              variant="destructive"
+              onClick={() => clientToArchive && handleArchive(clientToArchive)}
+              disabled={isArchiving}
+            >
+              {isArchiving ? (
+                <>
+                  <Spinner className="mr-2 size-4" />
+                  Archiving...
+                </>
+              ) : (
+                "Archive anyway"
+              )}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogPopup>
+      </AlertDialog>
     </div>
   );
 }

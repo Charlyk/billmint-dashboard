@@ -16,6 +16,7 @@ import {
   Moon,
   LogOut,
 } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import {
   Menu,
@@ -380,7 +381,14 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
               onClick={() => logout()}
               disabled={isSubmitting}
             >
-              {isSubmitting ? "Logging out..." : "Log out"}
+              {isSubmitting ? (
+                <>
+                  <Spinner className="mr-2 size-4" />
+                  Logging out...
+                </>
+              ) : (
+                "Log out"
+              )}
             </Button>
           </AlertDialogFooter>
         </AlertDialogPopup>

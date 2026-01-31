@@ -2,7 +2,8 @@
 
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Upload, X, Loader2 } from "lucide-react";
+import { Upload, X } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { userApi } from "@/lib/api";
 import { toastManager } from "@/components/ui/toast";
 
@@ -138,7 +139,7 @@ export function LogoUpload({ currentLogoUrl, onLogoChange }: LogoUploadProps) {
             >
               {isUploading ? (
                 <>
-                  <Loader2 className="size-4 mr-2 animate-spin" />
+                  <Spinner className="size-4 mr-2" />
                   Uploading...
                 </>
               ) : (
@@ -158,7 +159,7 @@ export function LogoUpload({ currentLogoUrl, onLogoChange }: LogoUploadProps) {
                 disabled={isUploading || isDeleting}
               >
                 {isDeleting ? (
-                  <Loader2 className="size-4 animate-spin" />
+                  <Spinner className="size-4" />
                 ) : (
                   <X className="size-4" />
                 )}

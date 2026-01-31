@@ -26,6 +26,7 @@ import { Tabs, TabsList, TabsTab, TabsPanel } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { LogoUpload } from "@/components/ui/logo-upload";
 import { Check } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { useUserSettings } from "@/contexts/user-settings-context";
 import { userApi, authApi } from "@/lib/api";
 import { toastManager } from "@/components/ui/toast";
@@ -362,7 +363,14 @@ export default function SettingsPage() {
               className="bg-teal-500 hover:!bg-teal-600 border-teal-500"
               disabled={isSavingProfile}
             >
-              {isSavingProfile ? "Saving..." : "Save Changes"}
+              {isSavingProfile ? (
+                <>
+                  <Spinner className="mr-2 size-4" />
+                  Saving...
+                </>
+              ) : (
+                "Save Changes"
+              )}
             </Button>
           </div>
 
@@ -516,7 +524,14 @@ export default function SettingsPage() {
               className="bg-teal-500 hover:!bg-teal-600 border-teal-500"
               disabled={isSavingAppSettings}
             >
-              {isSavingAppSettings ? "Saving..." : "Save Changes"}
+              {isSavingAppSettings ? (
+                <>
+                  <Spinner className="mr-2 size-4" />
+                  Saving...
+                </>
+              ) : (
+                "Save Changes"
+              )}
             </Button>
           </div>
         </TabsPanel>
@@ -648,7 +663,14 @@ export default function SettingsPage() {
                 onClick={handleRequestDeletionOtp}
                 disabled={deleteConfirmText !== "DELETE" || isRequestingOtp}
               >
-                {isRequestingOtp ? "Sending code..." : "Continue"}
+                {isRequestingOtp ? (
+                  <>
+                    <Spinner className="mr-2 size-4" />
+                    Sending code...
+                  </>
+                ) : (
+                  "Continue"
+                )}
               </Button>
             ) : (
               <Button
@@ -656,7 +678,14 @@ export default function SettingsPage() {
                 onClick={handleConfirmDeletion}
                 disabled={otpCode.length !== 6 || isDeletingAccount}
               >
-                {isDeletingAccount ? "Deleting..." : "Delete Account"}
+                {isDeletingAccount ? (
+                  <>
+                    <Spinner className="mr-2 size-4" />
+                    Deleting...
+                  </>
+                ) : (
+                  "Delete Account"
+                )}
               </Button>
             )}
           </DialogFooter>

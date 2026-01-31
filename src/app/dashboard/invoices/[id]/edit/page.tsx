@@ -16,7 +16,8 @@ import {
   SelectPopup,
   SelectItem,
 } from "@/components/ui/select";
-import { ArrowLeft, Plus, Loader2 } from "lucide-react";
+import { ArrowLeft, Plus } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { Separator } from "@/components/ui/separator";
 import { LogoUpload } from "@/components/ui/logo-upload";
 import { useClients, useUnbilledTimeEntries, useInvoiceMutations, useInvoice } from "@/lib/hooks";
@@ -314,7 +315,7 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
   if (invoiceLoading || !initializedAt) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+        <Spinner className="size-6 text-muted-foreground" />
       </div>
     );
   }
@@ -332,7 +333,7 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
         </Link>
         <div className="flex gap-2">
           <Button variant="outline" onClick={handleSaveDraft} disabled={isSaving || !clientId || lineItems.length === 0}>
-            {isSaving ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+            {isSaving ? <Spinner className="mr-2 size-4" /> : null}
             Save Draft
           </Button>
           <Button
@@ -340,7 +341,7 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
             className="bg-teal-500 hover:!bg-teal-600 border-teal-500"
             disabled={isSaving || !clientId || lineItems.length === 0}
           >
-            {isSaving ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+            {isSaving ? <Spinner className="mr-2 size-4" /> : null}
             Save & Send
           </Button>
         </div>

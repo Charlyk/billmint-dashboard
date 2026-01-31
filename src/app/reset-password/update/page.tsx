@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Field, FieldLabel, FieldError } from "@/components/ui/field";
-import { Loader2 } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { updatePasswordWithToken } from "@/lib/api/auth";
 
 export default function UpdatePasswordPage() {
@@ -146,7 +146,7 @@ export default function UpdatePasswordPage() {
                 >
                   {isLoading ? (
                     <>
-                      <Loader2 className="mr-2 size-4 animate-spin" />
+                      <Spinner className="mr-2 size-4" />
                       Updating...
                     </>
                   ) : (

@@ -38,7 +38,6 @@ import {
   Pencil,
   Copy,
   Trash2,
-  Loader2,
   Calendar,
   ChevronDown,
   Filter,
@@ -46,6 +45,7 @@ import {
   Receipt,
   FileText,
 } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsList, TabsTab, TabsPanel } from "@/components/ui/tabs";
 import { Tooltip, TooltipTrigger, TooltipPopup } from "@/components/ui/tooltip";
 import { Collapsible, CollapsibleTrigger, CollapsiblePanel } from "@/components/ui/collapsible";
@@ -927,7 +927,7 @@ export default function TimeEntriesPage() {
         <CardContent className="p-0">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="size-6 animate-spin text-muted-foreground" />
+              <Spinner className="size-6 text-muted-foreground" />
             </div>
           ) : groupedEntries.length === 0 ? (
             <div className="py-12 text-center text-muted-foreground">
@@ -1072,7 +1072,7 @@ export default function TimeEntriesPage() {
           >
             {isLoading ? (
               <>
-                <Loader2 className="mr-2 size-4 animate-spin" />
+                <Spinner className="mr-2 size-4" />
                 Loading...
               </>
             ) : (
@@ -1190,7 +1190,14 @@ export default function TimeEntriesPage() {
               disabled={isSubmitting}
               className="bg-teal-500 hover:!bg-teal-600 border-teal-500"
             >
-              {isSubmitting ? "Saving..." : modalMode === "add" ? "Save Entry" : "Update Entry"}
+              {isSubmitting ? (
+                <>
+                  <Spinner className="mr-2 size-4" />
+                  Saving...
+                </>
+              ) : (
+                modalMode === "add" ? "Save Entry" : "Update Entry"
+              )}
             </Button>
           </DialogFooter>
         </DialogPopup>
@@ -1229,7 +1236,7 @@ export default function TimeEntriesPage() {
             <Button variant="destructive" onClick={handleDeleteConfirm} disabled={isDeleting}>
               {isDeleting ? (
                 <>
-                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  <Spinner className="mr-2 size-4" />
                   Deleting...
                 </>
               ) : (
@@ -1364,7 +1371,7 @@ export default function TimeEntriesPage() {
             >
               {isBulkActionLoading ? (
                 <>
-                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  <Spinner className="mr-2 size-4" />
                   Deleting...
                 </>
               ) : (
@@ -1467,7 +1474,7 @@ export default function TimeEntriesPage() {
             >
               {isBulkActionLoading ? (
                 <>
-                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  <Spinner className="mr-2 size-4" />
                   Creating...
                 </>
               ) : createInvoiceModal.selectedClientIds.size === 0 ? (

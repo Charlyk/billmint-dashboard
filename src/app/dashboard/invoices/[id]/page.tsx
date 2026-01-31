@@ -4,7 +4,8 @@ import { use } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, Download, Send, CheckCircle, Loader2 } from "lucide-react";
+import { ArrowLeft, Download, Send, CheckCircle } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { Separator } from "@/components/ui/separator";
 import { useInvoice, useInvoiceMutations } from "@/lib/hooks";
 import { useUserSettings, useTimezone } from "@/contexts/user-settings-context";
@@ -106,7 +107,7 @@ export default function ViewInvoicePage({ params }: { params: Promise<{ id: stri
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+        <Spinner className="size-6 text-muted-foreground" />
       </div>
     );
   }
@@ -151,7 +152,7 @@ export default function ViewInvoicePage({ params }: { params: Promise<{ id: stri
           {(invoice.status === "sent" || invoice.status === "overdue") && (
             <>
               <Button variant="outline" onClick={handleSendReminder} disabled={isActionLoading}>
-                {isActionLoading ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Send className="mr-2 size-4" />}
+                {isActionLoading ? <Spinner className="mr-2 size-4" /> : <Send className="mr-2 size-4" />}
                 Send Reminder
               </Button>
               <Button
@@ -159,7 +160,7 @@ export default function ViewInvoicePage({ params }: { params: Promise<{ id: stri
                 className="bg-teal-500 hover:!bg-teal-600 border-teal-500"
                 disabled={isActionLoading}
               >
-                {isActionLoading ? <Loader2 className="mr-2 size-4 animate-spin" /> : <CheckCircle className="mr-2 size-4" />}
+                {isActionLoading ? <Spinner className="mr-2 size-4" /> : <CheckCircle className="mr-2 size-4" />}
                 Mark as Paid
               </Button>
             </>

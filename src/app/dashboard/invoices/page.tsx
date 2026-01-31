@@ -35,10 +35,10 @@ import {
   CheckCircle,
   XCircle,
   Trash2,
-  Loader2,
   Copy,
   Mail,
 } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { useInvoices, useInvoiceMutations, useInvoiceStats, useClients, useProjects } from "@/lib/hooks";
 import { useUserSettings, useTimezone } from "@/contexts/user-settings-context";
@@ -106,7 +106,7 @@ function StatCard({
         <p className="text-sm text-muted-foreground">{title}</p>
         {isLoading ? (
           <div className="mt-1 flex items-center gap-2">
-            <Loader2 className="size-4 animate-spin text-muted-foreground" />
+            <Spinner className="size-4 text-muted-foreground" />
           </div>
         ) : (
           <>
@@ -439,7 +439,7 @@ export default function InvoicesPage() {
         <CardContent className="divide-y p-0">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="size-6 animate-spin text-muted-foreground" />
+              <Spinner className="size-6 text-muted-foreground" />
             </div>
           ) : invoices.length === 0 ? (
             <div className="p-8 text-center text-muted-foreground">
@@ -490,7 +490,7 @@ export default function InvoicesPage() {
                 {/* Actions Menu */}
                 {loadingInvoiceId === invoice.id ? (
                   <div className="flex size-8 items-center justify-center">
-                    <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                    <Spinner className="size-4 text-muted-foreground" />
                   </div>
                 ) : (
                   <Menu>
@@ -595,7 +595,7 @@ export default function InvoicesPage() {
             >
               {loadingInvoiceId === deleteConfirm.invoice?.id ? (
                 <>
-                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  <Spinner className="mr-2 size-4" />
                   Deleting...
                 </>
               ) : (
@@ -640,7 +640,7 @@ export default function InvoicesPage() {
             >
               {loadingInvoiceId === voidConfirm.invoice?.id ? (
                 <>
-                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  <Spinner className="mr-2 size-4" />
                   Voiding...
                 </>
               ) : (

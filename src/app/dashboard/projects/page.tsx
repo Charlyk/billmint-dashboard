@@ -26,8 +26,11 @@ import {
 import {
   AlertDialog,
   AlertDialogPopup,
+  AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogClose,
 } from "@/components/ui/alert-dialog";
 import {
   Menu,
@@ -42,8 +45,8 @@ import {
   Pencil,
   Clock,
   Archive,
-  Loader2,
 } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { projectsApi, clientsApi } from "@/lib/api";
 import { useUserSettings } from "@/contexts/user-settings-context";
@@ -271,7 +274,7 @@ export default function ProjectsPage() {
           <h1 className="text-2xl font-semibold">Projects</h1>
         </div>
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="size-6 animate-spin text-muted-foreground" />
+          <Spinner className="size-6 text-muted-foreground" />
         </div>
       </div>
     );
@@ -417,7 +420,7 @@ export default function ProjectsPage() {
                   <SelectPopup>
                     {isLoadingClients ? (
                       <div className="px-3 py-2 flex items-center gap-2 text-sm text-muted-foreground">
-                        <Loader2 className="size-4 animate-spin" />
+                        <Spinner className="size-4" />
                         Loading clients...
                       </div>
                     ) : clients.length === 0 ? (
@@ -520,7 +523,7 @@ export default function ProjectsPage() {
             >
               {isSaving ? (
                 <>
-                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  <Spinner className="mr-2 size-4" />
                   {modalMode === "add" ? "Creating..." : "Updating..."}
                 </>
               ) : (
@@ -534,30 +537,29 @@ export default function ProjectsPage() {
       {/* Archive Warning Dialog */}
       <AlertDialog open={archiveWarningOpen} onOpenChange={setArchiveWarningOpen}>
         <AlertDialogPopup>
-          <AlertDialogTitle>Archive project with unbilled entries?</AlertDialogTitle>
-          <AlertDialogDescription>
-            <strong>{projectToArchive?.name}</strong> has{" "}
-            <strong>{projectToArchive?.unbilled_hours}h</strong> of unbilled time entries worth{" "}
-            <strong>
-              {formatCurrency(
-                projectToArchive?.unbilled_amount ?? 0,
-                projectToArchive?.client?.currency ?? profileDefaults.currency,
-                profileDefaults.currency
-              )}
-            </strong>
-            . These entries will remain unbilled after archiving.
-          </AlertDialogDescription>
-          <div className="mt-4 flex justify-end gap-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setArchiveWarningOpen(false);
-                setProjectToArchive(null);
-              }}
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive project with unbilled entries?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>{projectToArchive?.name}</strong> has{" "}
+              <strong>{projectToArchive?.unbilled_hours}h</strong> of unbilled time entries worth{" "}
+              <strong>
+                {formatCurrency(
+                  projectToArchive?.unbilled_amount ?? 0,
+                  projectToArchive?.client?.currency ?? profileDefaults.currency,
+                  profileDefaults.currency
+                )}
+              </strong>
+              . These entries will remain unbilled after archiving.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter variant="bare">
+            <AlertDialogClose
+              render={<Button variant="outline" />}
               disabled={isArchiving}
+              onClick={() => setProjectToArchive(null)}
             >
               Cancel
-            </Button>
+            </AlertDialogClose>
             <Button
               variant="destructive"
               onClick={() => projectToArchive && handleArchive(projectToArchive)}
@@ -565,14 +567,14 @@ export default function ProjectsPage() {
             >
               {isArchiving ? (
                 <>
-                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  <Spinner className="mr-2 size-4" />
                   Archiving...
                 </>
               ) : (
                 "Archive anyway"
               )}
             </Button>
-          </div>
+          </AlertDialogFooter>
         </AlertDialogPopup>
       </AlertDialog>
     </div>

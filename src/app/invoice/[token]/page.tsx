@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Download, Loader2 } from "lucide-react";
+import { Download } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { getPublicInvoice } from "@/lib/api/invoices";
 import { formatCurrency } from "@/lib/utils/currency";
 import type { PublicInvoiceResponse } from "@/types";
@@ -87,7 +88,7 @@ export default function InvoicePublicPage({
         <div className="mx-auto max-w-3xl px-4">
           <Card className="overflow-hidden">
             <CardContent className="flex items-center justify-center p-12">
-              <Loader2 className="size-8 animate-spin text-muted-foreground" />
+              <Spinner className="size-8 text-muted-foreground" />
             </CardContent>
           </Card>
         </div>
@@ -307,7 +308,7 @@ export default function InvoicePublicPage({
               >
                 {isDownloading ? (
                   <>
-                    <Loader2 className="mr-2 size-4 animate-spin" />
+                    <Spinner className="mr-2 size-4" />
                     Downloading...
                   </>
                 ) : (
