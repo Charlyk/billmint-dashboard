@@ -60,6 +60,7 @@ export type Database = {
           invoice_terms: string | null
           max_timer_hours: number | null
           timezone: string
+          logo_url: string | null
           created_at: string
           updated_at: string
         }
@@ -75,6 +76,7 @@ export type Database = {
           invoice_terms?: string | null
           max_timer_hours?: number | null
           timezone?: string
+          logo_url?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -90,6 +92,7 @@ export type Database = {
           invoice_terms?: string | null
           max_timer_hours?: number | null
           timezone?: string
+          logo_url?: string | null
           created_at?: string
           updated_at?: string
         }

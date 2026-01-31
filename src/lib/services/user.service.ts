@@ -192,6 +192,7 @@ function getDefaultSettings(userId: string): UserSettings {
     invoice_terms: null,
     max_timer_hours: 8,
     timezone: 'UTC',
+    logo_url: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   }

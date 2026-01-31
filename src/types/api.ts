@@ -234,7 +234,7 @@ export interface PortalSessionResponse {
 export interface InvoicePdfData {
   invoice: InvoiceWithDetails
   user: Pick<User, 'full_name' | 'company_name' | 'email'>
-  settings: { date_format: string; default_currency: string }
+  settings: { date_format: string; default_currency: string; logo_url?: string | null }
 }
 
 // Report types

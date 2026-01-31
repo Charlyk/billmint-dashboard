@@ -482,7 +482,7 @@ export async function getInvoicePdfData(id: string): Promise<InvoicePdfData> {
   // Get user settings
   const { data: settings } = await supabase
     .from('user_settings')
-    .select('date_format, default_currency')
+    .select('date_format, default_currency, logo_url')
     .eq('user_id', currentUser.id)
     .single()
 
@@ -493,7 +493,7 @@ export async function getInvoicePdfData(id: string): Promise<InvoicePdfData> {
       company_name: currentUser.company_name,
       email: currentUser.email,
     },
-    settings: settings || { date_format: 'MMM d, yyyy', default_currency: 'USD' },
+    settings: settings || { date_format: 'MMM d, yyyy', default_currency: 'USD', logo_url: null },
   }
 }
 
