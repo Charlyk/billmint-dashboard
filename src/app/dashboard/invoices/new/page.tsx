@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { ArrowLeft, Plus, Loader2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { LogoUpload } from "@/components/ui/logo-upload";
 import { useClients, useUnbilledTimeEntries, useInvoiceMutations } from "@/lib/hooks";
 import { useUserSettings } from "@/contexts/user-settings-context";
 import { toastManager } from "@/components/ui/toast";
@@ -51,7 +52,7 @@ function formatDuration(seconds: number): string {
 export default function NewInvoicePage() {
   const router = useRouter();
   const today = new Date();
-  const { settings, isLoading: settingsLoading } = useUserSettings();
+  const { settings, isLoading: settingsLoading, refetchSettings } = useUserSettings();
 
   // Form state
   const [clientId, setClientId] = useState("");
@@ -368,6 +369,12 @@ export default function NewInvoicePage() {
           />
         </Field>
 
+      </div>
+
+      {/* Invoice Logo */}
+      <div>
+        <h2 className="mb-4 text-lg font-medium">Invoice Logo</h2>
+        <LogoUpload currentLogoUrl={settings?.logo_url} onLogoChange={() => refetchSettings()} />
       </div>
 
       {/* Line Items */}

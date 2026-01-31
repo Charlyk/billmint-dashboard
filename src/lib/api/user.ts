@@ -62,3 +62,32 @@ export async function updateAppSettings(data: {
     body: JSON.stringify(data),
   })
 }
+
+export async function uploadLogo(file: File): Promise<{ logo_url: string }> {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  const response = await fetch('/api/users/me/logo', {
+    method: 'POST',
+    body: formData,
+  })
+
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.error?.message || 'Failed to upload logo')
+  }
+
+  const result = await response.json()
+  return result.data
+}
+
+export async function deleteLogo(): Promise<void> {
+  const response = await fetch('/api/users/me/logo', {
+    method: 'DELETE',
+  })
+
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.error?.message || 'Failed to delete logo')
+  }
+}

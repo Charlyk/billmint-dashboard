@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTab, TabsPanel } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
+import { LogoUpload } from "@/components/ui/logo-upload";
 import { Check } from "lucide-react";
 import { useUserSettings } from "@/contexts/user-settings-context";
 import { userApi } from "@/lib/api";
@@ -314,6 +315,19 @@ export default function SettingsPage() {
             >
               {isSavingProfile ? "Saving..." : "Save Changes"}
             </Button>
+          </div>
+
+          <Separator />
+
+          <div>
+            <h3 className="text-base font-medium">Invoice Logo</h3>
+            <p className="text-sm text-muted-foreground">
+              Upload a logo to appear on your invoices.
+            </p>
+          </div>
+
+          <div className="max-w-md">
+            <LogoUpload currentLogoUrl={settings?.logo_url} />
           </div>
 
           <Separator />

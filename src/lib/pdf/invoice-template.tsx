@@ -4,6 +4,7 @@ import {
   Page,
   View,
   Text,
+  Image,
   StyleSheet,
 } from '@react-pdf/renderer'
 import { formatCurrencyForPdf, formatDateForPdf, formatQuantityForPdf, currencyLocales } from '@/lib/utils/pdf-formatters'
@@ -25,6 +26,14 @@ const styles = StyleSheet.create({
   },
   companyInfo: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  logo: {
+    width: 60,
+    height: 60,
+    objectFit: 'contain',
   },
   companyName: {
     fontSize: 16,
@@ -259,10 +268,12 @@ function getStatusStyle(status: string) {
 }
 
 // Invoice Header Component
-function InvoiceHeader() {
+function InvoiceHeader({ logoUrl }: { logoUrl?: string | null }) {
   return (
     <View style={styles.header}>
-      <View style={styles.companyInfo} />
+      <View style={styles.companyInfo}>
+        {logoUrl && <Image src={logoUrl} style={styles.logo} />}
+      </View>
       <Text style={styles.invoiceTitle}>INVOICE</Text>
     </View>
   )
@@ -485,7 +496,7 @@ export function InvoiceDocument({ data }: { data: InvoicePdfData }) {
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        <InvoiceHeader />
+        <InvoiceHeader logoUrl={settings.logo_url} />
         <BillToSection user={user} client={invoice.client} />
         <InvoiceDetails invoice={invoice} settings={settings} />
         <LineItemsTable
