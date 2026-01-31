@@ -80,7 +80,6 @@ export async function createProject(
   const currentUser = await requireAuth()
   const supabase = await createClient()
 
-  // Currency is now derived from client or user settings in the RPC function
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase.rpc as any)('create_project', {
     p_user_id: currentUser.id,
@@ -88,7 +87,6 @@ export async function createProject(
     p_client_id: input.client_id || null,
     p_color: input.color || '#6366f1',
     p_hourly_rate: input.hourly_rate || null,
-    p_currency: 'USD', // Legacy param - will be overridden by RPC based on client/settings
     p_is_billable: input.is_billable ?? true,
     p_is_default: input.is_default || false,
     p_notes: input.notes || null,
