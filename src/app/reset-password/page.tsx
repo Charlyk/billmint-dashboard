@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Field, FieldLabel } from "@/components/ui/field";
+import { Loader2 } from "lucide-react";
 import { resetPassword } from "@/lib/api/auth";
 
 export default function ResetPasswordPage() {
@@ -76,7 +77,14 @@ export default function ResetPasswordPage() {
                   className="w-full bg-teal-500 hover:!bg-teal-600 border-teal-500"
                   disabled={isLoading}
                 >
-                  {isLoading ? "Loading..." : "Send Reset Link"}
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 size-4 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    "Send Reset Link"
+                  )}
                 </Button>
               </form>
 

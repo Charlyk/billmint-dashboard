@@ -87,7 +87,7 @@ This checklist covers everything needed before launching BillMint to real users.
 - [x] **[MUST]** Users can only see their own data
 - [x] **[MUST]** RLS policies on all tables
 - [x] **[MUST]** API routes check user ownership
-- [ ] **[MUST]** Public invoice route validates token (not user)
+- [x] **[MUST]** Public invoice route validates token (not user)
 
 ---
 

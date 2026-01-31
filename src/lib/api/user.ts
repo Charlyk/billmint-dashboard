@@ -16,8 +16,12 @@ export async function updateProfile(data: {
   })
 }
 
-export async function deleteAccount(): Promise<void> {
-  await fetcher('/api/users/me', { method: 'DELETE' })
+export async function requestAccountDeletion(): Promise<void> {
+  await fetcher('/api/users/me', { method: 'POST' })
+}
+
+export async function confirmAccountDeletion(otpCode: string): Promise<void> {
+  await fetcher(`/api/users/me?otp=${encodeURIComponent(otpCode)}`, { method: 'DELETE' })
 }
 
 export async function getSettings(): Promise<UserSettings> {

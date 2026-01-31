@@ -2,7 +2,8 @@ import { NextRequest } from 'next/server'
 import {
   getProfile,
   updateProfile,
-  deleteAccount,
+  requestAccountDeletion,
+  confirmAccountDeletion,
 } from '@/lib/services/user.service'
 import { updateProfileSchema } from '@/lib/utils/validation'
 import { handleError, ValidationError } from '@/lib/utils/errors'
@@ -34,9 +35,27 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
-export async function DELETE() {
+// POST: Request account deletion (sends OTP email)
+export async function POST() {
   try {
-    await deleteAccount()
+    await requestAccountDeletion()
+    return Response.json({ data: { message: 'Verification code sent to your email' } })
+  } catch (error) {
+    return handleError(error)
+  }
+}
+
+// DELETE: Confirm account deletion with OTP
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const otpCode = searchParams.get('otp')
+
+    if (!otpCode) {
+      throw new ValidationError('Verification code is required')
+    }
+
+    await confirmAccountDeletion(otpCode)
     return Response.json({ data: { success: true } })
   } catch (error) {
     return handleError(error)

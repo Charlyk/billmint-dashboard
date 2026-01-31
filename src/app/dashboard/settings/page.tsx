@@ -132,6 +132,11 @@ export default function SettingsPage() {
 
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleteStep, setDeleteStep] = useState<"confirm" | "otp">("confirm");
+  const [otpCode, setOtpCode] = useState("");
+  const [isRequestingOtp, setIsRequestingOtp] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isSavingAppSettings, setIsSavingAppSettings] = useState(false);
 
@@ -205,12 +210,50 @@ export default function SettingsPage() {
     }
   };
 
-  const handleDeleteAccount = () => {
-    if (deleteConfirmText === "DELETE") {
-      // TODO: Delete account via API
-      console.log("Delete account");
-      setIsDeleteDialogOpen(false);
+  const handleRequestDeletionOtp = async () => {
+    if (deleteConfirmText !== "DELETE") return;
+
+    setIsRequestingOtp(true);
+    setDeleteError(null);
+
+    try {
+      await userApi.requestAccountDeletion();
+      setDeleteStep("otp");
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : "Failed to send verification code");
+    } finally {
+      setIsRequestingOtp(false);
     }
+  };
+
+  const handleConfirmDeletion = async () => {
+    if (!otpCode || otpCode.length !== 6) {
+      setDeleteError("Please enter a valid 6-digit code");
+      return;
+    }
+
+    setIsDeletingAccount(true);
+    setDeleteError(null);
+
+    try {
+      await userApi.confirmAccountDeletion(otpCode);
+      // Redirect to login after account deletion
+      window.location.href = "/login";
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : "Failed to delete account");
+      setIsDeletingAccount(false);
+    }
+  };
+
+  const handleCloseDeleteDialog = () => {
+    setIsDeleteDialogOpen(false);
+    // Reset state after dialog closes
+    setTimeout(() => {
+      setDeleteStep("confirm");
+      setDeleteConfirmText("");
+      setOtpCode("");
+      setDeleteError(null);
+    }, 200);
   };
 
   const handleUpgrade = (plan: string) => {
@@ -545,39 +588,71 @@ export default function SettingsPage() {
       </Tabs>
 
       {/* Delete Account Confirmation Dialog */}
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <Dialog open={isDeleteDialogOpen} onOpenChange={handleCloseDeleteDialog}>
         <DialogPopup>
           <DialogHeader>
             <DialogTitle>Delete Account</DialogTitle>
             <DialogDescription>
-              This action cannot be undone. This will permanently delete your
-              account and remove all your data from our servers.
+              {deleteStep === "confirm"
+                ? "This action cannot be undone. This will permanently delete your account and remove all your data from our servers."
+                : `We've sent a verification code to ${email}. Enter the code below to confirm deletion.`}
             </DialogDescription>
           </DialogHeader>
           <DialogPanel>
-            <Field>
-              <FieldLabel>
-                Type <span className="font-mono font-bold">DELETE</span> to
-                confirm
-              </FieldLabel>
-              <Input
-                value={deleteConfirmText}
-                onChange={(e) => setDeleteConfirmText(e.target.value)}
-                placeholder="DELETE"
-              />
-            </Field>
+            {deleteStep === "confirm" ? (
+              <Field>
+                <FieldLabel>
+                  Type <span className="font-mono font-bold">DELETE</span> to
+                  continue
+                </FieldLabel>
+                <Input
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="DELETE"
+                  disabled={isRequestingOtp}
+                />
+              </Field>
+            ) : (
+              <Field>
+                <FieldLabel>Verification Code</FieldLabel>
+                <Input
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  placeholder="Enter 6-digit code"
+                  disabled={isDeletingAccount}
+                  maxLength={6}
+                  className="font-mono text-center text-lg tracking-widest"
+                />
+                <FieldDescription>
+                  Code expires in 10 minutes
+                </FieldDescription>
+              </Field>
+            )}
+            {deleteError && (
+              <p className="text-sm text-destructive mt-2">{deleteError}</p>
+            )}
           </DialogPanel>
           <DialogFooter variant="bare">
-            <DialogClose render={<Button variant="outline" />}>
+            <Button variant="outline" onClick={handleCloseDeleteDialog}>
               Cancel
-            </DialogClose>
-            <Button
-              variant="destructive"
-              onClick={handleDeleteAccount}
-              disabled={deleteConfirmText !== "DELETE"}
-            >
-              Delete Account
             </Button>
+            {deleteStep === "confirm" ? (
+              <Button
+                variant="destructive"
+                onClick={handleRequestDeletionOtp}
+                disabled={deleteConfirmText !== "DELETE" || isRequestingOtp}
+              >
+                {isRequestingOtp ? "Sending code..." : "Continue"}
+              </Button>
+            ) : (
+              <Button
+                variant="destructive"
+                onClick={handleConfirmDeletion}
+                disabled={otpCode.length !== 6 || isDeletingAccount}
+              >
+                {isDeletingAccount ? "Deleting..." : "Delete Account"}
+              </Button>
+            )}
           </DialogFooter>
         </DialogPopup>
       </Dialog>

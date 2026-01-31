@@ -109,6 +109,11 @@ export interface PasswordResetEmailData {
   resetUrl: string
 }
 
+export interface AccountDeletionOtpEmailData {
+  to: string
+  otpCode: string
+}
+
 // ============================================================================
 // Email Functions
 // ============================================================================
@@ -902,6 +907,77 @@ This link will expire in 1 hour. If you didn't request a password reset, you can
 
   if (error) {
     console.error('Failed to send password reset email:', error)
+    throw error
+  }
+}
+
+export async function sendAccountDeletionOtpEmail(data: AccountDeletionOtpEmailData) {
+  const { to, otpCode } = data
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1e293b; background-color: #f8fafc; margin: 0; padding: 0;">
+  <div style="max-width: 560px; margin: 0 auto; padding: 40px 20px;">
+    <div style="background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; padding: 32px;">
+
+      <a href="${APP_URL}" style="text-decoration: none; margin-bottom: 24px; display: block;"><img src="${APP_URL}/billmint_logo_wbg.webp" alt="BillMint" width="32" style="height: auto; display: block;"></a>
+
+      <h1 style="font-size: 20px; font-weight: 600; margin: 0 0 16px 0; color: #dc2626;">Account Deletion Request</h1>
+
+      <p style="margin: 0 0 16px 0; color: #475569;">You requested to delete your BillMint account. Use the code below to confirm this action:</p>
+
+      <div style="background: #f1f5f9; border-radius: 8px; padding: 24px; margin: 24px 0; text-align: center;">
+        <p style="font-size: 32px; font-weight: 700; letter-spacing: 8px; margin: 0; color: #1e293b; font-family: monospace;">${otpCode}</p>
+      </div>
+
+      <p style="margin: 0 0 16px 0; color: #475569;">This code will expire in <strong>10 minutes</strong>.</p>
+
+      <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 20px 0;">
+        <p style="color: #991b1b; margin: 0; font-size: 14px;"><strong>Warning:</strong> This action is permanent and cannot be undone. All your data including time entries, projects, clients, and invoices will be permanently deleted.</p>
+      </div>
+
+      <p style="margin: 16px 0 0 0; color: #475569;">If you didn't request this, please ignore this email or contact support immediately.</p>
+
+      <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e2e8f0; font-size: 13px; color: #94a3b8;">
+        <p style="margin: 0 0 8px 0;">
+          <a href="${APP_URL}" style="color: #64748b; text-decoration: none;">BillMint</a> ·
+          <a href="${APP_URL}/help" style="color: #64748b; text-decoration: none;">Help</a>
+        </p>
+        <p style="margin: 0;">You're receiving this because an account deletion was requested.</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`
+
+  const text = `Account Deletion Request
+
+You requested to delete your BillMint account. Use the code below to confirm this action:
+
+${otpCode}
+
+This code will expire in 10 minutes.
+
+WARNING: This action is permanent and cannot be undone. All your data including time entries, projects, clients, and invoices will be permanently deleted.
+
+If you didn't request this, please ignore this email or contact support immediately.
+
+— The BillMint team`
+
+  const { error } = await getResend().emails.send({
+    from: FROM_EMAIL,
+    to,
+    subject: 'Confirm Account Deletion',
+    html,
+    text,
+  })
+
+  if (error) {
+    console.error('Failed to send account deletion OTP email:', error)
     throw error
   }
 }

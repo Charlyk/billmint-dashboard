@@ -1,6 +1,8 @@
-import { createClient } from '@/lib/supabase/server'
+import { randomInt } from 'crypto'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { requireAuth } from './auth.service'
 import { NotFoundError, ValidationError } from '@/lib/utils/errors'
+import { sendAccountDeletionOtpEmail } from '@/lib/services/email.service'
 import type { User, UserSettings, UpdateUser, UpdateUserSettings } from '@/types/database'
 import type { UserWithSettings } from '@/types/api'
 
@@ -151,10 +153,87 @@ export async function updateAppSettings(
   return settings
 }
 
-export async function deleteAccount(): Promise<void> {
+export async function requestAccountDeletion(): Promise<void> {
+  const currentUser = await requireAuth()
+  const adminClient = createAdminClient()
+
+  // Generate a 6-digit OTP
+  const otpCode = randomInt(100000, 999999).toString()
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000) // 10 minutes from now
+
+  // Delete any existing OTPs for this user
+  await adminClient
+    .from('account_deletion_otps')
+    .delete()
+    .eq('user_id', currentUser.id)
+
+  // Store the OTP
+  const { error: insertError } = await adminClient
+    .from('account_deletion_otps')
+    .insert({
+      user_id: currentUser.id,
+      email: currentUser.email,
+      otp_code: otpCode,
+      expires_at: expiresAt.toISOString(),
+    } as never)
+
+  if (insertError) {
+    console.error('[User] Failed to create deletion OTP:', insertError)
+    throw new ValidationError('Failed to send verification code')
+  }
+
+  // Send OTP email
+  try {
+    await sendAccountDeletionOtpEmail({ to: currentUser.email, otpCode })
+  } catch (error) {
+    console.error('[User] Failed to send deletion OTP email:', error)
+    throw new ValidationError('Failed to send verification code')
+  }
+}
+
+interface AccountDeletionOtp {
+  user_id: string
+  email: string
+  otp_code: string
+  expires_at: string
+  used_at: string | null
+}
+
+export async function confirmAccountDeletion(otpCode: string): Promise<void> {
   const currentUser = await requireAuth()
   const supabase = await createClient()
+  const adminClient = createAdminClient()
 
+  // Verify the OTP
+  const { data: otpData, error: otpError } = await adminClient
+    .from('account_deletion_otps')
+    .select('user_id, email, otp_code, expires_at, used_at')
+    .eq('user_id', currentUser.id)
+    .eq('otp_code', otpCode)
+    .single() as { data: AccountDeletionOtp | null; error: unknown }
+
+  if (otpError || !otpData) {
+    throw new ValidationError('Invalid verification code')
+  }
+
+  // Check if OTP is expired
+  if (new Date(otpData.expires_at) < new Date()) {
+    throw new ValidationError('Verification code has expired')
+  }
+
+  // Check if OTP was already used
+  if (otpData.used_at) {
+    throw new ValidationError('Verification code has already been used')
+  }
+
+  // Mark OTP as used
+  await adminClient
+    .from('account_deletion_otps')
+    .update({ used_at: new Date().toISOString() } as never)
+    .eq('user_id', currentUser.id)
+    .eq('otp_code', otpCode)
+
+  // Delete the account
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.rpc as any)('delete_user_account', {
     p_user_id: currentUser.id,
