@@ -7,6 +7,7 @@ export function ThemeToggle() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [mounted, setMounted] = useState(false);
 
+  /* eslint-disable react-hooks/set-state-in-effect -- legitimate use for hydration safety */
   useEffect(() => {
     const stored = localStorage.getItem("theme");
     const prefersDark = window.matchMedia(
@@ -17,6 +18,7 @@ export function ThemeToggle() {
     setMounted(true);
     document.documentElement.classList.toggle("dark", shouldBeDark);
   }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const toggleDarkMode = () => {
     const newValue = !isDarkMode;

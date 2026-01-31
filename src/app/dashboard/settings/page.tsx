@@ -20,7 +20,6 @@ import {
   DialogDescription,
   DialogPanel,
   DialogFooter,
-  DialogClose,
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTab, TabsPanel } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";

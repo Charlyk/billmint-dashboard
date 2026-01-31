@@ -57,7 +57,7 @@ export default function ViewInvoicePage({ params }: { params: Promise<{ id: stri
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
-    } catch (error) {
+    } catch {
       toastManager.add({
         type: "error",
         title: "Failed to download PDF",
@@ -74,7 +74,7 @@ export default function ViewInvoicePage({ params }: { params: Promise<{ id: stri
         type: "success",
         title: "Reminder sent",
       });
-    } catch (error) {
+    } catch {
       toastManager.add({
         type: "error",
         title: "Failed to send reminder",
@@ -94,7 +94,7 @@ export default function ViewInvoicePage({ params }: { params: Promise<{ id: stri
         title: "Invoice marked as paid",
       });
       mutate();
-    } catch (error) {
+    } catch {
       toastManager.add({
         type: "error",
         title: "Failed to mark as paid",

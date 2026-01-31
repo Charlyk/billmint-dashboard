@@ -272,6 +272,7 @@ function InvoiceHeader({ logoUrl }: { logoUrl?: string | null }) {
   return (
     <View style={styles.header}>
       <View style={styles.companyInfo}>
+        {/* eslint-disable-next-line jsx-a11y/alt-text -- @react-pdf/renderer Image doesn't support alt */}
         {logoUrl && <Image src={logoUrl} style={styles.logo} />}
       </View>
       <Text style={styles.invoiceTitle}>INVOICE</Text>
@@ -310,10 +311,8 @@ function BillToSection({
 // Invoice Details Component
 function InvoiceDetails({
   invoice,
-  settings,
 }: {
   invoice: InvoicePdfData['invoice']
-  settings: InvoicePdfData['settings']
 }) {
   return (
     <View style={styles.detailsSection}>
@@ -498,7 +497,7 @@ export function InvoiceDocument({ data }: { data: InvoicePdfData }) {
       <Page size="A4" style={styles.page}>
         <InvoiceHeader logoUrl={settings.logo_url} />
         <BillToSection user={user} client={invoice.client} />
-        <InvoiceDetails invoice={invoice} settings={settings} />
+        <InvoiceDetails invoice={invoice} />
         <LineItemsTable
           lineItems={invoice.line_items}
           currency={invoice.currency}

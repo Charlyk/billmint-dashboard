@@ -4,6 +4,7 @@ import { SWRConfig } from 'swr'
 import type { ReactNode } from 'react'
 import { AuthProvider } from './auth-context'
 import { ToastProvider } from '@/components/ui/toast'
+import { OfflineBanner } from '@/components/offline-banner'
 import { ApiClientError } from '@/lib/api/client'
 
 export function Providers({ children }: { children: ReactNode }) {
@@ -33,6 +34,7 @@ export function Providers({ children }: { children: ReactNode }) {
     >
       <ToastProvider>
         <AuthProvider>
+          <OfflineBanner />
           {children}
         </AuthProvider>
       </ToastProvider>

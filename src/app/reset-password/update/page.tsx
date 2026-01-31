@@ -188,7 +188,7 @@ export default function UpdatePasswordPage() {
               <h2 className="text-xl font-semibold">Set new password</h2>
             </CardHeader>
             <CardContent className="flex items-center justify-center py-8">
-              <Loader2 className="size-6 animate-spin text-teal-500" />
+              <Spinner className="size-6 text-teal-500" />
             </CardContent>
           </Card>
         </div>

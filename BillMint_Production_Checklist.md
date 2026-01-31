@@ -102,8 +102,8 @@ This checklist covers everything needed before launching BillMint to real users.
 - [x] **[MUST]** Invoice totals match line items
 
 ### Edge Cases
-- [ ] **[MUST]** Can't delete project with unbilled entries (warn first)
-- [ ] **[MUST]** Can't delete client with unpaid invoices (warn first)
+- [x] **[MUST]** Can't delete project with unbilled entries (warn first)
+- [x] **[MUST]** Can't delete client with unpaid invoices (warn first)
 - [x] **[MUST]** Archiving works correctly (hidden from lists, data preserved)
 - [x] **[MUST]** Currency consistency on invoices
 
@@ -112,26 +112,26 @@ This checklist covers everything needed before launching BillMint to real users.
 ## 4. Error Handling
 
 ### API Errors
-- [ ] **[MUST]** All API routes have try/catch
-- [ ] **[MUST]** Meaningful error messages returned
-- [ ] **[MUST]** 401 redirects to login
-- [ ] **[MUST]** 404 shows not found page
-- [ ] **[MUST]** 500 shows generic error (no stack trace)
+- [x] **[MUST]** All API routes have try/catch
+- [x] **[MUST]** Meaningful error messages returned
+- [x] **[MUST]** 401 redirects to login
+- [x] **[MUST]** 404 shows not found page
+- [x] **[MUST]** 500 shows generic error (no stack trace)
 
 ### UI Errors
-- [ ] **[MUST]** Toast notifications for errors
-- [ ] **[MUST]** Form validation errors shown inline
-- [ ] **[MUST]** Network error handling (offline state)
-- [ ] **[MUST]** Optimistic UI reverts on error
-- [ ] **[NICE]** Global error boundary
+- [x] **[MUST]** Toast notifications for errors
+- [x] **[MUST]** Form validation errors shown inline
+- [x] **[MUST]** Network error handling (offline state)
+- [x] **[MUST]** Optimistic UI reverts on error
+- [x] **[NICE]** Global error boundary
 
 ---
 
 ## 5. UI/UX Polish
 
 ### Loading States
-- [ ] **[MUST]** Loading spinner for lists
-- [ ] **[MUST]** Button loading state (disabled + spinner)
+- [x] **[MUST]** Loading spinner for lists
+- [x] **[MUST]** Button loading state (disabled + spinner)
 - [ ] **[MUST]** No layout shift when data loads
 
 ### Empty States

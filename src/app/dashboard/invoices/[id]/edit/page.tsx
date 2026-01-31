@@ -48,7 +48,7 @@ function formatDuration(seconds: number): string {
 export default function EditInvoicePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
-  const { settings, isLoading: settingsLoading, refetchSettings } = useUserSettings();
+  const { settings, refetchSettings } = useUserSettings();
 
   // Fetch existing invoice
   const { invoice, isLoading: invoiceLoading } = useInvoice(id);
@@ -70,7 +70,7 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
   const [entriesInitialized, setEntriesInitialized] = useState(false);
 
   // Fetch data
-  const { clients, isLoading: clientsLoading } = useClients({ limit: 100 });
+  const { clients } = useClients({ limit: 100 });
   const { entries: unbilledEntries, isLoading: entriesLoading } = useUnbilledTimeEntries(
     clientId || undefined
   );
