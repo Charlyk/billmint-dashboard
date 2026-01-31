@@ -1,7 +1,11 @@
-import { createClient } from '@/lib/supabase/server'
+import { randomBytes } from 'crypto'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { UnauthorizedError, ValidationError, ConflictError } from '@/lib/utils/errors'
+import { sendPasswordResetEmail } from '@/lib/services/email.service'
 import type { User } from '@/types/database'
 import type { AuthResponse, SessionResponse } from '@/types/api'
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://billmint.io'
 
 // Timezones that typically use 24-hour format
 const TIMEZONES_24H = [
@@ -175,17 +179,115 @@ export async function getUser(userId: string): Promise<User> {
   return data
 }
 
-export async function resetPassword(email: string): Promise<void> {
-  const supabase = await createClient()
+// Type for password reset tokens (not yet in generated types)
+interface PasswordResetToken {
+  email: string
+  token: string
+  expires_at: string
+  used_at: string | null
+}
 
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/reset-password/update`,
+export async function resetPassword(email: string): Promise<void> {
+  // Use admin client to bypass RLS (user is not authenticated during password reset)
+  const adminClient = createAdminClient()
+
+  // Generate a secure random token
+  const token = randomBytes(32).toString('hex')
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000) // 1 hour from now
+
+  // Delete any existing tokens for this email
+  await adminClient
+    .from('password_reset_tokens')
+    .delete()
+    .eq('email', email.toLowerCase())
+
+  // Store the token
+  const { error: insertError } = await adminClient
+    .from('password_reset_tokens')
+    .insert({
+      email: email.toLowerCase(),
+      token,
+      expires_at: expiresAt.toISOString(),
+    } as never)
+
+  if (insertError) {
+    console.error('Failed to create reset token:', insertError)
+    // Don't reveal error to user
+    return
+  }
+
+  // Send branded email
+  const resetUrl = `${APP_URL}/reset-password/update?token=${token}`
+  try {
+    await sendPasswordResetEmail({ to: email, resetUrl })
+  } catch (error) {
+    console.error('Failed to send reset email:', error)
+    // Don't reveal error to user
+  }
+}
+
+export async function verifyResetToken(token: string): Promise<string | null> {
+  // Use admin client to bypass RLS
+  const adminClient = createAdminClient()
+
+  const { data, error } = await adminClient
+    .from('password_reset_tokens')
+    .select('email, expires_at, used_at')
+    .eq('token', token)
+    .single() as { data: PasswordResetToken | null; error: unknown }
+
+  if (error || !data) {
+    return null
+  }
+
+  // Check if token is expired
+  if (new Date(data.expires_at) < new Date()) {
+    return null
+  }
+
+  // Check if token was already used
+  if (data.used_at) {
+    return null
+  }
+
+  return data.email
+}
+
+export async function updatePasswordWithToken(token: string, password: string): Promise<void> {
+  // Verify the token first
+  const email = await verifyResetToken(token)
+  if (!email) {
+    throw new ValidationError('Invalid or expired reset link')
+  }
+
+  // Use admin client for all operations (user is not authenticated)
+  const adminClient = createAdminClient()
+
+  // Get user by email
+  const { data: userData, error: userError } = await adminClient.auth.admin.listUsers()
+  if (userError) {
+    throw new ValidationError('Failed to update password')
+  }
+
+  const user = userData.users.find((u: { email?: string }) => u.email?.toLowerCase() === email.toLowerCase())
+  if (!user) {
+    throw new ValidationError('User not found')
+  }
+
+  // Update the user's password
+  const { error: updateError } = await adminClient.auth.admin.updateUserById(user.id, {
+    password,
   })
 
-  if (error) {
-    // Don't reveal if email exists or not
-    console.error('Reset password error:', error)
+  if (updateError) {
+    throw new ValidationError('Failed to update password')
   }
+
+  // Mark token as used
+  await adminClient
+    .from('password_reset_tokens')
+    .update({ used_at: new Date().toISOString() } as never)
+    .eq('token', token)
 }
 
 export async function updatePassword(password: string): Promise<void> {

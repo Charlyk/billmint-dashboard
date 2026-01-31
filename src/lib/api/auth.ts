@@ -38,10 +38,10 @@ export async function resetPassword(email: string): Promise<void> {
   })
 }
 
-export async function updatePassword(password: string): Promise<void> {
+export async function updatePasswordWithToken(token: string, password: string): Promise<void> {
   await fetcher('/api/auth/reset-password', {
     method: 'PATCH',
-    body: JSON.stringify({ password }),
+    body: JSON.stringify({ token, password }),
   })
 }
 

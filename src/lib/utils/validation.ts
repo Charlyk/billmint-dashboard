@@ -156,6 +156,11 @@ export const updatePasswordSchema = z.object({
   password: z.string().min(8, 'Password must be at least 8 characters'),
 })
 
+export const updatePasswordWithTokenSchema = z.object({
+  token: z.string().min(1, 'Reset token is required'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+})
+
 // Query schemas
 export const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),

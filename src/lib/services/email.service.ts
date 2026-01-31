@@ -104,6 +104,11 @@ export interface InvoiceReminderEmailData {
   fromName: string
 }
 
+export interface PasswordResetEmailData {
+  to: string
+  resetUrl: string
+}
+
 // ============================================================================
 // Email Functions
 // ============================================================================
@@ -836,6 +841,67 @@ ${fromName}`
 
   if (error) {
     console.error('Failed to send invoice reminder email:', error)
+    throw error
+  }
+}
+
+export async function sendPasswordResetEmail(data: PasswordResetEmailData) {
+  const { to, resetUrl } = data
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1e293b; background-color: #f8fafc; margin: 0; padding: 0;">
+  <div style="max-width: 560px; margin: 0 auto; padding: 40px 20px;">
+    <div style="background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; padding: 32px;">
+
+      <a href="${APP_URL}" style="text-decoration: none; margin-bottom: 24px; display: block;"><img src="${APP_URL}/billmint_logo_wbg.webp" alt="BillMint" width="32" style="height: auto; display: block;"></a>
+
+      <h1 style="font-size: 20px; font-weight: 600; margin: 0 0 16px 0; color: #1e293b;">Reset your password</h1>
+
+      <p style="margin: 0 0 16px 0; color: #475569;">We received a request to reset your password. Click the button below to choose a new password.</p>
+
+      <a href="${resetUrl}" style="display: inline-block; background: #14b8a6; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500;">Reset Password</a>
+
+      <p style="margin: 24px 0 16px 0; color: #475569;">This link will expire in 1 hour. If you didn't request a password reset, you can safely ignore this email.</p>
+
+      <p style="color: #94a3b8; font-size: 14px; margin: 0;">— The BillMint team</p>
+
+      <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e2e8f0; font-size: 13px; color: #94a3b8;">
+        <p style="margin: 0 0 8px 0;">
+          <a href="${APP_URL}" style="color: #64748b; text-decoration: none;">BillMint</a> ·
+          <a href="${APP_URL}/help" style="color: #64748b; text-decoration: none;">Help</a>
+        </p>
+        <p style="margin: 0;">You're receiving this because a password reset was requested for your account.</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`
+
+  const text = `Reset your password
+
+We received a request to reset your password. Click the link below to choose a new password:
+
+${resetUrl}
+
+This link will expire in 1 hour. If you didn't request a password reset, you can safely ignore this email.
+
+— The BillMint team`
+
+  const { error } = await getResend().emails.send({
+    from: FROM_EMAIL,
+    to,
+    subject: 'Reset your password',
+    html,
+    text,
+  })
+
+  if (error) {
+    console.error('Failed to send password reset email:', error)
     throw error
   }
 }

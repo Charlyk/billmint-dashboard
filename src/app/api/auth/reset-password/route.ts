@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
-import { resetPassword, updatePassword } from '@/lib/services/auth.service'
-import { resetPasswordSchema, updatePasswordSchema } from '@/lib/utils/validation'
+import { resetPassword, updatePasswordWithToken } from '@/lib/services/auth.service'
+import { resetPasswordSchema, updatePasswordWithTokenSchema } from '@/lib/utils/validation'
 import { handleError, ValidationError } from '@/lib/utils/errors'
 
 export async function POST(request: NextRequest) {
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json()
-    const parsed = updatePasswordSchema.safeParse(body)
+    const parsed = updatePasswordWithTokenSchema.safeParse(body)
 
     if (!parsed.success) {
       throw new ValidationError('Invalid input', {
@@ -36,7 +36,7 @@ export async function PATCH(request: NextRequest) {
       })
     }
 
-    await updatePassword(parsed.data.password)
+    await updatePasswordWithToken(parsed.data.token, parsed.data.password)
 
     return Response.json({ data: { success: true } })
   } catch (error) {

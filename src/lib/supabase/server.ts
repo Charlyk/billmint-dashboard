@@ -1,4 +1,5 @@
 import { createServerClient } from '@supabase/ssr'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import type { Database } from '@/types/database'
 
@@ -49,6 +50,20 @@ export async function createServiceClient() {
             // Ignore errors from Server Components
           }
         },
+      },
+    }
+  )
+}
+
+// Admin client for operations that don't require user context (e.g., password reset)
+export function createAdminClient() {
+  return createSupabaseClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SECRET_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
       },
     }
   )

@@ -11,11 +11,20 @@ import {
   Users,
   FileText,
   Settings,
-  Menu,
+  Menu as MenuIcon,
   Sun,
   Moon,
+  LogOut,
 } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import {
+  Menu,
+  MenuTrigger,
+  MenuPopup,
+  MenuItem,
+  MenuSeparator,
+} from "@/components/ui/menu";
+import { useAuth } from "@/lib/hooks/use-auth";
 import {
   Tooltip,
   TooltipTrigger,
@@ -23,6 +32,16 @@ import {
   TooltipProvider,
 } from "@/components/ui/tooltip";
 import { TimerControls } from "@/components/timer";
+import {
+  AlertDialog,
+  AlertDialogPopup,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogClose,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { User } from "@/types";
 
@@ -49,9 +68,11 @@ interface DashboardShellProps {
 
 export function DashboardShell({ children, user }: DashboardShellProps) {
   const pathname = usePathname();
+  const { logout, isSubmitting } = useAuth();
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
 
   // Initialize dark mode after hydration to avoid mismatch
   /* eslint-disable react-hooks/set-state-in-effect -- legitimate use for hydration safety */
@@ -100,7 +121,7 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
                 onClick={() => setSidebarExpanded(!sidebarExpanded)}
                 className="flex items-center justify-center rounded-xl p-2.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               >
-                <Menu className="size-5" />
+                <MenuIcon className="size-5" />
               </button>
               <Link
                 href="/dashboard"
@@ -139,14 +160,35 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
               >
                 <Settings className="size-5" />
               </Link>
-              <Link href="/dashboard/settings">
-                <Avatar className="size-9">
-                  <AvatarImage src={user?.avatar_url || undefined} alt={user?.full_name || "User"} />
-                  <AvatarFallback className="bg-teal-500 text-white text-sm font-medium">
-                    {userInitials}
-                  </AvatarFallback>
-                </Avatar>
-              </Link>
+              <Menu>
+                <MenuTrigger className="cursor-pointer rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                  <Avatar className="size-9">
+                    <AvatarImage src={user?.avatar_url || undefined} alt={user?.full_name || "User"} />
+                    <AvatarFallback className="bg-teal-500 text-white text-sm font-medium">
+                      {userInitials}
+                    </AvatarFallback>
+                  </Avatar>
+                </MenuTrigger>
+                <MenuPopup align="end" sideOffset={8}>
+                  <div className="px-3 py-2">
+                    <p className="text-sm font-medium">{user?.full_name}</p>
+                    <p className="text-xs text-muted-foreground">{user?.email}</p>
+                  </div>
+                  <MenuSeparator />
+                  <MenuItem render={<Link href="/dashboard/settings" />}>
+                    <Settings className="size-4" />
+                    Settings
+                  </MenuItem>
+                  <MenuSeparator />
+                  <MenuItem
+                    onClick={() => setShowLogoutDialog(true)}
+                    variant="destructive"
+                  >
+                    <LogOut className="size-4" />
+                    Log out
+                  </MenuItem>
+                </MenuPopup>
+              </Menu>
             </div>
           </header>
 
@@ -255,14 +297,35 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
                 >
                   <Settings className="size-5" />
                 </Link>
-                <Link href="/dashboard/settings">
-                  <Avatar>
-                    <AvatarImage src={user?.avatar_url || undefined} alt={user?.full_name || "User"} />
-                    <AvatarFallback className="bg-teal-500 text-white text-sm font-medium">
-                      {userInitials}
-                    </AvatarFallback>
-                  </Avatar>
-                </Link>
+                <Menu>
+                  <MenuTrigger className="cursor-pointer rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                    <Avatar>
+                      <AvatarImage src={user?.avatar_url || undefined} alt={user?.full_name || "User"} />
+                      <AvatarFallback className="bg-teal-500 text-white text-sm font-medium">
+                        {userInitials}
+                      </AvatarFallback>
+                    </Avatar>
+                  </MenuTrigger>
+                  <MenuPopup align="end" sideOffset={8}>
+                    <div className="px-3 py-2">
+                      <p className="text-sm font-medium">{user?.full_name}</p>
+                      <p className="text-xs text-muted-foreground">{user?.email}</p>
+                    </div>
+                    <MenuSeparator />
+                    <MenuItem render={<Link href="/dashboard/settings" />}>
+                      <Settings className="size-4" />
+                      Settings
+                    </MenuItem>
+                    <MenuSeparator />
+                    <MenuItem
+                      onClick={() => setShowLogoutDialog(true)}
+                      variant="destructive"
+                    >
+                      <LogOut className="size-4" />
+                      Log out
+                    </MenuItem>
+                  </MenuPopup>
+                </Menu>
               </div>
             </div>
 
@@ -298,6 +361,30 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
           </nav>
         </div>
       </div>
+
+      {/* Logout Confirmation Dialog */}
+      <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
+        <AlertDialogPopup>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Log out</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to log out of your account?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogClose render={<Button variant="outline" />}>
+              Cancel
+            </AlertDialogClose>
+            <Button
+              variant="destructive"
+              onClick={() => logout()}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Logging out..." : "Log out"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogPopup>
+      </AlertDialog>
     </TooltipProvider>
   );
 }
