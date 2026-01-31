@@ -16,6 +16,8 @@ function getResend(): Resend {
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://billmint.io'
 const FROM_EMAIL = process.env.EMAIL_FROM || 'Eduard from BillMint <noreply@billmint.io>'
+const HELLO_EMAIL = 'Eduard from BillMint <hello@billmint.io>'
+const INVOICES_EMAIL = 'invoices@billmint.io'
 
 // ============================================================================
 // Interfaces
@@ -185,7 +187,7 @@ Happy tracking!
 The BillMint team`
 
   const { error } = await getResend().emails.send({
-    from: FROM_EMAIL,
+    from: HELLO_EMAIL,
     to,
     subject: 'Welcome to BillMint 🌿',
     html,
@@ -746,7 +748,7 @@ Thanks,
 ${fromName}`
 
   const { error } = await getResend().emails.send({
-    from: FROM_EMAIL,
+    from: `${fromName} via BillMint <${INVOICES_EMAIL}>`,
     to,
     subject: `Invoice ${invoiceNumber} from ${fromName}`,
     html,
@@ -837,7 +839,7 @@ Thanks,
 ${fromName}`
 
   const { error } = await getResend().emails.send({
-    from: FROM_EMAIL,
+    from: `${fromName} via BillMint <${INVOICES_EMAIL}>`,
     to,
     subject: `Reminder: Invoice ${invoiceNumber} from ${fromName}`,
     html,

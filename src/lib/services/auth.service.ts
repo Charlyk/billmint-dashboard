@@ -1,7 +1,7 @@
 import { randomBytes } from 'crypto'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { UnauthorizedError, ValidationError, ConflictError } from '@/lib/utils/errors'
-import { sendPasswordResetEmail } from '@/lib/services/email.service'
+import { sendPasswordResetEmail, sendWelcomeEmail } from '@/lib/services/email.service'
 import type { User } from '@/types/database'
 import type { AuthResponse, SessionResponse } from '@/types/api'
 
@@ -80,6 +80,11 @@ export async function signup(
       .update({ time_format: timeFormat } as never)
       .eq('user_id', data.user.id)
   }
+
+  // Send welcome email (don't block on failure)
+  sendWelcomeEmail({ to: email, name: fullName }).catch((error) => {
+    console.error('Failed to send welcome email:', error)
+  })
 
   return {
     user,
