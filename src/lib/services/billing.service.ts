@@ -164,7 +164,7 @@ export async function handleWebhook(
 
   try {
     event = getStripe().webhooks.constructEvent(body, signature, webhookSecret)
-  } catch (err) {
+  } catch {
     throw new ValidationError('Invalid webhook signature')
   }
 

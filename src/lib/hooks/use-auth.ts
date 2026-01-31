@@ -4,7 +4,7 @@ import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import useSWR from 'swr'
 import { authApi } from '@/lib/api'
-import type { SessionResponse, User } from '@/types'
+import type { SessionResponse } from '@/types'
 
 export function useSession() {
   const { data, error, isLoading, mutate } = useSWR<SessionResponse>(

@@ -543,7 +543,7 @@ export async function getInvoiceStats(): Promise<InvoiceStats> {
 }
 
 export async function duplicateInvoice(id: string): Promise<InvoiceWithDetails> {
-  const currentUser = await requireAuth()
+  await requireAuth()
 
   // Get the original invoice with details
   const original = await getInvoiceById(id)
