@@ -17,6 +17,7 @@ import {
   AccordionPanel,
 } from "@/components/ui/accordion";
 import { LandingHeader } from "@/components/landing-header";
+import { ThemeToggle } from "@/components/theme-toggle";
 import type { User } from "@/types";
 
 interface LandingPageProps {
@@ -687,7 +688,10 @@ export function LandingPage({ user }: LandingPageProps) {
             <p className="text-sm text-muted-foreground">
               &copy; 2026 BillMint. All rights reserved.
             </p>
-            <p className="text-sm text-muted-foreground">Made in Romania</p>
+            <div className="flex items-center gap-4">
+              <ThemeToggle />
+              <p className="text-sm text-muted-foreground">Made in Romania</p>
+            </div>
           </div>
         </div>
       </footer>
