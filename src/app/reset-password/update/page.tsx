@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { Field, FieldLabel, FieldError } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { updatePasswordWithToken } from "@/lib/api/auth";
 
-export default function UpdatePasswordPage() {
+function UpdatePasswordForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const token = searchParams.get("token");
@@ -169,5 +169,32 @@ export default function UpdatePasswordPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function UpdatePasswordPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
+          <div className="mb-8 text-center">
+            <h1 className="text-3xl font-bold text-teal-500">BillMint.io</h1>
+            <p className="mt-2 text-muted-foreground">
+              Track time. Send invoices. Get paid.
+            </p>
+          </div>
+          <Card className="w-full max-w-md">
+            <CardHeader className="text-center">
+              <h2 className="text-xl font-semibold">Set new password</h2>
+            </CardHeader>
+            <CardContent className="flex items-center justify-center py-8">
+              <Loader2 className="size-6 animate-spin text-teal-500" />
+            </CardContent>
+          </Card>
+        </div>
+      }
+    >
+      <UpdatePasswordForm />
+    </Suspense>
   );
 }
