@@ -37,7 +37,7 @@ export function OnboardingChecklist() {
   const [isLocallyDismissed, setIsLocallyDismissed] = useState(false);
 
   // Fetch dashboard stats for completion detection using SWR
-  const { data: stats, isLoading } = useSWR(
+  const { data: stats } = useSWR(
     ONBOARDING_STATS_KEY,
     async () => {
       const data = await dashboardApi.getDashboardData(1);
@@ -51,6 +51,7 @@ export function OnboardingChecklist() {
     {
       revalidateOnFocus: false,
       dedupingInterval: 5000,
+      keepPreviousData: true,
     }
   );
 
@@ -102,7 +103,9 @@ export function OnboardingChecklist() {
   const isComplete = completedCount === totalCount;
 
   const isDismissedFromSettings = !!settings?.onboarding_dismissed_at;
-  const shouldShow = !isLoading && !isComplete && !isDismissedFromSettings && !isLocallyDismissed;
+  // Only show when we have loaded stats data - prevents flashing
+  const hasLoadedStats = stats !== undefined;
+  const shouldShow = hasLoadedStats && !isComplete && !isDismissedFromSettings && !isLocallyDismissed;
 
   const handleDismiss = useCallback(async () => {
     setIsDismissing(true);
