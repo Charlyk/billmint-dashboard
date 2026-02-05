@@ -48,3 +48,16 @@ export async function updatePasswordWithToken(token: string, password: string): 
 export async function signInWithGoogle(): Promise<{ url: string }> {
   return fetcher<{ url: string }>('/api/auth/google')
 }
+
+export async function verifyEmail(token: string): Promise<{ success: boolean; message: string }> {
+  return fetcher<{ success: boolean; message: string }>('/api/auth/verify-email', {
+    method: 'POST',
+    body: JSON.stringify({ token }),
+  })
+}
+
+export async function resendVerificationEmail(): Promise<{ success: boolean; message: string }> {
+  return fetcher<{ success: boolean; message: string }>('/api/auth/verify-email', {
+    method: 'PUT',
+  })
+}

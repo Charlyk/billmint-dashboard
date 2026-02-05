@@ -39,6 +39,7 @@ export async function updateSession(request: NextRequest) {
 
   // Protected routes - redirect to login if not authenticated
   const isProtectedRoute = request.nextUrl.pathname.startsWith('/dashboard')
+  // Auth routes - redirect authenticated users to dashboard (but NOT verify-email, users need that)
   const isAuthRoute = ['/login', '/signup', '/reset-password'].includes(
     request.nextUrl.pathname
   )

@@ -4,6 +4,7 @@ import { getSettings } from "@/lib/services/user.service";
 import { DashboardShell } from "./dashboard-shell";
 import { TimerProvider } from "@/contexts/timer-context";
 import { UserSettingsProvider } from "@/contexts/user-settings-context";
+import { EmailVerificationBanner } from "@/components/email-verification-banner";
 import type { User } from "@/types";
 
 // Dashboard requires authentication, so always render dynamically
@@ -35,9 +36,13 @@ export default async function DashboardLayout({
 }) {
   const { user, timerData, settings } = await getServerData();
 
+  // Check if user needs email verification (only for email/password signups, not OAuth)
+  const needsEmailVerification = !user.email_verified_at;
+
   return (
     <UserSettingsProvider initialSettings={settings}>
       <TimerProvider initialData={timerData}>
+        {needsEmailVerification && <EmailVerificationBanner />}
         <DashboardShell user={user as User}>{children}</DashboardShell>
       </TimerProvider>
     </UserSettingsProvider>

@@ -1,7 +1,7 @@
 import { randomBytes } from 'crypto'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { UnauthorizedError, ValidationError, ConflictError } from '@/lib/utils/errors'
-import { sendPasswordResetEmail, sendWelcomeEmail } from '@/lib/services/email.service'
+import { sendPasswordResetEmail, sendWelcomeEmail, sendEmailVerificationEmail } from '@/lib/services/email.service'
 import type { User } from '@/types/database'
 import type { AuthResponse, SessionResponse } from '@/types/api'
 
@@ -81,9 +81,9 @@ export async function signup(
       .eq('user_id', data.user.id)
   }
 
-  // Send welcome email (don't block on failure)
-  sendWelcomeEmail({ to: email, name: fullName }).catch((error) => {
-    console.error('Failed to send welcome email:', error)
+  // Send verification email (don't block on failure)
+  sendVerificationEmail(data.user.id, email, fullName).catch((error) => {
+    console.error('Failed to send verification email:', error)
   })
 
   return {
@@ -305,6 +305,180 @@ export async function updatePassword(password: string): Promise<void> {
   if (error) {
     throw new ValidationError('Failed to update password')
   }
+}
+
+// ============================================================================
+// Email Verification
+// ============================================================================
+
+interface EmailVerificationToken {
+  user_id: string
+  email: string
+  token: string
+  expires_at: string
+  verified_at: string | null
+  created_at: string
+}
+
+export async function sendVerificationEmail(userId: string, email: string, name: string): Promise<void> {
+  const adminClient = createAdminClient()
+
+  // Generate a secure random token
+  const token = randomBytes(32).toString('hex')
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours from now
+
+  // Delete any existing tokens for this user
+  await adminClient
+    .from('email_verification_tokens')
+    .delete()
+    .eq('user_id', userId)
+
+  // Store the token
+  const { error: insertError } = await adminClient
+    .from('email_verification_tokens')
+    .insert({
+      user_id: userId,
+      email: email.toLowerCase(),
+      token,
+      expires_at: expiresAt.toISOString(),
+    } as never)
+
+  if (insertError) {
+    console.error('Failed to create verification token:', insertError)
+    throw new Error('Failed to create verification token')
+  }
+
+  // Send verification email
+  const verificationUrl = `${APP_URL}/verify-email?token=${token}`
+  await sendEmailVerificationEmail({ to: email, name, verificationUrl })
+}
+
+export async function verifyEmail(token: string): Promise<{ success: boolean; message: string }> {
+  const adminClient = createAdminClient()
+
+  // Look up the token
+  const { data, error } = await adminClient
+    .from('email_verification_tokens')
+    .select('user_id, email, expires_at, verified_at')
+    .eq('token', token)
+    .single() as { data: EmailVerificationToken | null; error: unknown }
+
+  if (error || !data) {
+    return { success: false, message: 'Invalid verification link' }
+  }
+
+  // Check if already verified
+  if (data.verified_at) {
+    return { success: false, message: 'Email has already been verified' }
+  }
+
+  // Check if expired
+  if (new Date(data.expires_at) < new Date()) {
+    return { success: false, message: 'Verification link has expired. Please request a new one.' }
+  }
+
+  // Mark token as verified
+  await adminClient
+    .from('email_verification_tokens')
+    .update({ verified_at: new Date().toISOString() } as never)
+    .eq('token', token)
+
+  // Update user's email_verified_at
+  await adminClient
+    .from('users')
+    .update({ email_verified_at: new Date().toISOString() } as never)
+    .eq('id', data.user_id)
+
+  // Get user details for welcome email
+  const { data: userData } = await adminClient
+    .from('users')
+    .select('full_name, email')
+    .eq('id', data.user_id)
+    .single() as { data: { full_name: string | null; email: string } | null }
+
+  // Send welcome email now that email is verified
+  if (userData) {
+    sendWelcomeEmail({
+      to: userData.email,
+      name: userData.full_name || 'there',
+    }).catch((err) => {
+      console.error('Failed to send welcome email:', err)
+    })
+  }
+
+  return { success: true, message: 'Email verified successfully' }
+}
+
+export async function resendVerificationEmail(userId: string): Promise<{ success: boolean; message: string }> {
+  const adminClient = createAdminClient()
+
+  // First get user basic info (without email_verified_at in case migration hasn't run)
+  const { data: user, error: userError } = await adminClient
+    .from('users')
+    .select('email, full_name')
+    .eq('id', userId)
+    .single() as { data: { email: string; full_name: string | null } | null; error: unknown }
+
+  if (userError) {
+    console.error('Failed to fetch user for resend verification:', userError)
+    return { success: false, message: 'User not found' }
+  }
+
+  if (!user) {
+    return { success: false, message: 'User not found' }
+  }
+
+  // Check if already verified (handle case where column might not exist yet)
+  const { data: verificationStatus } = await adminClient
+    .from('users')
+    .select('email_verified_at')
+    .eq('id', userId)
+    .single() as { data: { email_verified_at: string | null } | null }
+
+  if (verificationStatus?.email_verified_at) {
+    return { success: false, message: 'Email is already verified' }
+  }
+
+  // Check rate limit - last token created within 2 minutes
+  const { data: recentToken } = await adminClient
+    .from('email_verification_tokens')
+    .select('created_at')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single() as { data: { created_at: string } | null }
+
+  if (recentToken) {
+    const tokenAge = Date.now() - new Date(recentToken.created_at).getTime()
+    const twoMinutes = 2 * 60 * 1000
+    if (tokenAge < twoMinutes) {
+      const remainingSeconds = Math.ceil((twoMinutes - tokenAge) / 1000)
+      return {
+        success: false,
+        message: `Please wait ${remainingSeconds} seconds before requesting another verification email`,
+      }
+    }
+  }
+
+  // Send new verification email
+  try {
+    await sendVerificationEmail(userId, user.email, user.full_name || 'there')
+    return { success: true, message: 'Verification email sent' }
+  } catch {
+    return { success: false, message: 'Failed to send verification email' }
+  }
+}
+
+export async function isEmailVerified(userId: string): Promise<boolean> {
+  const supabase = await createClient()
+
+  const { data } = await supabase
+    .from('users')
+    .select('email_verified_at')
+    .eq('id', userId)
+    .single() as { data: { email_verified_at: string | null } | null }
+
+  return !!data?.email_verified_at
 }
 
 export async function signInWithGoogle(): Promise<{ url: string }> {

@@ -19,6 +19,7 @@ export type Database = {
           tier: 'free' | 'pro' | 'business'
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
+          email_verified_at: string | null
           created_at: string
           updated_at: string
         }
@@ -31,6 +32,7 @@ export type Database = {
           tier?: 'free' | 'pro' | 'business'
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
+          email_verified_at?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -43,6 +45,7 @@ export type Database = {
           tier?: 'free' | 'pro' | 'business'
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
+          email_verified_at?: string | null
           created_at?: string
           updated_at?: string
         }

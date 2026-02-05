@@ -81,7 +81,7 @@ This checklist covers everything needed before launching BillMint to real users.
 - [x] **[MUST]** Logout
 - [x] **[MUST]** Password reset flow
 - [ ] **[NICE]** Google OAuth
-- [ ] **[NICE]** Email verification
+- [x] **[NICE]** Email verification
 
 ### Authorization
 - [x] **[MUST]** Users can only see their own data

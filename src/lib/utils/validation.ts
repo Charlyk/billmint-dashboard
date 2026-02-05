@@ -161,6 +161,10 @@ export const updatePasswordWithTokenSchema = z.object({
   password: z.string().min(8, 'Password must be at least 8 characters'),
 })
 
+export const verifyEmailSchema = z.object({
+  token: z.string().min(1, 'Verification token is required'),
+})
+
 // Query schemas
 export const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
