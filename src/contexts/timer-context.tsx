@@ -15,6 +15,9 @@ import { toastManager } from '@/components/ui/toast'
 import { formatDurationHuman } from '@/lib/utils/date'
 import type { Project, ActiveTimer } from '@/types'
 
+// Key for onboarding stats SWR cache (must match the key in onboarding-checklist.tsx)
+const ONBOARDING_STATS_KEY = 'onboarding-stats'
+
 type TimerStateValue = 'idle' | 'running' | 'paused'
 
 interface TimerState {
@@ -351,7 +354,7 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
       // Invalidate caches so lists refresh
       mutate((key) => {
         if (typeof key === 'string') {
-          return key === 'dashboard-stats'
+          return key === 'dashboard-stats' || key === ONBOARDING_STATS_KEY
         }
         if (Array.isArray(key)) {
           return key[0] === 'time-entries' || key[0] === 'recent-activity' || key[0] === 'dashboard'

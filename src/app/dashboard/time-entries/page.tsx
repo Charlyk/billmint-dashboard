@@ -65,6 +65,7 @@ import {
 import { TimeRangeDisplay } from "@/components/ui/time-display";
 import { toastManager } from "@/components/ui/toast";
 import { formatCurrency } from "@/lib/utils/currency";
+import { refreshOnboardingStats } from "@/components/onboarding-checklist";
 import type { TimeEntryWithDetails } from "@/types";
 
 // Color map for project colors
@@ -674,6 +675,7 @@ export default function TimeEntriesPage() {
         await updateTimeEntry(formData.id, entryData);
       } else {
         await createTimeEntry(entryData);
+        refreshOnboardingStats();
       }
 
       setPage(1);
@@ -713,6 +715,7 @@ export default function TimeEntriesPage() {
       });
       setPage(1);
       mutate();
+      refreshOnboardingStats();
     } catch (error) {
       console.error("Failed to duplicate entry:", error);
     }

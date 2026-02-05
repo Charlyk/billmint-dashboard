@@ -95,3 +95,9 @@ export async function deleteLogo(): Promise<void> {
     throw new Error(error.error?.message || 'Failed to delete logo')
   }
 }
+
+export async function dismissOnboarding(): Promise<UserSettings> {
+  return fetcher<UserSettings>('/api/users/me/settings/onboarding', {
+    method: 'POST',
+  })
+}

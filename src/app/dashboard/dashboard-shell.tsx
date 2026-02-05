@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { OnboardingChecklist } from "@/components/onboarding-checklist";
 import {
   Menu,
   MenuTrigger,
@@ -361,6 +362,9 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
             </div>
           </nav>
         </div>
+
+        {/* Floating Onboarding Checklist */}
+        <OnboardingChecklist />
       </div>
 
       {/* Logout Confirmation Dialog */}

@@ -27,6 +27,8 @@ interface DashboardDataResponse {
     }
     active_projects: number
     active_clients: number
+    total_invoices: number
+    total_time_entries: number
     overdue_invoices: {
       count: number
       amounts: AmountByCurrency[]
@@ -88,6 +90,8 @@ export async function getDashboardData(recentEntriesLimit: number = 10): Promise
     },
     active_projects: data.stats.active_projects || 0,
     active_clients: data.stats.active_clients || 0,
+    total_invoices: data.stats.total_invoices || 0,
+    total_time_entries: data.stats.total_time_entries || 0,
     overdue_invoices: {
       count: data.stats.overdue_invoices?.count || 0,
       amounts: data.stats.overdue_invoices?.amounts || [],

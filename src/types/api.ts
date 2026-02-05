@@ -198,6 +198,8 @@ export interface DashboardStats {
   }
   active_projects: number
   active_clients: number
+  total_invoices: number
+  total_time_entries: number
   overdue_invoices: OverdueInvoicesInfo
 }
 

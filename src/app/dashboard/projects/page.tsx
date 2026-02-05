@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -52,6 +52,7 @@ import { projectsApi, clientsApi } from "@/lib/api";
 import { useUserSettings } from "@/contexts/user-settings-context";
 import { toastManager } from "@/components/ui/toast";
 import { formatCurrency } from "@/lib/utils/currency";
+import { refreshOnboardingStats } from "@/components/onboarding-checklist";
 import type { ProjectWithStats, ClientWithStats } from "@/types";
 import type { CreateProjectInput } from "@/lib/utils/validation";
 
@@ -87,6 +88,7 @@ const defaultFormData: ProjectFormData = {
 
 export default function ProjectsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { settings } = useUserSettings();
 
   // Data state
@@ -110,6 +112,9 @@ export default function ProjectsPage() {
   const [archiveWarningOpen, setArchiveWarningOpen] = useState(false);
   const [projectToArchive, setProjectToArchive] = useState<ProjectWithStats | null>(null);
   const [isArchiving, setIsArchiving] = useState(false);
+
+  // Track if we've handled the "new" URL param
+  const hasHandledNewParam = useRef(false);
 
   // Profile defaults from user settings
   const profileDefaults = {
@@ -159,6 +164,20 @@ export default function ProjectsPage() {
       fetchClients();
     }
   }, [isModalOpen, clientsFetched, fetchClients]);
+
+  // Open modal if ?new=true is in URL
+  useEffect(() => {
+    if (!isLoading && searchParams.get("new") === "true" && !hasHandledNewParam.current) {
+      hasHandledNewParam.current = true;
+      // Open modal
+      setModalMode("add");
+      setEditingId(null);
+      setFormData(defaultFormData);
+      setIsModalOpen(true);
+      // Remove the query parameter from URL
+      router.replace("/dashboard/projects", { scroll: false });
+    }
+  }, [isLoading, searchParams, router]);
 
   const filteredProjects = projects.filter(
     (p) => showArchived || !p.is_archived
@@ -212,6 +231,7 @@ export default function ProjectsPage() {
       if (modalMode === "add") {
         await projectsApi.createProject(projectData);
         toastManager.add({ type: "success", title: "Project created" });
+        refreshOnboardingStats();
       } else if (editingId) {
         await projectsApi.updateProject(editingId, projectData);
         toastManager.add({ type: "success", title: "Project updated" });

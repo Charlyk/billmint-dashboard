@@ -153,6 +153,27 @@ export async function updateAppSettings(
   return settings
 }
 
+export async function dismissOnboarding(): Promise<UserSettings> {
+  const currentUser = await requireAuth()
+  const supabase = await createClient()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: settings, error } = await (supabase.rpc as any)('dismiss_onboarding', {
+    p_user_id: currentUser.id,
+  }) as { data: UserSettings | null; error: Error | null }
+
+  if (error) {
+    console.error('[User] dismiss_onboarding RPC error:', error)
+    throw new ValidationError('Failed to dismiss onboarding')
+  }
+
+  if (!settings) {
+    throw new ValidationError('Failed to dismiss onboarding')
+  }
+
+  return settings
+}
+
 export async function requestAccountDeletion(): Promise<void> {
   const currentUser = await requireAuth()
   const adminClient = createAdminClient()
@@ -280,6 +301,7 @@ function getDefaultSettings(userId: string): UserSettings {
     max_timer_hours: 8,
     timezone: 'UTC',
     logo_url: null,
+    onboarding_dismissed_at: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   }

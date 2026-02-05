@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -55,6 +55,7 @@ import { clientsApi, projectsApi } from "@/lib/api";
 import { useUserSettings } from "@/contexts/user-settings-context";
 import { toastManager } from "@/components/ui/toast";
 import { formatCurrency } from "@/lib/utils/currency";
+import { refreshOnboardingStats } from "@/components/onboarding-checklist";
 import type { ClientWithStats, ProjectWithStats } from "@/types";
 
 type ModalMode = "add" | "edit";
@@ -79,6 +80,7 @@ const defaultFormData: ClientFormData = {
 
 export default function ClientsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { settings } = useUserSettings();
   const defaultCurrency = settings?.default_currency ?? "USD";
 
@@ -101,6 +103,9 @@ export default function ClientsPage() {
   const [archiveWarningOpen, setArchiveWarningOpen] = useState(false);
   const [clientToArchive, setClientToArchive] = useState<ClientWithStats | null>(null);
   const [isArchiving, setIsArchiving] = useState(false);
+
+  // Track if we've handled the "new" URL param
+  const hasHandledNewParam = useRef(false);
 
   // Fetch clients
   const fetchClients = useCallback(async () => {
@@ -132,6 +137,20 @@ export default function ClientsPage() {
     };
     loadData();
   }, [fetchClients, fetchProjects]);
+
+  // Open modal if ?new=true is in URL
+  useEffect(() => {
+    if (!isLoading && searchParams.get("new") === "true" && !hasHandledNewParam.current) {
+      hasHandledNewParam.current = true;
+      // Open modal
+      setModalMode("add");
+      setEditingId(null);
+      setFormData({ ...defaultFormData, currency: defaultCurrency });
+      setIsModalOpen(true);
+      // Remove the query parameter from URL
+      router.replace("/dashboard/clients", { scroll: false });
+    }
+  }, [isLoading, searchParams, router, defaultCurrency]);
 
   const filteredClients = clients.filter(
     (c) => showArchived || !c.is_archived
@@ -187,6 +206,7 @@ export default function ClientsPage() {
         const newClient = await clientsApi.createClient(clientData);
         clientId = newClient.id;
         toastManager.add({ type: "success", title: "Client created" });
+        refreshOnboardingStats();
       } else if (editingId) {
         await clientsApi.updateClient(editingId, clientData);
         clientId = editingId;

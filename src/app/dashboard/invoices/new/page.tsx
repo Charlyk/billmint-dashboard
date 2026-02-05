@@ -24,6 +24,7 @@ import { useClients, useUnbilledTimeEntries, useInvoiceMutations } from "@/lib/h
 import { useUserSettings } from "@/contexts/user-settings-context";
 import { toastManager } from "@/components/ui/toast";
 import { formatCurrency } from "@/lib/utils/currency";
+import { refreshOnboardingStats } from "@/components/onboarding-checklist";
 import type { TimeEntryWithDetails } from "@/types";
 
 interface LineItem {
@@ -218,6 +219,7 @@ export default function NewInvoicePage() {
         type: "success",
         title: "Invoice saved as draft",
       });
+      refreshOnboardingStats();
       router.push("/dashboard/invoices");
     } catch (error) {
       console.error("Failed to save invoice:", error);
@@ -271,6 +273,7 @@ export default function NewInvoicePage() {
         title: "Invoice sent",
         description: `Invoice sent to ${selectedClient.email}`,
       });
+      refreshOnboardingStats();
       router.push("/dashboard/invoices");
     } catch (error) {
       console.error("Failed to send invoice:", error);
