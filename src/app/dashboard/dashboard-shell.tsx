@@ -51,18 +51,18 @@ import type { User } from "@/types";
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/dashboard/time-entries", icon: Clock, label: "Time Entries" },
-  { href: "/dashboard/projects", icon: FolderOpen, label: "Projects" },
-  { href: "/dashboard/clients", icon: Users, label: "Clients" },
   { href: "/dashboard/invoices", icon: FileText, label: "Invoices" },
   { href: "/dashboard/reports", icon: BarChart3, label: "Reports" },
+  { href: "/dashboard/projects", icon: FolderOpen, label: "Projects" },
+  { href: "/dashboard/clients", icon: Users, label: "Clients" },
 ];
 
 const bottomNavItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Home" },
   { href: "/dashboard/time-entries", icon: Clock, label: "Time" },
+  { href: "/dashboard/invoices", icon: FileText, label: "Invoices" },
   { href: "/dashboard/projects", icon: FolderOpen, label: "Projects" },
   { href: "/dashboard/clients", icon: Users, label: "Clients" },
-  { href: "/dashboard/invoices", icon: FileText, label: "Invoices" },
 ];
 
 interface DashboardShellProps {
