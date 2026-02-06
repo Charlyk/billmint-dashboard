@@ -8,7 +8,14 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
+  CardFooter,
 } from "@/components/ui/card";
+import {
+  DataList,
+  DataListItem,
+  DataListLabel,
+  DataListValue,
+} from "@/components/ui/data-list";
 import { Input } from "@/components/ui/input";
 import { Field, FieldLabel, FieldDescription } from "@/components/ui/field";
 import {
@@ -30,7 +37,7 @@ import {
 import { Tabs, TabsList, TabsTab, TabsPanel } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { LogoUpload } from "@/components/ui/logo-upload";
-import { Crown, FileText } from "lucide-react";
+import { Crown, FileText, Settings } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { useUserSettings } from "@/contexts/user-settings-context";
 import { userApi, authApi, billingApi } from "@/lib/api";
@@ -568,29 +575,62 @@ export default function SettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle>Subscription</CardTitle>
-              <CardDescription>
-                {userTier === "free"
-                  ? "You are not subscribed"
-                  : `Subscribed to ${tierNames[userTier]}`}
-              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex justify-between py-2 border-b">
-                <span className="text-muted-foreground">Billing status</span>
-                <span>
-                  {userTier === "free" ? "You will not be billed." : "Active"}
-                </span>
-              </div>
-              <div className="flex justify-between py-2 border-b">
-                <span className="text-muted-foreground">
-                  {userTier === "free" ? "Free tier" : "Renews"}
-                </span>
-                <span>
-                  {userTier === "free"
-                    ? "Upgrade to a paid plan to boost your productivity."
-                    : formatDate(subscription?.subscription?.current_period_end)}
-                </span>
-              </div>
+              <p className="font-medium">
+                {userTier === "free"
+                  ? "You are not subscribed"
+                  : `You are on the ${tierNames[userTier]} plan`}
+              </p>
+              {userTier !== "free" && subscription?.subscription ? (
+                <DataList>
+                  <DataListItem>
+                    <DataListLabel>Plan</DataListLabel>
+                    <DataListValue className="font-medium">
+                      {tierNames[userTier]}
+                    </DataListValue>
+                  </DataListItem>
+                  <DataListItem>
+                    <DataListLabel>Status</DataListLabel>
+                    <DataListValue className="font-medium capitalize">
+                      {subscription.subscription.status}
+                    </DataListValue>
+                  </DataListItem>
+                  {subscription.subscription.cancel_at_period_end ? (
+                    <DataListItem>
+                      <DataListLabel>Cancelled</DataListLabel>
+                      <DataListValue className="font-medium">
+                        Access ends on {formatDate(subscription.subscription.current_period_end)}
+                      </DataListValue>
+                    </DataListItem>
+                  ) : (
+                    <DataListItem>
+                      <DataListLabel>Next payment</DataListLabel>
+                      <DataListValue className="font-medium">
+                        {formatDate(subscription.subscription.current_period_end)}
+                      </DataListValue>
+                    </DataListItem>
+                  )}
+                </DataList>
+              ) : (
+                <DataList>
+                  <DataListItem>
+                    <DataListLabel>Billing status</DataListLabel>
+                    <DataListValue className="font-medium">
+                      You will not be billed.
+                    </DataListValue>
+                  </DataListItem>
+                  <DataListItem>
+                    <DataListLabel>Free tier</DataListLabel>
+                    <DataListValue className="font-medium">
+                      Upgrade to a paid plan to boost your productivity.
+                    </DataListValue>
+                  </DataListItem>
+                </DataList>
+              )}
+            </CardContent>
+            <Separator />
+            <CardFooter>
               {userTier === "free" ? (
                 <Button
                   onClick={handleUpgrade}
@@ -611,10 +651,11 @@ export default function SettingsPage() {
                 </Button>
               ) : (
                 <Button onClick={handleManageSubscription} variant="outline">
-                  Manage Subscription
+                  <Settings className="mr-2 size-4" />
+                  Manage subscription
                 </Button>
               )}
-            </CardContent>
+            </CardFooter>
           </Card>
 
           {/* Billing Email Card */}
@@ -624,21 +665,23 @@ export default function SettingsPage() {
               <CardDescription>
                 {userTier === "free"
                   ? "Upgrade to a paid plan to receive billing emails."
-                  : "Billing emails will be sent to this address."}
+                  : "Use this email to receive billing emails. You can change it at any time."}
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex gap-3 max-w-md">
-                <Input
-                  type="email"
-                  value={billingEmail}
-                  onChange={(e) => setBillingEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  disabled={userTier === "free"}
-                />
-                <Button disabled={userTier === "free"}>Save</Button>
-              </div>
+              <Input
+                type="email"
+                value={billingEmail}
+                onChange={(e) => setBillingEmail(e.target.value)}
+                placeholder="you@example.com"
+                disabled={userTier === "free"}
+                className="max-w-md"
+              />
             </CardContent>
+            <Separator />
+            <CardFooter>
+              <Button disabled={userTier === "free"}>Save</Button>
+            </CardFooter>
           </Card>
 
           {/* Invoices Card */}
