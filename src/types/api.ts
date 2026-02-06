@@ -240,6 +240,19 @@ export interface InvoicePdfData {
 }
 
 // Report types
+export interface TimeReportEntry {
+  id: string
+  date: string
+  description: string | null
+  project_name: string | null
+  client_name: string | null
+  duration_seconds: number
+  is_billable: boolean
+  hourly_rate: number | null
+  currency: string | null
+  amount: number
+}
+
 export interface TimeReport {
   period: {
     start: string
@@ -247,18 +260,21 @@ export interface TimeReport {
   }
   summary: {
     total_hours: number
-    total_amount: number
+    total_amounts: AmountByCurrency[]
     billable_hours: number
-    billable_amount: number
+    billable_amounts: AmountByCurrency[]
     non_billable_hours: number
   }
   by_project: {
     project: Pick<Project, 'id' | 'name' | 'color'>
+    client_name: string | null
+    currency: string
     hours: number
     amount: number
   }[]
   by_client: {
     client: Pick<Client, 'id' | 'name'> | null
+    currency: string
     hours: number
     amount: number
   }[]
@@ -267,4 +283,5 @@ export interface TimeReport {
     hours: number
     amount: number
   }[]
+  entries: TimeReportEntry[]
 }

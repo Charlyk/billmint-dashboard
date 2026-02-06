@@ -10,6 +10,7 @@ import {
   FolderOpen,
   Users,
   FileText,
+  BarChart3,
   Settings,
   Menu as MenuIcon,
   Sun,
@@ -53,6 +54,7 @@ const navItems = [
   { href: "/dashboard/projects", icon: FolderOpen, label: "Projects" },
   { href: "/dashboard/clients", icon: Users, label: "Clients" },
   { href: "/dashboard/invoices", icon: FileText, label: "Invoices" },
+  { href: "/dashboard/reports", icon: BarChart3, label: "Reports" },
 ];
 
 const bottomNavItems = [

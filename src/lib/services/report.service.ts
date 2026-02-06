@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { requirePaidUser } from './auth.service'
+import { requireAuth } from './auth.service'
 import { ValidationError } from '@/lib/utils/errors'
 import type { TimeReport } from '@/types/api'
 
@@ -9,7 +9,7 @@ export async function generateTimeReport(options: {
   project_id?: string
   client_id?: string
 }): Promise<TimeReport> {
-  const currentUser = await requirePaidUser()
+  const currentUser = await requireAuth()
   const supabase = await createClient()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -35,14 +35,15 @@ export async function generateTimeReport(options: {
       },
       summary: {
         total_hours: 0,
-        total_amount: 0,
+        total_amounts: [],
         billable_hours: 0,
-        billable_amount: 0,
+        billable_amounts: [],
         non_billable_hours: 0,
       },
       by_project: [],
       by_client: [],
       by_day: [],
+      entries: [],
     }
   }
 
@@ -71,45 +72,24 @@ export async function exportTimeReport(
     }
   }
 
-  // CSV format
+  // CSV format - detailed entries
   const lines: string[] = []
 
-  // Header
-  lines.push('Time Report')
-  lines.push(`Period: ${startDate} to ${endDate}`)
-  lines.push('')
+  // Header row
+  lines.push('Date,Description,Project,Client,Duration,Billable,Rate,Currency,Amount')
 
-  // Summary
-  lines.push('Summary')
-  lines.push(`Total Hours,${report.summary.total_hours}`)
-  lines.push(`Billable Hours,${report.summary.billable_hours}`)
-  lines.push(`Non-Billable Hours,${report.summary.non_billable_hours}`)
-  lines.push(`Total Amount,$${report.summary.total_amount.toFixed(2)}`)
-  lines.push(`Billable Amount,$${report.summary.billable_amount.toFixed(2)}`)
-  lines.push('')
+  // Entry rows
+  for (const entry of report.entries) {
+    const durationHours = (entry.duration_seconds / 3600).toFixed(2)
+    const description = entry.description ? `"${entry.description.replace(/"/g, '""')}"` : ''
+    const project = entry.project_name ? `"${entry.project_name.replace(/"/g, '""')}"` : ''
+    const client = entry.client_name ? `"${entry.client_name.replace(/"/g, '""')}"` : ''
+    const billable = entry.is_billable ? 'Yes' : 'No'
+    const rate = entry.hourly_rate?.toFixed(2) || ''
+    const currency = entry.currency || ''
+    const amount = entry.amount.toFixed(2)
 
-  // By Project
-  lines.push('By Project')
-  lines.push('Project,Hours,Amount')
-  for (const p of report.by_project) {
-    lines.push(`"${p.project.name}",${p.hours},$${p.amount.toFixed(2)}`)
-  }
-  lines.push('')
-
-  // By Client
-  lines.push('By Client')
-  lines.push('Client,Hours,Amount')
-  for (const c of report.by_client) {
-    const clientName = c.client?.name || 'No Client'
-    lines.push(`"${clientName}",${c.hours},$${c.amount.toFixed(2)}`)
-  }
-  lines.push('')
-
-  // By Day
-  lines.push('By Day')
-  lines.push('Date,Hours,Amount')
-  for (const d of report.by_day) {
-    lines.push(`${d.date},${d.hours},$${d.amount.toFixed(2)}`)
+    lines.push(`${entry.date},${description},${project},${client},${durationHours},${billable},${rate},${currency},${amount}`)
   }
 
   return {
