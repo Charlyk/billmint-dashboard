@@ -2,7 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Field, FieldLabel, FieldDescription } from "@/components/ui/field";
 import {
@@ -24,11 +30,18 @@ import {
 import { Tabs, TabsList, TabsTab, TabsPanel } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { LogoUpload } from "@/components/ui/logo-upload";
-import { Check } from "lucide-react";
+import { Crown, FileText } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { useUserSettings } from "@/contexts/user-settings-context";
-import { userApi, authApi } from "@/lib/api";
+import { userApi, authApi, billingApi } from "@/lib/api";
 import { toastManager } from "@/components/ui/toast";
+import {
+  Empty,
+  EmptyMedia,
+  EmptyTitle,
+  EmptyDescription,
+} from "@/components/ui/empty";
+import type { SubscriptionResponse } from "@/types/api";
 
 const currencies = [
   { value: "USD", label: "USD - US Dollar" },
@@ -85,32 +98,10 @@ const timezones = [
   { value: "Pacific/Auckland", label: "(UTC+12:00) Auckland" },
 ];
 
-const plans = {
-  free: {
-    name: "Free",
-    price: "$0",
-    features: ["1 user", "Time tracking only", "No invoices"],
-  },
-  pro: {
-    name: "Pro",
-    price: "$5/month",
-    features: [
-      "Up to 5 team members",
-      "Unlimited invoices",
-      "PDF generation",
-      "Payment reminders",
-    ],
-  },
-  business: {
-    name: "Business",
-    price: "$10/month",
-    features: [
-      "Up to 50 team members",
-      "Everything in Pro",
-      "Advanced reports",
-      "Priority support",
-    ],
-  },
+const tierNames = {
+  free: "Free",
+  pro: "Pro",
+  business: "Business",
 };
 
 export default function SettingsPage() {
@@ -140,21 +131,30 @@ export default function SettingsPage() {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isSavingAppSettings, setIsSavingAppSettings] = useState(false);
 
-  // Fetch user profile on mount
+  // Billing state
+  const [subscription, setSubscription] = useState<SubscriptionResponse | null>(null);
+  const [billingEmail, setBillingEmail] = useState("");
+  const [isUpgrading, setIsUpgrading] = useState(false);
+
+  // Fetch user profile and subscription on mount
   useEffect(() => {
-    async function fetchProfile() {
+    async function fetchProfileAndSubscription() {
       try {
-        const profile = await userApi.getProfile();
+        const [profile, subscriptionData] = await Promise.all([
+          userApi.getProfile(),
+          billingApi.getSubscription(),
+        ]);
         setName(profile.full_name || "");
         setEmail(profile.email || "");
         setUserTier(profile.tier || "free");
+        setSubscription(subscriptionData);
       } catch (error) {
         console.error("Failed to fetch profile:", error);
       } finally {
         setIsLoadingProfile(false);
       }
     }
-    fetchProfile();
+    fetchProfileAndSubscription();
   }, []);
 
   // Initialize form values from settings
@@ -262,9 +262,36 @@ export default function SettingsPage() {
     }, 200);
   };
 
-  const handleUpgrade = (plan: string) => {
-    // TODO: Redirect to Stripe checkout
-    console.log("Upgrade to:", plan);
+  const handleUpgrade = async () => {
+    setIsUpgrading(true);
+    try {
+      const response = await billingApi.createCheckoutSession("pro");
+      window.location.href = response.url;
+    } catch (error) {
+      console.error("Failed to start checkout:", error);
+      toastManager.add({ type: "error", title: "Failed to start checkout" });
+    } finally {
+      setIsUpgrading(false);
+    }
+  };
+
+  const handleManageSubscription = async () => {
+    try {
+      const response = await billingApi.createPortalSession();
+      window.location.href = response.url;
+    } catch (error) {
+      console.error("Failed to open billing portal:", error);
+      toastManager.add({ type: "error", title: "Failed to open billing portal" });
+    }
+  };
+
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return "";
+    return new Date(dateString).toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
   };
 
   if (isLoadingSettings || isLoadingProfile) {
@@ -537,73 +564,100 @@ export default function SettingsPage() {
 
         {/* Billing Tab */}
         <TabsPanel value="billing" className="space-y-6 pt-6">
-          <div>
-            <h2 className="text-lg font-medium">Billing</h2>
-            <p className="text-sm text-muted-foreground">
-              Current Plan:{" "}
-              <span className="font-medium text-foreground">
-                {plans[userTier].name}
-              </span>
-            </p>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            {/* Pro Plan */}
-            <Card>
-              <CardContent className="p-6">
-                <div className="mb-4">
-                  <h3 className="text-lg font-semibold">Pro Plan</h3>
-                  <p className="text-2xl font-bold">
-                    $5<span className="text-base font-normal">/month</span>
-                  </p>
-                </div>
-                <Separator className="mb-4" />
-                <ul className="mb-6 space-y-2">
-                  {plans.pro.features.map((feature) => (
-                    <li key={feature} className="flex items-center gap-2 text-sm">
-                      <Check className="size-4 text-teal-500" />
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
+          {/* Subscription Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Subscription</CardTitle>
+              <CardDescription>
+                {userTier === "free"
+                  ? "You are not subscribed"
+                  : `Subscribed to ${tierNames[userTier]}`}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex justify-between py-2 border-b">
+                <span className="text-muted-foreground">Billing status</span>
+                <span>
+                  {userTier === "free" ? "You will not be billed." : "Active"}
+                </span>
+              </div>
+              <div className="flex justify-between py-2 border-b">
+                <span className="text-muted-foreground">
+                  {userTier === "free" ? "Free tier" : "Renews"}
+                </span>
+                <span>
+                  {userTier === "free"
+                    ? "Upgrade to a paid plan to boost your productivity."
+                    : formatDate(subscription?.subscription?.current_period_end)}
+                </span>
+              </div>
+              {userTier === "free" ? (
                 <Button
-                  onClick={() => handleUpgrade("pro")}
-                  className="w-full bg-teal-500 hover:!bg-teal-600 border-teal-500"
-                  disabled={userTier === "pro" || userTier === "business"}
+                  onClick={handleUpgrade}
+                  className="bg-teal-500 hover:!bg-teal-600 border-teal-500"
+                  disabled={isUpgrading}
                 >
-                  {userTier === "pro" ? "Current Plan" : "Upgrade to Pro"}
+                  {isUpgrading ? (
+                    <>
+                      <Spinner className="mr-2 size-4" />
+                      Redirecting...
+                    </>
+                  ) : (
+                    <>
+                      <Crown className="mr-2 size-4" />
+                      Upgrade
+                    </>
+                  )}
                 </Button>
-              </CardContent>
-            </Card>
+              ) : (
+                <Button onClick={handleManageSubscription} variant="outline">
+                  Manage Subscription
+                </Button>
+              )}
+            </CardContent>
+          </Card>
 
-            {/* Business Plan */}
-            <Card>
-              <CardContent className="p-6">
-                <div className="mb-4">
-                  <h3 className="text-lg font-semibold">Business Plan</h3>
-                  <p className="text-2xl font-bold">
-                    $10<span className="text-base font-normal">/month</span>
-                  </p>
-                </div>
-                <Separator className="mb-4" />
-                <ul className="mb-6 space-y-2">
-                  {plans.business.features.map((feature) => (
-                    <li key={feature} className="flex items-center gap-2 text-sm">
-                      <Check className="size-4 text-teal-500" />
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
-                <Button
-                  onClick={() => handleUpgrade("business")}
-                  className="w-full bg-teal-500 hover:!bg-teal-600 border-teal-500"
-                  disabled={userTier === "business"}
-                >
-                  {userTier === "business" ? "Current Plan" : "Upgrade to Business"}
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
+          {/* Billing Email Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Billing email</CardTitle>
+              <CardDescription>
+                {userTier === "free"
+                  ? "Upgrade to a paid plan to receive billing emails."
+                  : "Billing emails will be sent to this address."}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-3 max-w-md">
+                <Input
+                  type="email"
+                  value={billingEmail}
+                  onChange={(e) => setBillingEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  disabled={userTier === "free"}
+                />
+                <Button disabled={userTier === "free"}>Save</Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Invoices Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Invoices</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Empty>
+                <EmptyMedia variant="icon">
+                  <FileText className="size-5" />
+                </EmptyMedia>
+                <EmptyTitle>No invoices yet</EmptyTitle>
+                <EmptyDescription>
+                  Once a payment is made, you will see your invoices here.
+                </EmptyDescription>
+              </Empty>
+            </CardContent>
+          </Card>
         </TabsPanel>
       </Tabs>
 
