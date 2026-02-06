@@ -305,7 +305,9 @@ export default function SettingsPage() {
     return (
       <div className="space-y-6">
         <h1 className="text-2xl font-semibold">Settings</h1>
-        <div className="text-muted-foreground">Loading settings...</div>
+        <div className="flex justify-center py-12">
+          <Spinner className="size-6 text-muted-foreground" />
+        </div>
       </div>
     );
   }
