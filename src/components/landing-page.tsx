@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   Clock,
+  DollarSign,
   FileText,
   Globe,
   Check,
@@ -279,7 +280,7 @@ export function LandingPage({ user }: LandingPageProps) {
                 3
               </div>
               <div className="mt-6 flex size-20 mx-auto items-center justify-center rounded-2xl bg-muted">
-                <span className="text-4xl">$</span>
+                <DollarSign className="size-10 text-teal-500" />
               </div>
               <h3 className="mt-4 text-lg font-semibold">Get Paid</h3>
               <p className="mt-2 text-muted-foreground">
