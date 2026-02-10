@@ -643,7 +643,7 @@ export function LandingPage({ user }: LandingPageProps) {
               <ul className="mt-4 space-y-2">
                 <li>
                   <a
-                    href="#"
+                    href="/help-center"
                     className="text-sm text-muted-foreground hover:text-foreground"
                   >
                     Help Center
@@ -666,7 +666,7 @@ export function LandingPage({ user }: LandingPageProps) {
               <ul className="mt-4 space-y-2">
                 <li>
                   <a
-                    href="#"
+                    href="/privacy"
                     className="text-sm text-muted-foreground hover:text-foreground"
                   >
                     Privacy Policy
@@ -674,7 +674,7 @@ export function LandingPage({ user }: LandingPageProps) {
                 </li>
                 <li>
                   <a
-                    href="#"
+                    href="/terms"
                     className="text-sm text-muted-foreground hover:text-foreground"
                   >
                     Terms of Service
