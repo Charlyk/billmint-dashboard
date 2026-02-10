@@ -3,6 +3,7 @@ import type {
   SubscriptionResponse,
   CheckoutSessionResponse,
   PortalSessionResponse,
+  StripeInvoicesResponse,
 } from '@/types/api'
 
 export async function getSubscription(): Promise<SubscriptionResponse> {
@@ -22,4 +23,8 @@ export async function createPortalSession(): Promise<PortalSessionResponse> {
   return fetcher<PortalSessionResponse>('/api/billing/portal', {
     method: 'POST',
   })
+}
+
+export async function getInvoices(): Promise<StripeInvoicesResponse> {
+  return fetcher<StripeInvoicesResponse>('/api/billing/invoices')
 }

@@ -6,6 +6,7 @@ import { z } from 'zod'
 const updateBillingDefaultsSchema = z.object({
   default_currency: z.string().length(3).optional(),
   default_hourly_rate: z.number().min(0).optional(),
+  billing_email: z.string().email().nullable().optional(),
 })
 
 export async function PATCH(request: NextRequest) {

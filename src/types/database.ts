@@ -64,6 +64,7 @@ export type Database = {
           max_timer_hours: number | null
           timezone: string
           logo_url: string | null
+          billing_email: string | null
           onboarding_dismissed_at: string | null
           created_at: string
           updated_at: string
@@ -81,6 +82,7 @@ export type Database = {
           max_timer_hours?: number | null
           timezone?: string
           logo_url?: string | null
+          billing_email?: string | null
           onboarding_dismissed_at?: string | null
           created_at?: string
           updated_at?: string
@@ -98,6 +100,7 @@ export type Database = {
           max_timer_hours?: number | null
           timezone?: string
           logo_url?: string | null
+          billing_email?: string | null
           onboarding_dismissed_at?: string | null
           created_at?: string
           updated_at?: string

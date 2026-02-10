@@ -1,7 +1,7 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { requireAuth } from './auth.service'
 import { ValidationError } from '@/lib/utils/errors'
-import type { SubscriptionResponse, CheckoutSessionResponse, PortalSessionResponse } from '@/types/api'
+import type { SubscriptionResponse, CheckoutSessionResponse, PortalSessionResponse, StripeInvoicesResponse } from '@/types/api'
 import Stripe from 'stripe'
 
 // Lazy initialization of Stripe to avoid build errors
@@ -14,7 +14,7 @@ function getStripe(): Stripe {
       throw new ValidationError('Stripe is not configured')
     }
     stripeInstance = new Stripe(secretKey, {
-      apiVersion: '2025-12-15.clover' as Stripe.LatestApiVersion,
+      apiVersion: '2026-01-28.clover' as Stripe.LatestApiVersion,
     })
   }
   return stripeInstance
@@ -45,20 +45,31 @@ export async function getSubscription(): Promise<SubscriptionResponse> {
   try {
     const subscription = await getStripe().subscriptions.retrieve(
       user.stripe_subscription_id
-    ) as Stripe.Subscription
+    )
+
+    const item = subscription.items?.data?.[0] as { current_period_end?: number } | undefined
+    const periodEnd = item?.current_period_end ?? subscription.current_period_end
+    const currentPeriodEnd = typeof periodEnd === 'number'
+      ? new Date(periodEnd * 1000).toISOString()
+      : typeof periodEnd === 'string'
+        ? periodEnd
+        : null
+
+    if (!currentPeriodEnd) {
+      return { tier: user.tier, subscription: null }
+    }
 
     return {
       tier: user.tier,
       subscription: {
         id: subscription.id,
         status: subscription.status,
-        current_period_end: new Date(
-          (subscription as unknown as { current_period_end: number }).current_period_end * 1000
-        ).toISOString(),
-        cancel_at_period_end: (subscription as unknown as { cancel_at_period_end: boolean }).cancel_at_period_end,
+        current_period_end: currentPeriodEnd,
+        cancel_at_period_end: !!subscription.cancel_at_period_end,
       },
     }
-  } catch {
+  } catch (error) {
+    console.error('Failed to retrieve Stripe subscription:', error)
     return {
       tier: user.tier,
       subscription: null,
@@ -223,6 +234,48 @@ export async function handleWebhook(
       break
     }
   }
+}
+
+export async function getInvoices(): Promise<StripeInvoicesResponse> {
+  const currentUser = await requireAuth()
+  const supabase = await createClient()
+
+  const { data: user } = await supabase
+    .from('users')
+    .select('stripe_customer_id')
+    .eq('id', currentUser.id)
+    .single() as { data: { stripe_customer_id: string | null } | null }
+
+  if (!user?.stripe_customer_id) {
+    return { invoices: [] }
+  }
+
+  try {
+    const stripeInvoices = await getStripe().invoices.list({
+      customer: user.stripe_customer_id,
+      limit: 24,
+    })
+
+    const invoices = stripeInvoices.data.map((inv) => ({
+      id: inv.id,
+      number: inv.number ?? null,
+      status: inv.status ?? 'unknown',
+      amount_due: inv.amount_due,
+      currency: inv.currency,
+      created: new Date(inv.created * 1000).toISOString(),
+      invoice_pdf: inv.invoice_pdf ?? null,
+      hosted_invoice_url: inv.hosted_invoice_url ?? null,
+    }))
+
+    return { invoices }
+  } catch (error) {
+    console.error('Failed to retrieve Stripe invoices:', error)
+    return { invoices: [] }
+  }
+}
+
+export async function updateCustomerEmail(stripeCustomerId: string, email: string): Promise<void> {
+  await getStripe().customers.update(stripeCustomerId, { email })
 }
 
 export async function isUserPaid(): Promise<boolean> {

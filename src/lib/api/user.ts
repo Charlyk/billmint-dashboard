@@ -48,6 +48,7 @@ export async function updateSettings(data: {
 export async function updateBillingDefaults(data: {
   default_currency?: string
   default_hourly_rate?: number
+  billing_email?: string | null
 }): Promise<UserSettings> {
   return fetcher<UserSettings>('/api/users/me/settings/billing', {
     method: 'PATCH',

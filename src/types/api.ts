@@ -232,6 +232,21 @@ export interface PortalSessionResponse {
   url: string
 }
 
+export interface StripeInvoice {
+  id: string
+  number: string | null
+  status: string
+  amount_due: number
+  currency: string
+  created: string
+  invoice_pdf: string | null
+  hosted_invoice_url: string | null
+}
+
+export interface StripeInvoicesResponse {
+  invoices: StripeInvoice[]
+}
+
 // PDF generation types
 export interface InvoicePdfData {
   invoice: InvoiceWithDetails

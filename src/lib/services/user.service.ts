@@ -3,6 +3,7 @@ import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { requireAuth } from './auth.service'
 import { NotFoundError, ValidationError } from '@/lib/utils/errors'
 import { sendAccountDeletionOtpEmail } from '@/lib/services/email.service'
+import { updateCustomerEmail } from '@/lib/services/billing.service'
 import type { User, UserSettings, UpdateUser, UpdateUserSettings } from '@/types/database'
 import type { UserWithSettings } from '@/types/api'
 
@@ -102,7 +103,7 @@ export async function updateSettings(
 }
 
 export async function updateBillingDefaults(
-  data: { default_currency?: string; default_hourly_rate?: number }
+  data: { default_currency?: string; default_hourly_rate?: number; billing_email?: string | null }
 ): Promise<UserSettings> {
   const currentUser = await requireAuth()
   const supabase = await createClient()
@@ -112,6 +113,7 @@ export async function updateBillingDefaults(
     p_user_id: currentUser.id,
     p_default_currency: data.default_currency || null,
     p_default_hourly_rate: data.default_hourly_rate ?? null,
+    p_billing_email: data.billing_email ?? null,
   }) as { data: UserSettings | null; error: Error | null }
 
   if (error) {
@@ -121,6 +123,15 @@ export async function updateBillingDefaults(
 
   if (!settings) {
     throw new ValidationError('Failed to update billing defaults')
+  }
+
+  // Sync billing email to Stripe customer
+  if (data.billing_email !== undefined && currentUser.stripe_customer_id) {
+    try {
+      await updateCustomerEmail(currentUser.stripe_customer_id, data.billing_email || currentUser.email)
+    } catch (stripeError) {
+      console.error('[User] Failed to update Stripe customer email:', stripeError)
+    }
   }
 
   return settings
@@ -301,6 +312,7 @@ function getDefaultSettings(userId: string): UserSettings {
     max_timer_hours: 8,
     timezone: 'UTC',
     logo_url: null,
+    billing_email: null,
     onboarding_dismissed_at: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),

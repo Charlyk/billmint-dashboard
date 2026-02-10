@@ -37,7 +37,7 @@ import {
 import { Tabs, TabsList, TabsTab, TabsPanel } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { LogoUpload } from "@/components/ui/logo-upload";
-import { Crown, FileText, Settings } from "lucide-react";
+import { Crown, Download, FileText, Settings } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { useUserSettings } from "@/contexts/user-settings-context";
 import { userApi, authApi, billingApi } from "@/lib/api";
@@ -48,7 +48,8 @@ import {
   EmptyTitle,
   EmptyDescription,
 } from "@/components/ui/empty";
-import type { SubscriptionResponse } from "@/types/api";
+import type { SubscriptionResponse, StripeInvoice } from "@/types/api";
+import { Badge } from "@/components/ui/badge";
 
 const currencies = [
   { value: "USD", label: "USD - US Dollar" },
@@ -140,21 +141,25 @@ export default function SettingsPage() {
 
   // Billing state
   const [subscription, setSubscription] = useState<SubscriptionResponse | null>(null);
+  const [invoices, setInvoices] = useState<StripeInvoice[]>([]);
   const [billingEmail, setBillingEmail] = useState("");
+  const [isSavingBillingEmail, setIsSavingBillingEmail] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
 
   // Fetch user profile and subscription on mount
   useEffect(() => {
     async function fetchProfileAndSubscription() {
       try {
-        const [profile, subscriptionData] = await Promise.all([
+        const [profile, subscriptionData, invoicesData] = await Promise.all([
           userApi.getProfile(),
           billingApi.getSubscription(),
+          billingApi.getInvoices(),
         ]);
         setName(profile.full_name || "");
         setEmail(profile.email || "");
         setUserTier(profile.tier || "free");
         setSubscription(subscriptionData);
+        setInvoices(invoicesData.invoices);
       } catch (error) {
         console.error("Failed to fetch profile:", error);
       } finally {
@@ -173,6 +178,7 @@ export default function SettingsPage() {
       setWeekStartsOn(settings.week_starts_on ?? 0);
       setMaxTimerHours(settings.max_timer_hours?.toString() ?? null);
       setTimezone(settings.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone);
+      setBillingEmail(settings.billing_email || "");
     }
   }, [settings]);
 
@@ -289,6 +295,21 @@ export default function SettingsPage() {
     } catch (error) {
       console.error("Failed to open billing portal:", error);
       toastManager.add({ type: "error", title: "Failed to open billing portal" });
+    }
+  };
+
+  const handleSaveBillingEmail = async () => {
+    setIsSavingBillingEmail(true);
+    try {
+      await userApi.updateBillingDefaults({
+        billing_email: billingEmail || null,
+      });
+      toastManager.add({ type: "success", title: "Billing email saved" });
+    } catch (error) {
+      console.error("Failed to save billing email:", error);
+      toastManager.add({ type: "error", title: "Failed to save billing email" });
+    } finally {
+      setIsSavingBillingEmail(false);
     }
   };
 
@@ -584,7 +605,7 @@ export default function SettingsPage() {
                   ? "You are not subscribed"
                   : `You are on the ${tierNames[userTier]} plan`}
               </p>
-              {userTier !== "free" && subscription?.subscription ? (
+              {userTier !== "free" ? (
                 <DataList>
                   <DataListItem>
                     <DataListLabel>Plan</DataListLabel>
@@ -595,24 +616,24 @@ export default function SettingsPage() {
                   <DataListItem>
                     <DataListLabel>Status</DataListLabel>
                     <DataListValue className="font-medium capitalize">
-                      {subscription.subscription.status}
+                      {subscription?.subscription?.status ?? "Active"}
                     </DataListValue>
                   </DataListItem>
-                  {subscription.subscription.cancel_at_period_end ? (
+                  {subscription?.subscription?.cancel_at_period_end ? (
                     <DataListItem>
                       <DataListLabel>Cancelled</DataListLabel>
                       <DataListValue className="font-medium">
                         Access ends on {formatDate(subscription.subscription.current_period_end)}
                       </DataListValue>
                     </DataListItem>
-                  ) : (
+                  ) : subscription?.subscription?.current_period_end ? (
                     <DataListItem>
                       <DataListLabel>Next payment</DataListLabel>
                       <DataListValue className="font-medium">
                         {formatDate(subscription.subscription.current_period_end)}
                       </DataListValue>
                     </DataListItem>
-                  )}
+                  ) : null}
                 </DataList>
               ) : (
                 <DataList>
@@ -682,7 +703,20 @@ export default function SettingsPage() {
             </CardContent>
             <Separator />
             <CardFooter>
-              <Button disabled={userTier === "free"}>Save</Button>
+              <Button
+                onClick={handleSaveBillingEmail}
+                className="bg-teal-500 hover:!bg-teal-600 border-teal-500"
+                disabled={userTier === "free" || isSavingBillingEmail}
+              >
+                {isSavingBillingEmail ? (
+                  <>
+                    <Spinner className="mr-2 size-4" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save"
+                )}
+              </Button>
             </CardFooter>
           </Card>
 
@@ -692,15 +726,80 @@ export default function SettingsPage() {
               <CardTitle>Invoices</CardTitle>
             </CardHeader>
             <CardContent>
-              <Empty>
-                <EmptyMedia variant="icon">
-                  <FileText className="size-5" />
-                </EmptyMedia>
-                <EmptyTitle>No invoices yet</EmptyTitle>
-                <EmptyDescription>
-                  Once a payment is made, you will see your invoices here.
-                </EmptyDescription>
-              </Empty>
+              {invoices.length === 0 ? (
+                <Empty>
+                  <EmptyMedia variant="icon">
+                    <FileText className="size-5" />
+                  </EmptyMedia>
+                  <EmptyTitle>No invoices yet</EmptyTitle>
+                  <EmptyDescription>
+                    Once a payment is made, you will see your invoices here.
+                  </EmptyDescription>
+                </Empty>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-left text-muted-foreground">
+                        <th className="pb-2 font-medium">Date</th>
+                        <th className="pb-2 font-medium">Number</th>
+                        <th className="pb-2 font-medium">Amount</th>
+                        <th className="pb-2 font-medium">Status</th>
+                        <th className="pb-2 font-medium text-right">Download</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {invoices.map((invoice) => (
+                        <tr key={invoice.id}>
+                          <td className="py-2">
+                            {new Date(invoice.created).toLocaleDateString(undefined, {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </td>
+                          <td className="py-2">{invoice.number ?? "\u2014"}</td>
+                          <td className="py-2">
+                            {new Intl.NumberFormat(undefined, {
+                              style: "currency",
+                              currency: invoice.currency,
+                            }).format(invoice.amount_due / 100)}
+                          </td>
+                          <td className="py-2">
+                            <Badge
+                              variant={
+                                invoice.status === "paid"
+                                  ? "success"
+                                  : invoice.status === "open"
+                                    ? "warning"
+                                    : invoice.status === "uncollectible" || invoice.status === "void"
+                                      ? "error"
+                                      : "outline"
+                              }
+                            >
+                              {invoice.status}
+                            </Badge>
+                          </td>
+                          <td className="py-2 text-right">
+                            {invoice.invoice_pdf ? (
+                              <a
+                                href={invoice.invoice_pdf}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center text-muted-foreground hover:text-foreground"
+                              >
+                                <Download className="size-4" />
+                              </a>
+                            ) : (
+                              <span className="text-muted-foreground">{"\u2014"}</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsPanel>
