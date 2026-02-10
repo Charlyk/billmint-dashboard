@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { requireAuth } from './auth.service'
 import { ValidationError } from '@/lib/utils/errors'
 import type { SubscriptionResponse, CheckoutSessionResponse, PortalSessionResponse } from '@/types/api'
@@ -168,7 +168,7 @@ export async function handleWebhook(
     throw new ValidationError('Invalid webhook signature')
   }
 
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   switch (event.type) {
     case 'checkout.session.completed': {
@@ -177,14 +177,13 @@ export async function handleWebhook(
       const tier = session.metadata?.tier as 'pro' | 'business'
 
       if (userId && tier && session.subscription) {
-        await supabase
-          .from('users')
-          .update({
-            tier,
-            stripe_subscription_id: session.subscription as string,
-            updated_at: new Date().toISOString(),
-          } as never)
-          .eq('id', userId)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase.rpc as any)('handle_stripe_webhook', {
+          p_event_type: 'checkout.session.completed',
+          p_user_id: userId,
+          p_tier: tier,
+          p_stripe_subscription_id: session.subscription as string,
+        })
       }
       break
     }
@@ -193,25 +192,12 @@ export async function handleWebhook(
       const subscription = event.data.object as Stripe.Subscription
       const customerId = subscription.customer as string
 
-      // Find user by customer ID
-      const { data: user } = await supabase
-        .from('users')
-        .select('id')
-        .eq('stripe_customer_id', customerId)
-        .single() as { data: { id: string } | null }
-
-      if (user) {
-        // Update subscription status
-        if (subscription.status === 'canceled' || subscription.status === 'unpaid') {
-          await supabase
-            .from('users')
-            .update({
-              tier: 'free',
-              stripe_subscription_id: null,
-              updated_at: new Date().toISOString(),
-            } as never)
-            .eq('id', user.id)
-        }
+      if (subscription.status === 'canceled' || subscription.status === 'unpaid') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase.rpc as any)('handle_stripe_webhook', {
+          p_event_type: 'customer.subscription.updated',
+          p_stripe_customer_id: customerId,
+        })
       }
       break
     }
@@ -220,22 +206,11 @@ export async function handleWebhook(
       const subscription = event.data.object as Stripe.Subscription
       const customerId = subscription.customer as string
 
-      const { data: user } = await supabase
-        .from('users')
-        .select('id')
-        .eq('stripe_customer_id', customerId)
-        .single() as { data: { id: string } | null }
-
-      if (user) {
-        await supabase
-          .from('users')
-          .update({
-            tier: 'free',
-            stripe_subscription_id: null,
-            updated_at: new Date().toISOString(),
-          } as never)
-          .eq('id', user.id)
-      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.rpc as any)('handle_stripe_webhook', {
+        p_event_type: 'customer.subscription.deleted',
+        p_stripe_customer_id: customerId,
+      })
       break
     }
 
