@@ -47,8 +47,8 @@ export async function getSubscription(): Promise<SubscriptionResponse> {
       user.stripe_subscription_id
     )
 
-    const item = subscription.items?.data?.[0] as { current_period_end?: number } | undefined
-    const periodEnd = item?.current_period_end ?? subscription.current_period_end
+    const item = subscription.items?.data?.[0]
+    const periodEnd = item?.current_period_end
     const currentPeriodEnd = typeof periodEnd === 'number'
       ? new Date(periodEnd * 1000).toISOString()
       : typeof periodEnd === 'string'
