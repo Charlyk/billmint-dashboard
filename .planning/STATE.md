@@ -40,6 +40,7 @@ Progress: [██████████] 100% (v1.0 complete, v1.1 complete)
 |------|--------------|-------|-------|
 | Phase 05 P01 | 146 | 2 | 4 |
 | Phase 06 P02 | 405 | 2 tasks | 23 files |
+| Phase 06 P01 | 505 | 2 tasks | 40 files |
 
 ## Accumulated Context
 
@@ -54,6 +55,8 @@ Recent decisions affecting current work:
 - [Phase 05]: flushAt: 1 and flushInterval: 0 for webhook events (low-volume, must not be lost)
 - [Phase 05]: Using customerId as distinctId for subscription.updated/deleted events (webhook limitation)
 - [Phase 06]: PostHog First time event filter is deliberate approach for funnel analysis (no explicit first_* helpers needed)
+- [Phase 06-01]: withLogging wrapper pattern with optional context parameter for TypeScript compatibility
+- [Phase 06-01]: Preserved cron route job-specific logging alongside withLogging for complementary context
 
 ### Pending Todos
 
