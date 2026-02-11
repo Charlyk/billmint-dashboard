@@ -30,7 +30,14 @@ When something breaks in production, find the root cause fast through structured
 
 ### Active
 
-(None — next milestone requirements TBD)
+## Current Milestone: v1.1 Observability Hardening
+
+**Goal:** Close v1.0 tech debt — server-side PostHog for webhook events, withLogging on all API routes, clean up unused funnel helpers.
+
+**Target features:**
+- posthog-node for Stripe webhook billing event tracking
+- withLogging wrapper extended to all API routes
+- Remove unused first_* funnel helpers from events.ts
 
 ### Out of Scope
 
@@ -39,7 +46,7 @@ When something breaks in production, find the root cause fast through structured
 - PostHog user identification — anonymous tracking only
 - Real-time alerting rules — set up in Axiom dashboard manually
 - Custom PostHog dashboards — manual setup after events are flowing
-- posthog-node for server-side tracking — deferred (webhook billing events)
+- posthog-node for server-side tracking — now in scope for v1.1
 
 ## Context
 
@@ -77,4 +84,4 @@ When something breaks in production, find the root cause fast through structured
 | PostHog "First time event" filter for funnels | Avoid unreliable client-side first-time detection | ✓ Good — simpler, PostHog handles natively |
 
 ---
-*Last updated: 2026-02-11 after v1.0 milestone*
+*Last updated: 2026-02-11 after v1.1 milestone start*
