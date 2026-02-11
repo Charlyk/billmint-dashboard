@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-11)
 ## Current Position
 
 Phase: 2 of 4 (Service Migration)
-Plan: 1 of 3 complete
-Status: In progress
-Last activity: 2026-02-11 — Completed 02-01 (Invoice & Email Service Migration)
+Plan: 3 of 3 complete
+Status: Complete
+Last activity: 2026-02-11 — Completed 02-03 (Console Migration - Core Services & Critical Paths)
 
-Progress: [██▓░░░░░░░] 29% (Phase 1 complete, Phase 2 started: 1/3 plans)
+Progress: [████░░░░░░] 40% (Phase 1 complete, Phase 2 complete, 2 phases remaining)
 
 ## Performance Metrics
 
@@ -43,6 +43,8 @@ Progress: [██▓░░░░░░░] 29% (Phase 1 complete, Phase 2 starte
 - Trend: Increased from 3 min (infrastructure) to 6 min (migration)
 
 *Updated after each plan completion*
+| Phase 02-service-migration P02 | 7 | 2 tasks | 5 files |
+| Phase 02-service-migration P03 | 6 | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -63,6 +65,11 @@ Recent decisions affecting current work:
 - [Phase 01-logging-foundation]: Route handler wrapper re-throws errors to preserve existing handleError pattern (Plan 01-02)
 - [Phase 02-service-migration]: Include operation names in all invoice service logs for RPC debugging context
 - [Phase 02-service-migration]: Include emailType in all email service logs for email flow visibility
+- [Phase 02-service-migration]: Service-scoped loggers with operation context for RPC and storage errors
+- [Phase 02-service-migration]: Webhook logging is fire-and-forget (no await) - Axiom transport is inherently async, keeps webhook response under Stripe's 5s timeout
+- [Phase 02-service-migration]: Correlation ID fallback to crypto.randomUUID() for webhooks - Ensures every webhook gets unique ID even without AsyncLocalStorage context
+- [Phase 02-service-migration]: Webhook processing wrapped in try/catch for failure logging - Logs failures before re-throwing for Stripe retry
+- [Phase 02-service-migration]: Cron job logs in both service and route handler - Service logs operation details, route logs request lifecycle
 
 ### Pending Todos
 
@@ -83,9 +90,9 @@ All blockers have documented mitigation strategies from research and don't preve
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 02-service-migration/02-01-PLAN.md
+Stopped at: Completed 02-service-migration/02-02-PLAN.md
 Resume file: None
 
 ---
 *State initialized: 2026-02-11*
-*Last updated: 2026-02-11T14:01:48Z*
+*Last updated: 2026-02-11T14:03:26Z*
