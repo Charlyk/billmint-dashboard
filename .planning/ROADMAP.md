@@ -49,8 +49,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 06-01-PLAN.md — Apply withLogging wrapper to all CRUD, business, and infrastructure API routes
-- [ ] 06-02-PLAN.md — Apply withLogging to auth routes and remove unused analytics first_* helpers
+- [x] 06-01-PLAN.md — Apply withLogging wrapper to all CRUD, business, and infrastructure API routes — completed 2026-02-11
+- [x] 06-02-PLAN.md — Apply withLogging to auth routes and remove unused analytics first_* helpers — completed 2026-02-11
 
 ## Progress
 
@@ -61,8 +61,8 @@ Plans:
 | 3. Analytics Foundation | v1.0 | 1/1 | ✓ Complete | 2026-02-11 |
 | 4. Lifecycle Events | v1.0 | 3/3 | ✓ Complete | 2026-02-11 |
 | 5. Server-Side Analytics | v1.1 | 1/1 | ✓ Complete | 2026-02-11 |
-| 6. Logging & Cleanup | v1.1 | 0/TBD | Not started | - |
+| 6. Logging & Cleanup | v1.1 | 2/2 | ✓ Complete | 2026-02-11 |
 
 ---
 *Roadmap created: 2026-02-11*
-*Last updated: 2026-02-11 — Phase 5 complete*
+*Last updated: 2026-02-11 — Phase 6 complete, v1.1 milestone complete*
