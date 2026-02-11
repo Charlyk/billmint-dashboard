@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-11)
 ## Current Position
 
 Phase: 4 of 4 (Lifecycle Events)
-Plan: 1 of 3 complete
+Plan: 2 of 3 complete
 Status: Phase 4 In Progress
-Last activity: 2026-02-11 — Completed Plan 04-01 (Timer Lifecycle Event Tracking)
+Last activity: 2026-02-11 — Completed Plan 04-02 (Invoice and Billing Lifecycle Event Tracking)
 
-Progress: [████████░░] 80% (Phase 1 complete, Phase 2 complete, Phase 3 complete, Phase 4: 1/3 plans complete)
+Progress: [█████████░] 87% (Phase 1 complete, Phase 2 complete, Phase 3 complete, Phase 4: 2/3 plans complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7
-- Average duration: 4 min
-- Total execution time: 0.6 hours
+- Total plans completed: 8
+- Average duration: 3 min
+- Total execution time: 0.7 hours
 
 **By Phase:**
 
@@ -30,21 +30,21 @@ Progress: [████████░░] 80% (Phase 1 complete, Phase 2 comple
 | 01-logging-foundation | 2/2 | 6 min | 3 min |
 | 02-service-migration | 3/3 | 19 min | 6 min |
 | 03-analytics-foundation | 1/1 | 2 min | 2 min |
-| 04-lifecycle-events | 1/3 | 2 min | 2 min |
+| 04-lifecycle-events | 2/3 | 5 min | 2.5 min |
 
 **Recent Executions:**
 
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
-| 02-service-migration | 01 | 6 min | 2 | 2 |
 | 02-service-migration | 02 | 7 min | 2 | 5 |
 | 02-service-migration | 03 | 6 min | 3 | 8 |
 | 03-analytics-foundation | 01 | 2 min | 2 | 5 |
 | 04-lifecycle-events | 01 | 2 min | 2 | 2 |
+| 04-lifecycle-events | 02 | 3 min | 2 | 3 |
 
 **Recent Trend:**
-- Last plan: 2 min (04-01)
-- Trend: Consistent 2-minute analytics plans, maintaining momentum from Phase 3
+- Last plan: 3 min (04-02)
+- Trend: Analytics plans remain fast and efficient (2-3 minutes each)
 
 *Updated after each plan completion*
 
@@ -76,6 +76,9 @@ Recent decisions affecting current work:
 - [Phase 03-analytics-foundation]: Position PHProvider outside Providers in root layout - PostHog tracks all pages including unauthenticated routes (landing, login, signup)
 - [Phase 03-analytics-foundation]: Wrap PostHogPageView in Suspense boundary - useSearchParams requires Suspense to prevent hydration errors in Next.js App Router
 - [Phase 03-analytics-foundation]: Set capture_pageview: false and implement manual tracking - PostHog auto-capture doesn't work correctly with App Router client-side navigation
+- [Phase 04-lifecycle-events]: Track after success pattern for API wrappers - Analytics calls fire after await fetcher() resolves, before returning result, ensuring only successful operations are tracked
+- [Phase 04-lifecycle-events]: Use response data for event properties - API response is authoritative source for IDs and calculated values (not request parameters)
+- [Phase 04-lifecycle-events]: Webhook billing events require posthog-node - subscription_activated, plan_changed, subscription_cancelled event helpers exist but can't be called from webhooks until posthog-node SDK is added
 
 ### Pending Todos
 
@@ -96,9 +99,9 @@ All blockers have documented mitigation strategies from research and don't preve
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 04-01-PLAN.md
+Stopped at: Completed 04-02-PLAN.md
 Resume file: None
 
 ---
 *State initialized: 2026-02-11*
-*Last updated: 2026-02-11T20:10:00Z*
+*Last updated: 2026-02-11T20:15:52Z*
