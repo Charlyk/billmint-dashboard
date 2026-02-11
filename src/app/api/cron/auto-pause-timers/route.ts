@@ -2,13 +2,14 @@ import { NextRequest } from 'next/server'
 import { autopauseStaleTimers } from '@/lib/services/cron.service'
 import { createServiceLogger } from '@/lib/logging/logger'
 import { sanitizeError } from '@/lib/logging/sanitizers'
+import { withLogging } from '@/lib/logging/route-handler'
 
 const log = createServiceLogger('cron')
 
 // Vercel cron jobs send a special header to authenticate
 const CRON_SECRET = process.env.CRON_SECRET
 
-export async function GET(request: NextRequest) {
+async function handleGet(request: NextRequest) {
   const startTime = Date.now()
 
   // Verify the request is from Vercel Cron
@@ -55,3 +56,5 @@ export async function GET(request: NextRequest) {
     )
   }
 }
+
+export const GET = withLogging(handleGet)

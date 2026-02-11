@@ -1,7 +1,8 @@
 import { getSubscription } from '@/lib/services/billing.service'
 import { handleError } from '@/lib/utils/errors'
+import { withLogging } from '@/lib/logging/route-handler'
 
-export async function GET() {
+async function handleGet() {
   try {
     const subscription = await getSubscription()
     return Response.json({ data: subscription })
@@ -9,3 +10,5 @@ export async function GET() {
     return handleError(error)
   }
 }
+
+export const GET = withLogging(handleGet)

@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { updateBillingDefaults } from '@/lib/services/user.service'
 import { handleError, ValidationError } from '@/lib/utils/errors'
 import { z } from 'zod'
+import { withLogging } from '@/lib/logging/route-handler'
 
 const updateBillingDefaultsSchema = z.object({
   default_currency: z.string().length(3).optional(),
@@ -9,7 +10,7 @@ const updateBillingDefaultsSchema = z.object({
   billing_email: z.string().email().nullable().optional(),
 })
 
-export async function PATCH(request: NextRequest) {
+async function handlePatch(request: NextRequest) {
   try {
     const body = await request.json()
     const parsed = updateBillingDefaultsSchema.safeParse(body)
@@ -26,3 +27,5 @@ export async function PATCH(request: NextRequest) {
     return handleError(error)
   }
 }
+
+export const PATCH = withLogging(handlePatch)

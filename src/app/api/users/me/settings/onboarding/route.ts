@@ -1,7 +1,8 @@
 import { dismissOnboarding } from '@/lib/services/user.service'
 import { handleError } from '@/lib/utils/errors'
+import { withLogging } from '@/lib/logging/route-handler'
 
-export async function POST() {
+async function handlePost() {
   try {
     const settings = await dismissOnboarding()
     return Response.json({ data: settings })
@@ -9,3 +10,5 @@ export async function POST() {
     return handleError(error)
   }
 }
+
+export const POST = withLogging(handlePost)

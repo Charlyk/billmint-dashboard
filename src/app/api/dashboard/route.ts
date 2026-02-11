@@ -1,8 +1,9 @@
 import { NextRequest } from 'next/server'
 import { getDashboardData } from '@/lib/services/dashboard.service'
 import { handleError } from '@/lib/utils/errors'
+import { withLogging } from '@/lib/logging/route-handler'
 
-export async function GET(request: NextRequest) {
+async function handleGet(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const recentLimit = parseInt(searchParams.get('recent_limit') || '10', 10)
@@ -19,3 +20,5 @@ export async function GET(request: NextRequest) {
     return handleError(error)
   }
 }
+
+export const GET = withLogging(handleGet)

@@ -1,8 +1,9 @@
 import { NextRequest } from 'next/server'
 import { uploadLogo, deleteLogo } from '@/lib/services/logo.service'
 import { handleError, ValidationError } from '@/lib/utils/errors'
+import { withLogging } from '@/lib/logging/route-handler'
 
-export async function POST(request: NextRequest) {
+async function handlePost(request: NextRequest) {
   try {
     const formData = await request.formData()
     const file = formData.get('file') as File | null
@@ -18,7 +19,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function DELETE() {
+async function handleDelete() {
   try {
     await deleteLogo()
     return Response.json({ data: { success: true } })
@@ -26,3 +27,6 @@ export async function DELETE() {
     return handleError(error)
   }
 }
+
+export const POST = withLogging(handlePost)
+export const DELETE = withLogging(handleDelete)

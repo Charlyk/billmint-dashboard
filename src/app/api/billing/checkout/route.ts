@@ -1,8 +1,9 @@
 import { NextRequest } from 'next/server'
 import { createCheckoutSession } from '@/lib/services/billing.service'
 import { handleError, ValidationError } from '@/lib/utils/errors'
+import { withLogging } from '@/lib/logging/route-handler'
 
-export async function POST(request: NextRequest) {
+async function handlePost(request: NextRequest) {
   try {
     const body = await request.json()
     const { tier } = body
@@ -17,3 +18,5 @@ export async function POST(request: NextRequest) {
     return handleError(error)
   }
 }
+
+export const POST = withLogging(handlePost)

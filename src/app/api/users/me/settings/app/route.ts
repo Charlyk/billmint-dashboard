@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { updateAppSettings } from '@/lib/services/user.service'
 import { handleError, ValidationError } from '@/lib/utils/errors'
 import { z } from 'zod'
+import { withLogging } from '@/lib/logging/route-handler'
 
 const updateAppSettingsSchema = z.object({
   time_format: z.enum(['12h', '24h']).optional(),
@@ -10,7 +11,7 @@ const updateAppSettingsSchema = z.object({
   timezone: z.string().max(50).optional(),
 })
 
-export async function PATCH(request: NextRequest) {
+async function handlePatch(request: NextRequest) {
   try {
     const body = await request.json()
     const parsed = updateAppSettingsSchema.safeParse(body)
@@ -27,3 +28,5 @@ export async function PATCH(request: NextRequest) {
     return handleError(error)
   }
 }
+
+export const PATCH = withLogging(handlePatch)

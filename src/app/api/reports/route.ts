@@ -1,8 +1,9 @@
 import { NextRequest } from 'next/server'
 import { generateTimeReport } from '@/lib/services/report.service'
 import { handleError } from '@/lib/utils/errors'
+import { withLogging } from '@/lib/logging/route-handler'
 
-export async function GET(request: NextRequest) {
+async function handleGet(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const start_date = searchParams.get('start_date')
@@ -29,3 +30,5 @@ export async function GET(request: NextRequest) {
     return handleError(error)
   }
 }
+
+export const GET = withLogging(handleGet)

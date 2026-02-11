@@ -2,8 +2,9 @@ import { NextRequest } from 'next/server'
 import { getSettings, updateSettings } from '@/lib/services/user.service'
 import { updateSettingsSchema } from '@/lib/utils/validation'
 import { handleError, ValidationError } from '@/lib/utils/errors'
+import { withLogging } from '@/lib/logging/route-handler'
 
-export async function GET() {
+async function handleGet() {
   try {
     const settings = await getSettings()
     return Response.json({ data: settings })
@@ -12,7 +13,7 @@ export async function GET() {
   }
 }
 
-export async function PATCH(request: NextRequest) {
+async function handlePatch(request: NextRequest) {
   try {
     const body = await request.json()
     const parsed = updateSettingsSchema.safeParse(body)
@@ -29,3 +30,6 @@ export async function PATCH(request: NextRequest) {
     return handleError(error)
   }
 }
+
+export const GET = withLogging(handleGet)
+export const PATCH = withLogging(handlePatch)

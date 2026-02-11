@@ -1,8 +1,9 @@
 import { NextRequest } from 'next/server'
 import { handleWebhook } from '@/lib/services/billing.service'
 import { handleError } from '@/lib/utils/errors'
+import { withLogging } from '@/lib/logging/route-handler'
 
-export async function POST(request: NextRequest) {
+async function handlePost(request: NextRequest) {
   try {
     const body = await request.text()
     const signature = request.headers.get('stripe-signature')
@@ -20,3 +21,5 @@ export async function POST(request: NextRequest) {
     return handleError(error)
   }
 }
+
+export const POST = withLogging(handlePost)

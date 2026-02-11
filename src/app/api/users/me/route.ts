@@ -7,8 +7,9 @@ import {
 } from '@/lib/services/user.service'
 import { updateProfileSchema } from '@/lib/utils/validation'
 import { handleError, ValidationError } from '@/lib/utils/errors'
+import { withLogging } from '@/lib/logging/route-handler'
 
-export async function GET() {
+async function handleGet() {
   try {
     const profile = await getProfile()
     return Response.json({ data: profile })
@@ -17,7 +18,7 @@ export async function GET() {
   }
 }
 
-export async function PATCH(request: NextRequest) {
+async function handlePatch(request: NextRequest) {
   try {
     const body = await request.json()
     const parsed = updateProfileSchema.safeParse(body)
@@ -36,7 +37,7 @@ export async function PATCH(request: NextRequest) {
 }
 
 // POST: Request account deletion (sends OTP email)
-export async function POST() {
+async function handlePost() {
   try {
     await requestAccountDeletion()
     return Response.json({ data: { message: 'Verification code sent to your email' } })
@@ -46,7 +47,7 @@ export async function POST() {
 }
 
 // DELETE: Confirm account deletion with OTP
-export async function DELETE(request: NextRequest) {
+async function handleDelete(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const otpCode = searchParams.get('otp')
@@ -61,3 +62,8 @@ export async function DELETE(request: NextRequest) {
     return handleError(error)
   }
 }
+
+export const GET = withLogging(handleGet)
+export const PATCH = withLogging(handlePatch)
+export const POST = withLogging(handlePost)
+export const DELETE = withLogging(handleDelete)
