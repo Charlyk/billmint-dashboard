@@ -10,6 +10,7 @@ import type {
   UpdateInvoiceInput,
   InvoicesQuery,
 } from '@/lib/utils/validation'
+import { analytics } from '@/lib/analytics/events'
 
 export async function listInvoices(
   options?: InvoicesQuery
@@ -34,10 +35,18 @@ export async function getInvoice(id: string): Promise<InvoiceWithDetails> {
 export async function createInvoice(
   data: CreateInvoiceInput
 ): Promise<InvoiceWithDetails> {
-  return fetcher<InvoiceWithDetails>('/api/invoices', {
+  const result = await fetcher<InvoiceWithDetails>('/api/invoices', {
     method: 'POST',
     body: JSON.stringify(data),
   })
+  analytics.invoiceCreated({
+    invoice_id: result.id,
+    client_id: result.client_id,
+    amount: result.total,
+    currency: result.currency,
+    line_item_count: result.line_items.length,
+  })
+  return result
 }
 
 export async function updateInvoice(
@@ -55,7 +64,13 @@ export async function deleteInvoice(id: string): Promise<void> {
 }
 
 export async function sendInvoice(id: string): Promise<Invoice> {
-  return fetcher<Invoice>(`/api/invoices/${id}/send`, { method: 'POST' })
+  const result = await fetcher<Invoice>(`/api/invoices/${id}/send`, { method: 'POST' })
+  analytics.invoiceSent({
+    invoice_id: result.id,
+    amount: result.total,
+    currency: result.currency,
+  })
+  return result
 }
 
 export async function sendReminder(id: string): Promise<Invoice> {
@@ -63,11 +78,21 @@ export async function sendReminder(id: string): Promise<Invoice> {
 }
 
 export async function markInvoiceAsPaid(id: string): Promise<Invoice> {
-  return fetcher<Invoice>(`/api/invoices/${id}/mark-paid`, { method: 'POST' })
+  const result = await fetcher<Invoice>(`/api/invoices/${id}/mark-paid`, { method: 'POST' })
+  analytics.invoiceMarkedPaid({
+    invoice_id: result.id,
+    amount: result.total,
+    currency: result.currency,
+  })
+  return result
 }
 
 export async function voidInvoice(id: string): Promise<Invoice> {
-  return fetcher<Invoice>(`/api/invoices/${id}/void`, { method: 'POST' })
+  const result = await fetcher<Invoice>(`/api/invoices/${id}/void`, { method: 'POST' })
+  analytics.invoiceVoided({
+    invoice_id: result.id,
+  })
+  return result
 }
 
 export async function duplicateInvoice(id: string): Promise<InvoiceWithDetails> {

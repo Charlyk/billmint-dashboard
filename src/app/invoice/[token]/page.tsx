@@ -9,6 +9,7 @@ import { getPublicInvoice } from "@/lib/api/invoices";
 import { formatCurrency } from "@/lib/utils/currency";
 import type { PublicInvoiceResponse } from "@/types";
 import { use } from "react";
+import { analytics } from '@/lib/analytics/events';
 
 function formatDate(dateString: string): string {
   return new Date(dateString).toLocaleDateString("en-US", {
@@ -37,6 +38,9 @@ export default function InvoicePublicPage({
         const invoiceData = await getPublicInvoice(token);
         if (!abortController.signal.aborted) {
           setData(invoiceData);
+          analytics.invoiceViewed({
+            invoice_id: invoiceData.invoice.id,
+          })
         }
       } catch (err) {
         if (!abortController.signal.aborted) {
