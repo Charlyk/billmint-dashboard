@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/server'
+import { withLogging } from '@/lib/logging/route-handler'
 
-export async function GET(request: NextRequest) {
+async function handleGet(request: NextRequest) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
   const redirectTo = requestUrl.searchParams.get('redirectTo') || '/dashboard'
@@ -29,3 +30,5 @@ export async function GET(request: NextRequest) {
     new URL('/login?error=auth_callback_error', requestUrl.origin)
   )
 }
+
+export const GET = withLogging(handleGet)

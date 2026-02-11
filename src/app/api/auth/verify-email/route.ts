@@ -2,9 +2,10 @@ import { NextRequest } from 'next/server'
 import { verifyEmail, resendVerificationEmail, requireAuth } from '@/lib/services/auth.service'
 import { verifyEmailSchema } from '@/lib/utils/validation'
 import { handleError, ValidationError } from '@/lib/utils/errors'
+import { withLogging } from '@/lib/logging/route-handler'
 
 // POST - Verify email with token (public)
-export async function POST(request: NextRequest) {
+async function handlePost(request: NextRequest) {
   try {
     const body = await request.json()
     const parsed = verifyEmailSchema.safeParse(body)
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
 }
 
 // PUT - Resend verification email (requires auth)
-export async function PUT() {
+async function handlePut() {
   try {
     const user = await requireAuth()
     const result = await resendVerificationEmail(user.id)
@@ -42,3 +43,6 @@ export async function PUT() {
     return handleError(error)
   }
 }
+
+export const POST = withLogging(handlePost)
+export const PUT = withLogging(handlePut)

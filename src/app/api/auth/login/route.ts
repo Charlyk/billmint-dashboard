@@ -2,8 +2,9 @@ import { NextRequest } from 'next/server'
 import { login } from '@/lib/services/auth.service'
 import { loginSchema } from '@/lib/utils/validation'
 import { handleError, ValidationError } from '@/lib/utils/errors'
+import { withLogging } from '@/lib/logging/route-handler'
 
-export async function POST(request: NextRequest) {
+async function handlePost(request: NextRequest) {
   try {
     const body = await request.json()
     const parsed = loginSchema.safeParse(body)
@@ -21,3 +22,5 @@ export async function POST(request: NextRequest) {
     return handleError(error)
   }
 }
+
+export const POST = withLogging(handlePost)

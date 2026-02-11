@@ -2,8 +2,9 @@ import { NextRequest } from 'next/server'
 import { resetPassword, updatePasswordWithToken } from '@/lib/services/auth.service'
 import { resetPasswordSchema, updatePasswordWithTokenSchema } from '@/lib/utils/validation'
 import { handleError, ValidationError } from '@/lib/utils/errors'
+import { withLogging } from '@/lib/logging/route-handler'
 
-export async function POST(request: NextRequest) {
+async function handlePost(request: NextRequest) {
   try {
     const body = await request.json()
     const parsed = resetPasswordSchema.safeParse(body)
@@ -25,7 +26,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function PATCH(request: NextRequest) {
+async function handlePatch(request: NextRequest) {
   try {
     const body = await request.json()
     const parsed = updatePasswordWithTokenSchema.safeParse(body)
@@ -43,3 +44,6 @@ export async function PATCH(request: NextRequest) {
     return handleError(error)
   }
 }
+
+export const POST = withLogging(handlePost)
+export const PATCH = withLogging(handlePatch)

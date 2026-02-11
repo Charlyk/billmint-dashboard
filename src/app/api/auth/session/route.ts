@@ -1,7 +1,8 @@
 import { getSession } from '@/lib/services/auth.service'
 import { handleError } from '@/lib/utils/errors'
+import { withLogging } from '@/lib/logging/route-handler'
 
-export async function GET() {
+async function handleGet() {
   try {
     const session = await getSession()
     return Response.json({ data: session })
@@ -9,3 +10,5 @@ export async function GET() {
     return handleError(error)
   }
 }
+
+export const GET = withLogging(handleGet)
