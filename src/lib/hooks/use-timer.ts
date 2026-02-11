@@ -18,18 +18,50 @@ interface TimerState {
   isBillable: boolean
 }
 
+interface StoredTimerData {
+  isRunning: boolean
+  isPaused: boolean
+  startTime: string | null
+  elapsedSeconds: number
+  projectId: string | null
+  isBillable: boolean
+}
+
 function getStoredTimer(): TimerState | null {
   if (typeof window === 'undefined') return null
-  const stored = localStorage.getItem(TIMER_STORAGE_KEY)
-  return stored ? JSON.parse(stored) : null
+  try {
+    const stored = localStorage.getItem(TIMER_STORAGE_KEY)
+    if (!stored) return null
+    const data: StoredTimerData = JSON.parse(stored)
+    return {
+      ...data,
+      description: '', // Don't persist description in localStorage
+    }
+  } catch {
+    localStorage.removeItem(TIMER_STORAGE_KEY)
+    return null
+  }
 }
 
 function storeTimer(timer: TimerState | null) {
   if (typeof window === 'undefined') return
-  if (timer) {
-    localStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify(timer))
-  } else {
-    localStorage.removeItem(TIMER_STORAGE_KEY)
+  try {
+    if (timer) {
+      // Only store minimal, non-sensitive fields
+      const data: StoredTimerData = {
+        isRunning: timer.isRunning,
+        isPaused: timer.isPaused,
+        startTime: timer.startTime,
+        elapsedSeconds: timer.elapsedSeconds,
+        projectId: timer.projectId,
+        isBillable: timer.isBillable,
+      }
+      localStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify(data))
+    } else {
+      localStorage.removeItem(TIMER_STORAGE_KEY)
+    }
+  } catch {
+    // localStorage might be full or unavailable
   }
 }
 

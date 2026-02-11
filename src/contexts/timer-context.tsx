@@ -23,6 +23,7 @@ type TimerStateValue = 'idle' | 'running' | 'paused'
 interface TimerState {
   isRunning: boolean
   isPaused: boolean
+  isAutoPaused: boolean
   startTime: string | null
   elapsedSeconds: number
   description: string
@@ -50,6 +51,7 @@ interface TimerContextType {
   }) => Promise<void>
   stopTimer: () => Promise<void>
   pauseTimer: () => Promise<void>
+  isAutoPaused: boolean
   resumeTimer: () => Promise<void>
   discardTimer: () => Promise<void>
   setDescription: (description: string) => void
@@ -70,6 +72,7 @@ function serverTimerToState(data: InitialTimerData | null): TimerState {
     return {
       isRunning: false,
       isPaused: false,
+      isAutoPaused: false,
       startTime: null,
       elapsedSeconds: 0,
       description: '',
@@ -82,6 +85,7 @@ function serverTimerToState(data: InitialTimerData | null): TimerState {
   return {
     isRunning: true, // Timer exists, so it's in a "started" state
     isPaused: data.timer.is_paused,
+    isAutoPaused: false,
     startTime: data.timer.start_time,
     elapsedSeconds: data.timer.elapsed_seconds,
     description: data.timer.description || '',
@@ -149,6 +153,7 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
         setTimer({
           isRunning: true, // Timer exists, so it's in a "started" state
           isPaused: response.timer.is_paused,
+          isAutoPaused: !!response.autoPaused,
           startTime: response.timer.start_time,
           elapsedSeconds: response.timer.elapsed_seconds,
           description: response.timer.description || '',
@@ -163,7 +168,7 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
           toastManager.add({
             type: 'warning',
             title: `Timer auto-paused after ${hours} hours`,
-            description: 'Review and stop when ready.',
+            description: 'Stop the timer and create a new entry to continue tracking.',
           })
         }
       } else {
@@ -173,6 +178,7 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
             return {
               isRunning: false,
               isPaused: false,
+              isAutoPaused: false,
               startTime: null,
               elapsedSeconds: 0,
               description: '',
@@ -271,6 +277,7 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
         ...prev,
         isRunning: true,
         isPaused: false,
+        isAutoPaused: false,
         startTime: startedAt,
         elapsedSeconds: 0,
         description: desc,
@@ -307,6 +314,7 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
           setTimer({
             isRunning: false,
             isPaused: false,
+            isAutoPaused: false,
             startTime: null,
             elapsedSeconds: 0,
             description: desc,
@@ -340,6 +348,7 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
     setTimer({
       isRunning: false,
       isPaused: false,
+      isAutoPaused: false,
       startTime: null,
       elapsedSeconds: 0,
       description: '',
@@ -417,6 +426,17 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
   // Optimistic resume timer - starts ticking immediately
   const resumeTimer = useCallback(async () => {
     if (isSubmitting) return
+
+    // Prevent resuming auto-paused timers - user must stop and create a new entry
+    if (timer.isAutoPaused) {
+      toastManager.add({
+        type: 'warning',
+        title: 'Cannot resume auto-paused timer',
+        description: 'Stop this timer and start a new one to continue tracking.',
+      })
+      return
+    }
+
     setIsSubmitting(true)
 
     const resumedAtMs = Date.now()
@@ -447,7 +467,7 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
     } finally {
       setIsSubmitting(false)
     }
-  }, [isSubmitting, timer.elapsedSeconds, startTicking, stopTicking])
+  }, [isSubmitting, timer.isAutoPaused, timer.elapsedSeconds, startTicking, stopTicking])
 
   // Optimistic discard timer
   const discardTimer = useCallback(async () => {
@@ -464,6 +484,7 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
     setTimer({
       isRunning: false,
       isPaused: false,
+      isAutoPaused: false,
       startTime: null,
       elapsedSeconds: 0,
       description: '',
@@ -561,6 +582,7 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
     timerState,
     isRunning: timer.isRunning,
     isPaused: timer.isPaused,
+    isAutoPaused: timer.isAutoPaused,
     displayTime,
     description: timer.description,
     projectId: timer.projectId,

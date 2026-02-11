@@ -26,6 +26,14 @@
       "Bash(git push:*)",
       "WebFetch(domain:chakra-ui.com)",
       "mcp__ide__getDiagnostics"
+    ],
+    "deny": [
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(**/secrets/*)",
+      "Read(**/*credential*)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)"
     ]
   }
 }

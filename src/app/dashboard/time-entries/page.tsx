@@ -84,12 +84,16 @@ function getColorHex(colorName: string | null): string {
   return colorName ? colorMap[colorName] ?? "#64748b" : "#64748b";
 }
 
-// Generate invoice number with prefix
+// Generate invoice number with prefix using timestamp for uniqueness
+let invoiceSeq = 0;
 function generateInvoiceNumber(prefix?: string): string {
   const invoicePrefix = prefix || "INV";
-  const year = new Date().getFullYear();
-  const num = Math.floor(Math.random() * 9000) + 1000;
-  return `${invoicePrefix}-${year}-${num}`;
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const seq = String(++invoiceSeq).padStart(3, "0");
+  const ts = String(now.getTime() % 10000).padStart(4, "0");
+  return `${invoicePrefix}-${year}${month}-${ts}${seq}`;
 }
 
 // Get date range based on filter selection
