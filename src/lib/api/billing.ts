@@ -5,6 +5,11 @@ import type {
   PortalSessionResponse,
   StripeInvoicesResponse,
 } from '@/types/api'
+import { analytics } from '@/lib/analytics/events'
+
+// Note: subscription_activated, plan_changed, and subscription_cancelled events
+// are triggered by Stripe webhooks (server-side) and require posthog-node for tracking.
+// checkout_started is tracked here as the client-side billing funnel entry point.
 
 export async function getSubscription(): Promise<SubscriptionResponse> {
   return fetcher<SubscriptionResponse>('/api/billing/subscription')
@@ -13,10 +18,12 @@ export async function getSubscription(): Promise<SubscriptionResponse> {
 export async function createCheckoutSession(
   tier: 'pro' | 'business'
 ): Promise<CheckoutSessionResponse> {
-  return fetcher<CheckoutSessionResponse>('/api/billing/checkout', {
+  const result = await fetcher<CheckoutSessionResponse>('/api/billing/checkout', {
     method: 'POST',
     body: JSON.stringify({ tier }),
   })
+  analytics.checkoutStarted({ tier })
+  return result
 }
 
 export async function createPortalSession(): Promise<PortalSessionResponse> {
