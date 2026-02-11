@@ -2,7 +2,7 @@
 
 ## What This Is
 
-BillMint is an existing time-tracking and invoicing SaaS built with Next.js, Supabase, and Stripe. The v1.0 milestone added production observability via Axiom (structured backend logging with PII sanitization and request correlation) and PostHog (anonymous product analytics with lifecycle event tracking), replacing 75 scattered console calls with structured, queryable logs and tracking 21 lifecycle events across timer, invoice, billing, and CRUD workflows.
+BillMint is an existing time-tracking and invoicing SaaS built with Next.js, Supabase, and Stripe. The observability milestones (v1.0 + v1.1) added production-grade observability: Axiom structured backend logging with PII sanitization and correlation IDs on 100% of API routes, PostHog anonymous product analytics with 21 lifecycle events (client + server-side), and posthog-node for server-side billing event tracking from Stripe webhooks.
 
 ## Core Value
 
@@ -27,17 +27,14 @@ When something breaks in production, find the root cause fast through structured
 - ✓ PostHog page view tracking (anonymous, production-only) — v1.0
 - ✓ PostHog event tracking for key user actions (21 lifecycle events) — v1.0
 - ✓ Production-only activation (no dev noise) — v1.0
+- ✓ Server-side PostHog for Stripe webhook billing events (posthog-node) — v1.1
+- ✓ 100% API route logging coverage with withLogging wrapper (48 routes) — v1.1
+- ✓ Correlation ID propagation across all API handlers — v1.1
+- ✓ Unused first_* funnel helpers removed, PostHog filter approach documented — v1.1
 
 ### Active
 
-## Current Milestone: v1.1 Observability Hardening
-
-**Goal:** Close v1.0 tech debt — server-side PostHog for webhook events, withLogging on all API routes, clean up unused funnel helpers.
-
-**Target features:**
-- posthog-node for Stripe webhook billing event tracking
-- withLogging wrapper extended to all API routes
-- Remove unused first_* funnel helpers from events.ts
+(None — planning next milestone)
 
 ### Out of Scope
 
@@ -46,26 +43,22 @@ When something breaks in production, find the root cause fast through structured
 - PostHog user identification — anonymous tracking only
 - Real-time alerting rules — set up in Axiom dashboard manually
 - Custom PostHog dashboards — manual setup after events are flowing
-- posthog-node for server-side tracking — now in scope for v1.1
 
 ## Context
 
-**Current state (v1.0 shipped):**
-- 67 files changed, 8,109 lines added across 4 phases
-- Tech stack: Next.js 16, React 19, Supabase, Stripe, Axiom, PostHog
-- Logging: Structured JSON via Axiom with PII sanitization and correlation IDs
-- Analytics: Anonymous PostHog with 21 typed lifecycle events
+**Current state (v1.1 shipped):**
+- 134 files changed across 6 phases (v1.0 + v1.1)
+- Tech stack: Next.js 16, React 19, Supabase, Stripe, Axiom, PostHog, posthog-node
+- Logging: Structured JSON via Axiom with PII sanitization, correlation IDs, withLogging on 100% of API routes
+- Analytics: Anonymous PostHog with 21 typed lifecycle events (client-side) + 3 billing events (server-side)
 - 13 service files fully instrumented with structured logging
+- 48 API routes instrumented with withLogging wrapper
 - 0 console.error/console.log calls remain in services
-
-**Known tech debt:**
-- 3 billing webhook events need posthog-node for server-side tracking
-- 3 funnel first-time events using PostHog filters instead of explicit tracking
-- withLogging wrapper on 2 API routes (clients, invoices) — could extend to others
+- 0 known observability tech debt
 
 ## Constraints
 
-- **Stack**: Axiom for backend logging, PostHog for frontend analytics
+- **Stack**: Axiom for backend logging, PostHog for product analytics (client + server)
 - **Privacy**: PostHog anonymous-only (person_profiles: 'identified_only')
 - **Environment**: VERCEL_ENV === 'production' gates both logging and analytics
 - **Existing code**: All console calls replaced — single structured logging system
@@ -80,8 +73,11 @@ When something breaks in production, find the root cause fast through structured
 | Production only (VERCEL_ENV) | Avoid polluting analytics/logs with dev data | ✓ Good — consistent gating across both systems |
 | Track all key user actions | Timer, invoice, billing, CRUD — full product visibility | ✓ Good — 21 events covering core workflows |
 | AsyncLocalStorage for correlation IDs | Request context propagation without explicit passing | ✓ Good — clean service code, automatic correlation |
-| Client-side tracking (posthog-js) | Server-side posthog-node deferred for simplicity | ⚠️ Revisit — webhook events need server-side |
 | PostHog "First time event" filter for funnels | Avoid unreliable client-side first-time detection | ✓ Good — simpler, PostHog handles natively |
+| posthog-node for webhook billing events | Server-side tracking needed where no browser exists | ✓ Good — 3 billing lifecycle events tracked reliably |
+| flushAt:1 / flushInterval:0 for webhooks | Low-volume billing events must not be lost | ✓ Good — immediate flush, data reliability |
+| customerId as distinctId for subscription events | Stripe webhooks don't include userId | — Acceptable — cross-referencing requires customer ID lookup |
+| withLogging on 100% of API routes | Consistent request/response logging and correlation | ✓ Good — full visibility across all endpoints |
 
 ---
-*Last updated: 2026-02-11 after v1.1 milestone start*
+*Last updated: 2026-02-11 after v1.1 milestone*
