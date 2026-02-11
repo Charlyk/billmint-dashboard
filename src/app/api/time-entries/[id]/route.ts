@@ -6,12 +6,15 @@ import {
 } from '@/lib/services/time-entry.service'
 import { updateTimeEntrySchema } from '@/lib/utils/validation'
 import { handleError, ValidationError } from '@/lib/utils/errors'
+import { withLogging } from '@/lib/logging/route-handler'
 
-type RouteParams = { params: Promise<{ id: string }> }
-
-export async function GET(request: NextRequest, { params }: RouteParams) {
+async function handleGet(
+  request: NextRequest,
+  context?: { params: Promise<{ id: string }> }
+) {
   try {
-    const { id } = await params
+    if (!context) throw new Error('Missing params')
+    const { id } = await context.params
     const entry = await getTimeEntryById(id)
     return Response.json({ data: entry })
   } catch (error) {
@@ -19,9 +22,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-export async function PATCH(request: NextRequest, { params }: RouteParams) {
+async function handlePatch(
+  request: NextRequest,
+  context?: { params: Promise<{ id: string }> }
+) {
   try {
-    const { id } = await params
+    if (!context) throw new Error('Missing params')
+    const { id } = await context.params
     const body = await request.json()
     const parsed = updateTimeEntrySchema.safeParse(body)
 
@@ -38,12 +45,20 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+async function handleDelete(
+  request: NextRequest,
+  context?: { params: Promise<{ id: string }> }
+) {
   try {
-    const { id } = await params
+    if (!context) throw new Error('Missing params')
+    const { id } = await context.params
     await deleteTimeEntry(id)
     return Response.json({ data: { success: true } })
   } catch (error) {
     return handleError(error)
   }
 }
+
+export const GET = withLogging(handleGet as any)
+export const PATCH = withLogging(handlePatch as any)
+export const DELETE = withLogging(handleDelete as any)

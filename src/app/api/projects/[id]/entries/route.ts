@@ -2,12 +2,15 @@ import { NextRequest } from 'next/server'
 import { getProjectEntries } from '@/lib/services/project.service'
 import { paginationSchema } from '@/lib/utils/validation'
 import { handleError } from '@/lib/utils/errors'
+import { withLogging } from '@/lib/logging/route-handler'
 
-type RouteParams = { params: Promise<{ id: string }> }
-
-export async function GET(request: NextRequest, { params }: RouteParams) {
+async function handleGet(
+  request: NextRequest,
+  context?: { params: Promise<{ id: string }> }
+) {
   try {
-    const { id } = await params
+    if (!context) throw new Error('Missing params')
+    const { id } = await context.params
     const { searchParams } = new URL(request.url)
     const parsed = paginationSchema.safeParse({
       page: searchParams.get('page'),
@@ -31,3 +34,5 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     return handleError(error)
   }
 }
+
+export const GET = withLogging(handleGet as any)

@@ -1,15 +1,20 @@
 import { NextRequest } from 'next/server'
 import { sendReminder } from '@/lib/services/invoice.service'
 import { handleError } from '@/lib/utils/errors'
+import { withLogging } from '@/lib/logging/route-handler'
 
-type RouteParams = { params: Promise<{ id: string }> }
-
-export async function POST(request: NextRequest, { params }: RouteParams) {
+async function handlePost(
+  request: NextRequest,
+  context?: { params: Promise<{ id: string }> }
+) {
   try {
-    const { id } = await params
+    if (!context) throw new Error('Missing params')
+    const { id } = await context.params
     const invoice = await sendReminder(id)
     return Response.json({ data: invoice })
   } catch (error) {
     return handleError(error)
   }
 }
+
+export const POST = withLogging(handlePost as any)

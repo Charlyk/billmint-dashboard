@@ -3,10 +3,11 @@ import { getPublicInvoicePdfData } from '@/lib/services/invoice.service'
 import { generateInvoicePdf } from '@/lib/services/pdf.service'
 import { handleError } from '@/lib/utils/errors'
 import { rateLimit } from '@/lib/utils/rate-limit'
+import { withLogging } from '@/lib/logging/route-handler'
 
-export async function GET(
+async function handleGet(
   request: NextRequest,
-  { params }: { params: Promise<{ token: string }> }
+  context?: { params: Promise<{ token: string }> }
 ) {
   const { success } = rateLimit(request, { limit: 10, windowMs: 60_000 })
   if (!success) {
@@ -14,7 +15,8 @@ export async function GET(
   }
 
   try {
-    const { token } = await params
+    if (!context) throw new Error('Missing params')
+    const { token } = await context.params
 
     // Get public invoice data (validates token)
     const pdfData = await getPublicInvoicePdfData(token)
@@ -35,3 +37,5 @@ export async function GET(
     return handleError(error)
   }
 }
+
+export const GET = withLogging(handleGet as any)

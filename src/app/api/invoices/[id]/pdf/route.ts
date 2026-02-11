@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getInvoicePdfData } from '@/lib/services/invoice.service'
 import { generateInvoicePdf } from '@/lib/services/pdf.service'
 import { handleError } from '@/lib/utils/errors'
+import { withLogging } from '@/lib/logging/route-handler'
 
-export async function GET(
+async function handleGet(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  context?: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params
+    if (!context) throw new Error('Missing params')
+    const { id } = await context.params
 
     // Get invoice data (includes auth check)
     const pdfData = await getInvoicePdfData(id)
@@ -29,3 +31,5 @@ export async function GET(
     return handleError(error)
   }
 }
+
+export const GET = withLogging(handleGet as any)
