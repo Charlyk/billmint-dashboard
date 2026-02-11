@@ -35,7 +35,7 @@ Full details: `.planning/milestones/v1.0-ROADMAP.md`
 **Plans**: 1 plan
 
 Plans:
-- [ ] 05-01-PLAN.md — Install posthog-node and track billing lifecycle events server-side
+- [x] 05-01-PLAN.md — Install posthog-node and track billing lifecycle events server-side — completed 2026-02-11
 
 #### Phase 6: Logging & Cleanup
 **Goal**: All API routes use withLogging wrapper and unused analytics code is removed
@@ -59,9 +59,9 @@ Plans:
 | 2. Service Migration | v1.0 | 3/3 | ✓ Complete | 2026-02-11 |
 | 3. Analytics Foundation | v1.0 | 1/1 | ✓ Complete | 2026-02-11 |
 | 4. Lifecycle Events | v1.0 | 3/3 | ✓ Complete | 2026-02-11 |
-| 5. Server-Side Analytics | v1.1 | 0/1 | In progress | - |
+| 5. Server-Side Analytics | v1.1 | 1/1 | ✓ Complete | 2026-02-11 |
 | 6. Logging & Cleanup | v1.1 | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-02-11*
-*Last updated: 2026-02-11 — v1.1 roadmap created*
+*Last updated: 2026-02-11 — Phase 5 complete*

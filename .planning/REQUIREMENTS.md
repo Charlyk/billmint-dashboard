@@ -9,10 +9,10 @@ Requirements for v1.1 release. Closes tech debt from v1.0.
 
 ### Server-Side Analytics
 
-- [ ] **SSA-01**: Stripe webhook handler tracks `subscription_activated` event via posthog-node when a new subscription is created
-- [ ] **SSA-02**: Stripe webhook handler tracks `plan_changed` event via posthog-node when a subscription plan is updated
-- [ ] **SSA-03**: Stripe webhook handler tracks `subscription_cancelled` event via posthog-node when a subscription is cancelled
-- [ ] **SSA-04**: posthog-node client is production-only and shuts down gracefully on process exit
+- [x] **SSA-01**: Stripe webhook handler tracks `subscription_activated` event via posthog-node when a new subscription is created
+- [x] **SSA-02**: Stripe webhook handler tracks `plan_changed` event via posthog-node when a subscription plan is updated
+- [x] **SSA-03**: Stripe webhook handler tracks `subscription_cancelled` event via posthog-node when a subscription is cancelled
+- [x] **SSA-04**: posthog-node client is production-only and shuts down gracefully on process exit
 
 ### Request Logging
 
@@ -57,10 +57,10 @@ Deferred to future release. Tracked but not in current roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SSA-01 | Phase 5 | Pending |
-| SSA-02 | Phase 5 | Pending |
-| SSA-03 | Phase 5 | Pending |
-| SSA-04 | Phase 5 | Pending |
+| SSA-01 | Phase 5 | ✓ Complete |
+| SSA-02 | Phase 5 | ✓ Complete |
+| SSA-03 | Phase 5 | ✓ Complete |
+| SSA-04 | Phase 5 | ✓ Complete |
 | LOG-06 | Phase 6 | Pending |
 | LOG-07 | Phase 6 | Pending |
 | CLN-01 | Phase 6 | Pending |
@@ -73,4 +73,4 @@ Deferred to future release. Tracked but not in current roadmap.
 
 ---
 *Requirements defined: 2026-02-11*
-*Last updated: 2026-02-11 — v1.1 roadmap created, 100% coverage*
+*Last updated: 2026-02-11 — Phase 5 complete, SSA-01 through SSA-04 verified*
