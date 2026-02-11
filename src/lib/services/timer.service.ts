@@ -3,6 +3,10 @@ import { requireAuth } from './auth.service'
 import { ValidationError, ConflictError, NotFoundError } from '@/lib/utils/errors'
 import type { ActiveTimer, TimeEntry } from '@/types/database'
 import type { TimerResponse } from '@/types/api'
+import { createServiceLogger } from '@/lib/logging/logger'
+import { sanitizeError } from '@/lib/logging/sanitizers'
+
+const log = createServiceLogger('timer')
 
 type TimerWithProject = ActiveTimer & { project: { id: string; name: string; color: string } | null }
 
@@ -16,7 +20,11 @@ export async function getActiveTimer(): Promise<TimerResponse> {
   }) as { data: TimerResponse | null; error: Error | null }
 
   if (error) {
-    console.error('[Timer] get_active_timer RPC error:', error)
+    log.error('RPC error getting active timer', {
+      operation: 'get_active_timer',
+      userId: currentUser.id,
+      error: sanitizeError(error),
+    })
     throw new ValidationError('Failed to get timer')
   }
 
@@ -43,7 +51,11 @@ export async function startTimer(input: {
     if (error.message?.includes('CONFLICT')) {
       throw new ConflictError('A timer is already running. Stop it first.')
     }
-    console.error('[Timer] start_timer RPC error:', error)
+    log.error('RPC error starting timer', {
+      operation: 'start_timer',
+      userId: currentUser.id,
+      error: sanitizeError(error),
+    })
     throw new ValidationError('Failed to start timer')
   }
 
@@ -67,7 +79,11 @@ export async function stopTimer(): Promise<{ timeEntry: TimeEntry }> {
     if (error.message?.includes('NOT_FOUND')) {
       throw new NotFoundError('No active timer to stop')
     }
-    console.error('[Timer] stop_timer RPC error:', error)
+    log.error('RPC error stopping timer', {
+      operation: 'stop_timer',
+      userId: currentUser.id,
+      error: sanitizeError(error),
+    })
     throw new ValidationError('Failed to stop timer')
   }
 
@@ -94,7 +110,11 @@ export async function pauseTimer(): Promise<TimerResponse> {
     if (error.message?.includes('CONFLICT')) {
       throw new ConflictError('Timer is already paused')
     }
-    console.error('[Timer] pause_timer RPC error:', error)
+    log.error('RPC error pausing timer', {
+      operation: 'pause_timer',
+      userId: currentUser.id,
+      error: sanitizeError(error),
+    })
     throw new ValidationError('Failed to pause timer')
   }
 
@@ -121,7 +141,11 @@ export async function resumeTimer(): Promise<TimerResponse> {
     if (error.message?.includes('CONFLICT')) {
       throw new ConflictError('Timer is not paused')
     }
-    console.error('[Timer] resume_timer RPC error:', error)
+    log.error('RPC error resuming timer', {
+      operation: 'resume_timer',
+      userId: currentUser.id,
+      error: sanitizeError(error),
+    })
     throw new ValidationError('Failed to resume timer')
   }
 
@@ -167,7 +191,11 @@ export async function syncTimer(input: {
   }) as { data: TimerResponse | null; error: Error | null }
 
   if (error) {
-    console.error('[Timer] sync_timer RPC error:', error)
+    log.error('RPC error syncing timer', {
+      operation: 'sync_timer',
+      userId: currentUser.id,
+      error: sanitizeError(error),
+    })
     throw new ValidationError('Failed to sync timer')
   }
 

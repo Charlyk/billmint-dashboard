@@ -1,6 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from './auth.service'
 import { ValidationError } from '@/lib/utils/errors'
+import { createServiceLogger } from '@/lib/logging/logger'
+import { sanitizeError } from '@/lib/logging/sanitizers'
+
+const log = createServiceLogger('logo')
 
 const BUCKET_NAME = 'logos'
 const MAX_FILE_SIZE = 2 * 1024 * 1024 // 2MB
@@ -49,7 +53,13 @@ export async function uploadLogo(file: File): Promise<string> {
     })
 
   if (uploadError) {
-    console.error('[Logo] Upload error:', uploadError)
+    log.error('Storage upload error', {
+      operation: 'upload_logo',
+      userId: currentUser.id,
+      bucketName: BUCKET_NAME,
+      fileName: filePath,
+      error: sanitizeError(uploadError),
+    })
     throw new ValidationError('Failed to upload logo')
   }
 
@@ -67,7 +77,11 @@ export async function uploadLogo(file: File): Promise<string> {
     .eq('user_id', currentUser.id)
 
   if (updateError) {
-    console.error('[Logo] Update settings error:', updateError)
+    log.error('Failed to update settings with logo URL', {
+      operation: 'update_settings_logo_url',
+      userId: currentUser.id,
+      error: sanitizeError(updateError),
+    })
     // Try to clean up the uploaded file
     await supabase.storage.from(BUCKET_NAME).remove([filePath])
     throw new ValidationError('Failed to save logo URL')
@@ -99,7 +113,13 @@ export async function deleteLogo(): Promise<void> {
       .remove([filePath])
 
     if (deleteError) {
-      console.error('[Logo] Delete storage error:', deleteError)
+      log.error('Storage delete error', {
+        operation: 'delete_logo',
+        userId: currentUser.id,
+        bucketName: BUCKET_NAME,
+        fileName: filePath,
+        error: sanitizeError(deleteError),
+      })
       // Continue anyway to clear the URL
     }
   }
@@ -111,7 +131,11 @@ export async function deleteLogo(): Promise<void> {
     .eq('user_id', currentUser.id)
 
   if (updateError) {
-    console.error('[Logo] Update settings error:', updateError)
+    log.error('Failed to clear logo URL from settings', {
+      operation: 'clear_logo_url',
+      userId: currentUser.id,
+      error: sanitizeError(updateError),
+    })
     throw new ValidationError('Failed to remove logo')
   }
 }

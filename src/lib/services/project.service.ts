@@ -3,6 +3,10 @@ import { requireAuth } from './auth.service'
 import { NotFoundError, ValidationError } from '@/lib/utils/errors'
 import type { Project, UpdateProject } from '@/types/database'
 import type { ProjectWithStats, ProjectListResponse } from '@/types/api'
+import { createServiceLogger } from '@/lib/logging/logger'
+import { sanitizeError } from '@/lib/logging/sanitizers'
+
+const log = createServiceLogger('project')
 
 export async function listProjects(options?: {
   page?: number
@@ -25,7 +29,11 @@ export async function listProjects(options?: {
   }) as { data: ProjectListResponse | null; error: Error | null }
 
   if (error) {
-    console.error('[Project] list_projects RPC error:', error)
+    log.error('RPC error listing projects', {
+      operation: 'list_projects',
+      userId: currentUser.id,
+      error: sanitizeError(error),
+    })
     throw new ValidationError('Failed to fetch projects')
   }
 
@@ -55,7 +63,12 @@ export async function getProjectById(id: string): Promise<ProjectWithStats> {
   }) as { data: ProjectWithStats | null; error: Error | null }
 
   if (error) {
-    console.error('[Project] get_project_with_stats RPC error:', error)
+    log.error('RPC error getting project with stats', {
+      operation: 'get_project_with_stats',
+      userId: currentUser.id,
+      projectId: id,
+      error: sanitizeError(error),
+    })
     throw new ValidationError('Failed to fetch project')
   }
 
@@ -93,7 +106,11 @@ export async function createProject(
   }) as { data: Project | null; error: Error | null }
 
   if (error) {
-    console.error('[Project] create_project RPC error:', error)
+    log.error('RPC error creating project', {
+      operation: 'create_project',
+      userId: currentUser.id,
+      error: sanitizeError(error),
+    })
     throw new ValidationError('Failed to create project')
   }
 
@@ -150,7 +167,12 @@ export async function deleteProject(id: string): Promise<void> {
   })
 
   if (error) {
-    console.error('[Project] delete_project RPC error:', error)
+    log.error('RPC error deleting project', {
+      operation: 'delete_project',
+      userId: currentUser.id,
+      projectId: id,
+      error: sanitizeError(error),
+    })
     throw new ValidationError('Failed to delete project')
   }
 }
