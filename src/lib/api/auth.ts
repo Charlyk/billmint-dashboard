@@ -1,5 +1,11 @@
 import { fetcher } from './client'
 import type { AuthResponse, SessionResponse } from '@/types/api'
+import { analytics } from '@/lib/analytics/events'
+
+// Note: first_project_created, first_timer_started, first_invoice_sent funnel events
+// are defined in analytics/events.ts but require server-side detection (DB count queries)
+// and posthog-node for reliable tracking. PostHog's built-in "First time event" filter
+// provides equivalent funnel analysis using the standard CRUD events.
 
 export async function signup(
   email: string,
@@ -7,10 +13,12 @@ export async function signup(
   fullName: string,
   timezone?: string
 ): Promise<AuthResponse> {
-  return fetcher<AuthResponse>('/api/auth/signup', {
+  const result = await fetcher<AuthResponse>('/api/auth/signup', {
     method: 'POST',
     body: JSON.stringify({ email, password, full_name: fullName, timezone }),
   })
+  analytics.signupCompleted()
+  return result
 }
 
 export async function login(
