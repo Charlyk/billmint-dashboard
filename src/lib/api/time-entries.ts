@@ -10,6 +10,7 @@ import type {
   UpdateTimeEntryInput,
   TimeEntriesQuery,
 } from '@/lib/utils/validation'
+import { analytics } from '@/lib/analytics/events'
 
 export async function listTimeEntries(
   options?: TimeEntriesQuery
@@ -36,24 +37,33 @@ export async function getTimeEntry(id: string): Promise<TimeEntryWithDetails> {
 export async function createTimeEntry(
   data: CreateTimeEntryInput
 ): Promise<TimeEntry> {
-  return fetcher<TimeEntry>('/api/time-entries', {
+  const result = await fetcher<TimeEntry>('/api/time-entries', {
     method: 'POST',
     body: JSON.stringify(data),
   })
+  analytics.timeEntryCreated({
+    entry_id: result.id,
+    duration_seconds: result.duration_seconds,
+    is_billable: result.is_billable,
+  })
+  return result
 }
 
 export async function updateTimeEntry(
   id: string,
   data: UpdateTimeEntryInput
 ): Promise<TimeEntry> {
-  return fetcher<TimeEntry>(`/api/time-entries/${id}`, {
+  const result = await fetcher<TimeEntry>(`/api/time-entries/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(data),
   })
+  analytics.timeEntryEdited({ entry_id: result.id })
+  return result
 }
 
 export async function deleteTimeEntry(id: string): Promise<void> {
   await fetcher(`/api/time-entries/${id}`, { method: 'DELETE' })
+  analytics.timeEntryDeleted({ entry_id: id })
 }
 
 export async function getUnbilledTimeEntries(
