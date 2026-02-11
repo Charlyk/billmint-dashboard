@@ -46,10 +46,12 @@ Plans:
   4. Stripe webhook events log complete lifecycle: received, validated, processed, response sent
   5. Webhook logging is async (fire-and-forget) with response times under 3 seconds to prevent Stripe timeouts
   6. Cron jobs (timer auto-pause, email summaries) log execution start, duration, success/failure, items processed
-**Plans**: TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 02-01: TBD (will be created during plan-phase)
+- [ ] 02-01-PLAN.md — Migrate invoice.service.ts (16 calls) and email.service.ts (11 calls)
+- [ ] 02-02-PLAN.md — Migrate user, auth, timer, project, and logo services (32 calls)
+- [ ] 02-03-PLAN.md — Remaining services, webhook lifecycle logging, cron execution logging
 
 ### Phase 3: Analytics Foundation
 **Goal**: PostHog anonymous analytics with automatic page view tracking active in production
@@ -88,7 +90,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Logging Foundation | 2/2 | ✓ Complete | 2026-02-11 |
-| 2. Service Migration | 0/TBD | Not started | - |
+| 2. Service Migration | 0/3 | Not started | - |
 | 3. Analytics Foundation | 0/TBD | Not started | - |
 | 4. Lifecycle Events | 0/TBD | Not started | - |
 
