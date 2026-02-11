@@ -77,10 +77,12 @@ Plans:
   3. Billing events captured: checkout started, subscription activated, plan changed, subscription cancelled
   4. CRUD events captured: client created/edited/deleted, project created/edited/archived, time entry created/edited/deleted
   5. Funnel-ready events captured: signup completed, first project created, first timer started, first invoice sent
-**Plans**: TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 04-01: TBD (will be created during plan-phase)
+- [ ] 04-01-PLAN.md — Analytics events module and timer lifecycle tracking
+- [ ] 04-02-PLAN.md — Invoice lifecycle and billing event tracking
+- [ ] 04-03-PLAN.md — CRUD events and funnel-ready event tracking
 
 ## Progress
 
@@ -92,8 +94,8 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 1. Logging Foundation | 2/2 | ✓ Complete | 2026-02-11 |
 | 2. Service Migration | 3/3 | ✓ Complete | 2026-02-11 |
 | 3. Analytics Foundation | 1/1 | ✓ Complete | 2026-02-11 |
-| 4. Lifecycle Events | 0/TBD | Not started | - |
+| 4. Lifecycle Events | 0/3 | Not started | - |
 
 ---
 *Roadmap created: 2026-02-11*
-*Last updated: 2026-02-11 — Phase 3 complete*
+*Last updated: 2026-02-11 — Phase 4 planned*
