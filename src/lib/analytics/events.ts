@@ -153,20 +153,8 @@ export const analytics = {
     track('time_entry_deleted', props)
   },
 
-  // Funnel-ready events (EVT-05)
+  // Signup event
   signupCompleted() {
     track('signup_completed')
-  },
-
-  firstProjectCreated() {
-    track('first_project_created')
-  },
-
-  firstTimerStarted() {
-    track('first_timer_started')
-  },
-
-  firstInvoiceSent() {
-    track('first_invoice_sent')
   },
 }
