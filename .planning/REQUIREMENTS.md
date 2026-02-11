@@ -29,10 +29,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Analytics Foundation
 
-- [ ] **ANA-01**: PostHog provider is integrated in the app layout with anonymous-only tracking
-- [ ] **ANA-02**: Page views are tracked automatically on route changes
-- [ ] **ANA-03**: PostHog is active in production only — disabled in development
-- [ ] **ANA-04**: No PII (email, name, user ID) is sent to PostHog
+- [x] **ANA-01**: PostHog provider is integrated in the app layout with anonymous-only tracking
+- [x] **ANA-02**: Page views are tracked automatically on route changes
+- [x] **ANA-03**: PostHog is active in production only — disabled in development
+- [x] **ANA-04**: No PII (email, name, user ID) is sent to PostHog
 
 ### Lifecycle Events
 
@@ -87,10 +87,10 @@ Deferred to future release. Tracked but not in current roadmap.
 | WH-01 | Phase 2 | Pending |
 | WH-02 | Phase 2 | Pending |
 | CRON-01 | Phase 2 | Pending |
-| ANA-01 | Phase 3 | Pending |
-| ANA-02 | Phase 3 | Pending |
-| ANA-03 | Phase 3 | Pending |
-| ANA-04 | Phase 3 | Pending |
+| ANA-01 | Phase 3 | Done |
+| ANA-02 | Phase 3 | Done |
+| ANA-03 | Phase 3 | Done |
+| ANA-04 | Phase 3 | Done |
 | EVT-01 | Phase 4 | Pending |
 | EVT-02 | Phase 4 | Pending |
 | EVT-03 | Phase 4 | Pending |
@@ -104,4 +104,4 @@ Deferred to future release. Tracked but not in current roadmap.
 
 ---
 *Requirements defined: 2026-02-11*
-*Last updated: 2026-02-11 — Phase 1 requirements complete*
+*Last updated: 2026-02-11 — Phase 3 requirements complete*
