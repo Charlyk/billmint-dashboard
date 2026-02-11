@@ -11,6 +11,10 @@ import type {
   InvoicePdfData,
 } from '@/types/api'
 import { sendInvoiceSentEmail, sendInvoiceReminderEmail } from './email.service'
+import { createServiceLogger } from '@/lib/logging/logger'
+import { sanitizeError } from '@/lib/logging/sanitizers'
+
+const log = createServiceLogger('invoice')
 
 export async function listInvoices(
   options?: InvoicesQuery
@@ -36,7 +40,12 @@ export async function listInvoices(
   const { data, error } = await (supabase.rpc as any)('list_invoices', params)
 
   if (error) {
-    console.error('[Invoice] list_invoices RPC error:', error.message, error.details, error.hint)
+    log.error('Failed to fetch invoices', {
+      operation: 'list_invoices',
+      error: sanitizeError(error),
+      userId: currentUser.id,
+      params: { page, limit, client_id: options?.client_id, status: options?.status }
+    })
     throw new ValidationError('Failed to fetch invoices')
   }
 
@@ -61,7 +70,12 @@ export async function getInvoiceById(id: string): Promise<InvoiceWithDetails> {
     if (error.message?.includes('NOT_FOUND')) {
       throw new NotFoundError('Invoice')
     }
-    console.error('[Invoice] get_invoice_with_details RPC error:', error)
+    log.error('Failed to fetch invoice details', {
+      operation: 'get_invoice_with_details',
+      error: sanitizeError(error),
+      invoiceId: id,
+      userId: currentUser.id
+    })
     throw new ValidationError('Failed to fetch invoice')
   }
 
@@ -101,7 +115,12 @@ export async function createInvoice(input: {
   }) as { data: InvoiceWithDetails | null; error: Error | null }
 
   if (error) {
-    console.error('[Invoice] create_invoice RPC error:', error)
+    log.error('Failed to create invoice', {
+      operation: 'create_invoice',
+      error: sanitizeError(error),
+      userId: currentUser.id,
+      clientId: input.client_id
+    })
     throw new ValidationError('Failed to create invoice')
   }
 
@@ -149,7 +168,12 @@ export async function updateInvoice(
     if (error.message?.includes('VALIDATION')) {
       throw new ValidationError(error.message.replace('VALIDATION: ', ''))
     }
-    console.error('[Invoice] update_invoice RPC error:', error)
+    log.error('Failed to update invoice', {
+      operation: 'update_invoice',
+      error: sanitizeError(error),
+      invoiceId: id,
+      userId: currentUser.id
+    })
     throw new ValidationError('Failed to update invoice')
   }
 
@@ -177,7 +201,12 @@ export async function deleteInvoice(id: string): Promise<void> {
     if (error.message?.includes('VALIDATION')) {
       throw new ValidationError(error.message.replace('VALIDATION: ', ''))
     }
-    console.error('[Invoice] delete_invoice RPC error:', error)
+    log.error('Failed to delete invoice', {
+      operation: 'delete_invoice',
+      error: sanitizeError(error),
+      invoiceId: id,
+      userId: currentUser.id
+    })
     throw new ValidationError('Failed to delete invoice')
   }
 }
@@ -219,7 +248,13 @@ export async function sendInvoice(id: string): Promise<Invoice> {
     if (fetchError.message?.includes('NOT_FOUND')) {
       throw new NotFoundError('Invoice')
     }
-    console.error('[Invoice] get_invoice_for_email RPC error:', fetchError)
+    log.error('Failed to fetch invoice for email', {
+      operation: 'get_invoice_for_email',
+      action: 'send',
+      error: sanitizeError(fetchError),
+      invoiceId: id,
+      userId: currentUser.id
+    })
     throw new ValidationError('Failed to fetch invoice')
   }
 
@@ -265,7 +300,13 @@ export async function sendInvoice(id: string): Promise<Invoice> {
       fromName,
     })
   } catch (emailError) {
-    console.error('Failed to send invoice email:', emailError)
+    log.error('Failed to send invoice email', {
+      operation: 'send_invoice',
+      error: sanitizeError(emailError),
+      invoiceId: id,
+      invoiceNumber: emailData.invoice.invoice_number,
+      clientEmail: emailData.client.email
+    })
     throw new ValidationError('Failed to send invoice email')
   }
 
@@ -278,7 +319,13 @@ export async function sendInvoice(id: string): Promise<Invoice> {
   }) as { data: Invoice | null; error: Error | null }
 
   if (error || !updatedInvoice) {
-    console.error('[Invoice] update_invoice_status RPC error:', error)
+    log.error('Failed to update invoice status', {
+      operation: 'update_invoice_status',
+      action: 'send',
+      error: sanitizeError(error),
+      invoiceId: id,
+      userId: currentUser.id
+    })
     throw new ValidationError('Failed to update invoice status')
   }
 
@@ -300,7 +347,13 @@ export async function sendReminder(id: string): Promise<Invoice> {
     if (fetchError.message?.includes('NOT_FOUND')) {
       throw new NotFoundError('Invoice')
     }
-    console.error('[Invoice] get_invoice_for_email RPC error:', fetchError)
+    log.error('Failed to fetch invoice for email', {
+      operation: 'get_invoice_for_email',
+      action: 'reminder',
+      error: sanitizeError(fetchError),
+      invoiceId: id,
+      userId: currentUser.id
+    })
     throw new ValidationError('Failed to fetch invoice')
   }
 
@@ -356,7 +409,12 @@ export async function sendReminder(id: string): Promise<Invoice> {
 
   // Send reminder using email service
   try {
-    console.log('[Invoice] Sending reminder email to:', emailData.client.email)
+    log.info('Sending reminder email for invoice', {
+      operation: 'send_reminder',
+      invoiceId: id,
+      invoiceNumber: emailData.invoice.invoice_number,
+      clientEmail: emailData.client.email
+    })
     await sendInvoiceReminderEmail({
       to: emailData.client.email,
       clientName: emailData.client.name,
@@ -369,9 +427,19 @@ export async function sendReminder(id: string): Promise<Invoice> {
       invoiceUrl,
       fromName,
     })
-    console.log('[Invoice] Reminder email sent')
+    log.info('Reminder email sent successfully', {
+      operation: 'send_reminder',
+      invoiceId: id,
+      invoiceNumber: emailData.invoice.invoice_number
+    })
   } catch (emailError) {
-    console.error('Failed to send reminder email:', emailError)
+    log.error('Failed to send reminder email', {
+      operation: 'send_reminder',
+      error: sanitizeError(emailError),
+      invoiceId: id,
+      invoiceNumber: emailData.invoice.invoice_number,
+      clientEmail: emailData.client.email
+    })
     throw new ValidationError('Failed to send reminder email')
   }
 
@@ -384,7 +452,13 @@ export async function sendReminder(id: string): Promise<Invoice> {
   }) as { data: Invoice | null; error: Error | null }
 
   if (error || !updatedInvoice) {
-    console.error('[Invoice] update_invoice_status RPC error:', error)
+    log.error('Failed to update invoice status', {
+      operation: 'update_invoice_status',
+      action: 'reminder',
+      error: sanitizeError(error),
+      invoiceId: id,
+      userId: currentUser.id
+    })
     throw new ValidationError('Failed to update invoice')
   }
 
@@ -409,7 +483,13 @@ export async function markInvoiceAsPaid(id: string): Promise<Invoice> {
     if (error.message?.includes('VALIDATION')) {
       throw new ValidationError(error.message.replace('VALIDATION: ', ''))
     }
-    console.error('[Invoice] update_invoice_status RPC error:', error)
+    log.error('Failed to mark invoice as paid', {
+      operation: 'update_invoice_status',
+      action: 'paid',
+      error: sanitizeError(error),
+      invoiceId: id,
+      userId: currentUser.id
+    })
     throw new ValidationError('Failed to mark invoice as paid')
   }
 
@@ -438,7 +518,13 @@ export async function voidInvoice(id: string): Promise<Invoice> {
     if (error.message?.includes('VALIDATION')) {
       throw new ValidationError(error.message.replace('VALIDATION: ', ''))
     }
-    console.error('[Invoice] update_invoice_status RPC error:', error)
+    log.error('Failed to void invoice', {
+      operation: 'update_invoice_status',
+      action: 'void',
+      error: sanitizeError(error),
+      invoiceId: id,
+      userId: currentUser.id
+    })
     throw new ValidationError('Failed to void invoice')
   }
 
@@ -461,7 +547,11 @@ export async function getPublicInvoice(token: string): Promise<PublicInvoiceResp
     if (error.message?.includes('NOT_FOUND')) {
       throw new NotFoundError('Invoice')
     }
-    console.error('[Invoice] get_public_invoice RPC error:', error)
+    log.error('Failed to fetch public invoice', {
+      operation: 'get_public_invoice',
+      error: sanitizeError(error),
+      token: token.substring(0, 8) + '...'
+    })
     throw new ValidationError('Failed to fetch invoice')
   }
 
