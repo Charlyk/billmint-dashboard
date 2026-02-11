@@ -2,8 +2,9 @@ import { NextRequest } from 'next/server'
 import { listInvoices, createInvoice } from '@/lib/services/invoice.service'
 import { createInvoiceSchema, invoicesQuerySchema } from '@/lib/utils/validation'
 import { handleError, ValidationError } from '@/lib/utils/errors'
+import { withLogging } from '@/lib/logging/route-handler'
 
-export async function GET(request: NextRequest) {
+async function handleGet(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
 
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function handlePost(request: NextRequest) {
   try {
     const body = await request.json()
     const parsed = createInvoiceSchema.safeParse(body)
@@ -55,3 +56,6 @@ export async function POST(request: NextRequest) {
     return handleError(error)
   }
 }
+
+export const GET = withLogging(handleGet)
+export const POST = withLogging(handlePost)
