@@ -29,10 +29,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Every API request generates a unique correlation ID propagated through all downstream logs
   4. All API routes automatically log request method, path, status code, and response time
   5. Error logs include full stack traces with sanitized context (no PII, payment data, or session tokens)
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 01-01: TBD (will be created during plan-phase)
+- [ ] 01-01-PLAN.md — Core logging infrastructure (types, Axiom client, logger, PII sanitizers, env gating)
+- [ ] 01-02-PLAN.md — Correlation IDs, middleware logging, route handler wrapper, example routes
 
 ### Phase 2: Service Migration
 **Goal**: All backend services use Axiom logger with service-scoped context, replacing scattered console calls
@@ -86,7 +87,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Logging Foundation | 0/TBD | Not started | - |
+| 1. Logging Foundation | 0/2 | Not started | - |
 | 2. Service Migration | 0/TBD | Not started | - |
 | 3. Analytics Foundation | 0/TBD | Not started | - |
 | 4. Lifecycle Events | 0/TBD | Not started | - |
