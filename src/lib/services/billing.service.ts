@@ -6,6 +6,7 @@ import Stripe from 'stripe'
 import { createServiceLogger } from '@/lib/logging/logger'
 import { sanitizeError } from '@/lib/logging/sanitizers'
 import { getCorrelationId } from '@/lib/logging/correlation'
+import { serverAnalytics } from '@/lib/analytics/posthog-server'
 
 const log = createServiceLogger('billing')
 
@@ -225,6 +226,9 @@ export async function handleWebhook(
             p_stripe_subscription_id: session.subscription as string,
           })
 
+          // Track subscription activation (SSA-01)
+          serverAnalytics.subscriptionActivated({ userId, tier })
+
           log.info('Webhook processed', {
             correlationId,
             eventId: event.id,
@@ -248,6 +252,10 @@ export async function handleWebhook(
             p_stripe_customer_id: customerId,
           })
 
+          // Track plan change (SSA-02)
+          // Note: Using customerId as distinctId - webhook doesn't include userId
+          serverAnalytics.planChanged({ userId: customerId, from_tier: 'paid', to_tier: 'free' })
+
           log.info('Webhook processed', {
             correlationId,
             eventId: event.id,
@@ -269,6 +277,10 @@ export async function handleWebhook(
           p_event_type: 'customer.subscription.deleted',
           p_stripe_customer_id: customerId,
         })
+
+        // Track subscription cancellation (SSA-03)
+        // Note: Using customerId as distinctId - webhook doesn't include userId
+        serverAnalytics.subscriptionCancelled({ userId: customerId, tier: 'free' })
 
         log.info('Webhook processed', {
           correlationId,
