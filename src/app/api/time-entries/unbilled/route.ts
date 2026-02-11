@@ -1,8 +1,9 @@
 import { NextRequest } from 'next/server'
 import { getUnbilledTimeEntries } from '@/lib/services/time-entry.service'
 import { handleError } from '@/lib/utils/errors'
+import { withLogging } from '@/lib/logging/route-handler'
 
-export async function GET(request: NextRequest) {
+async function handleGet(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const clientId = searchParams.get('clientId') || undefined
@@ -13,3 +14,5 @@ export async function GET(request: NextRequest) {
     return handleError(error)
   }
 }
+
+export const GET = withLogging(handleGet)

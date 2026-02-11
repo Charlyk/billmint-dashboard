@@ -1,7 +1,8 @@
 import { resumeTimer } from '@/lib/services/timer.service'
 import { handleError } from '@/lib/utils/errors'
+import { withLogging } from '@/lib/logging/route-handler'
 
-export async function POST() {
+async function handlePost() {
   try {
     const timer = await resumeTimer()
     return Response.json({ data: timer })
@@ -9,3 +10,5 @@ export async function POST() {
     return handleError(error)
   }
 }
+
+export const POST = withLogging(handlePost)

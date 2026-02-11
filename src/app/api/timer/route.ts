@@ -1,8 +1,9 @@
 import { getActiveTimer, updateTimerDetails } from '@/lib/services/timer.service'
 import { handleError, ValidationError } from '@/lib/utils/errors'
 import { NextRequest } from 'next/server'
+import { withLogging } from '@/lib/logging/route-handler'
 
-export async function GET() {
+async function handleGet() {
   try {
     const timer = await getActiveTimer()
     return Response.json({ data: timer })
@@ -11,7 +12,7 @@ export async function GET() {
   }
 }
 
-export async function PATCH(request: NextRequest) {
+async function handlePatch(request: NextRequest) {
   try {
     const body = await request.json()
 
@@ -34,3 +35,6 @@ export async function PATCH(request: NextRequest) {
     return handleError(error)
   }
 }
+
+export const GET = withLogging(handleGet)
+export const PATCH = withLogging(handlePatch)

@@ -1,7 +1,8 @@
 import { stopTimer } from '@/lib/services/timer.service'
 import { handleError } from '@/lib/utils/errors'
+import { withLogging } from '@/lib/logging/route-handler'
 
-export async function POST() {
+async function handlePost() {
   try {
     const result = await stopTimer()
     return Response.json({ data: result })
@@ -9,3 +10,5 @@ export async function POST() {
     return handleError(error)
   }
 }
+
+export const POST = withLogging(handlePost)
