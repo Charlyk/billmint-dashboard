@@ -36,11 +36,11 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Lifecycle Events
 
-- [ ] **EVT-01**: Timer lifecycle events tracked: start, pause, resume, stop, discard
-- [ ] **EVT-02**: Invoice lifecycle events tracked: create, send, view (public), mark paid, void
-- [ ] **EVT-03**: Billing events tracked: checkout started, subscription activated, plan changed, subscription cancelled
-- [ ] **EVT-04**: CRUD events tracked: client created/edited/deleted, project created/edited/archived, time entry created/edited/deleted
-- [ ] **EVT-05**: Funnel-ready events tracked: signup completed, first project created, first timer started, first invoice sent
+- [x] **EVT-01**: Timer lifecycle events tracked: start, pause, resume, stop, discard
+- [x] **EVT-02**: Invoice lifecycle events tracked: create, send, view (public), mark paid, void
+- [x] **EVT-03**: Billing events tracked: checkout started, subscription activated, plan changed, subscription cancelled
+- [x] **EVT-04**: CRUD events tracked: client created/edited/deleted, project created/edited/archived, time entry created/edited/deleted
+- [x] **EVT-05**: Funnel-ready events tracked: signup completed, first project created, first timer started, first invoice sent
 
 ## v2 Requirements
 
@@ -91,11 +91,11 @@ Deferred to future release. Tracked but not in current roadmap.
 | ANA-02 | Phase 3 | Done |
 | ANA-03 | Phase 3 | Done |
 | ANA-04 | Phase 3 | Done |
-| EVT-01 | Phase 4 | Pending |
-| EVT-02 | Phase 4 | Pending |
-| EVT-03 | Phase 4 | Pending |
-| EVT-04 | Phase 4 | Pending |
-| EVT-05 | Phase 4 | Pending |
+| EVT-01 | Phase 4 | Done |
+| EVT-02 | Phase 4 | Done |
+| EVT-03 | Phase 4 | Done |
+| EVT-04 | Phase 4 | Done |
+| EVT-05 | Phase 4 | Done |
 
 **Coverage:**
 - v1 requirements: 20 total
