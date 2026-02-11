@@ -3,6 +3,9 @@ import { listInvoices, createInvoice } from '@/lib/services/invoice.service'
 import { createInvoiceSchema, invoicesQuerySchema } from '@/lib/utils/validation'
 import { handleError, ValidationError } from '@/lib/utils/errors'
 import { withLogging } from '@/lib/logging/route-handler'
+import { createServiceLogger } from '@/lib/logging/logger'
+
+const log = createServiceLogger('invoice')
 
 async function handleGet(request: NextRequest) {
   try {
@@ -28,7 +31,7 @@ async function handleGet(request: NextRequest) {
 
     const parsed = invoicesQuerySchema.safeParse(rawOptions)
     if (!parsed.success) {
-      console.warn('[Invoices API] Query validation failed:', parsed.error.flatten())
+      log.warn('Query validation failed', { errors: parsed.error.flatten() })
     }
     const options = parsed.success ? parsed.data : { page: 1, limit: 20 }
 

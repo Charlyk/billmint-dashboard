@@ -1,6 +1,10 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { sendTimerAutoPausedEmail } from './email.service'
 import type { Database } from '@/types/database'
+import { createServiceLogger } from '@/lib/logging/logger'
+import { sanitizeError } from '@/lib/logging/sanitizers'
+
+const log = createServiceLogger('cron')
 
 // Lazy initialization to avoid build-time env var issues
 let supabaseInstance: SupabaseClient<Database> | null = null
@@ -39,6 +43,10 @@ export interface AutoPauseResult {
  * Uses a Supabase function for atomic operation, then sends email notifications.
  */
 export async function autopauseStaleTimers(): Promise<AutoPauseResult> {
+  const startTime = Date.now()
+
+  log.info('Starting timer auto-pause job')
+
   const result: AutoPauseResult = {
     processed: 0,
     paused: 0,
@@ -53,11 +61,17 @@ export async function autopauseStaleTimers(): Promise<AutoPauseResult> {
 
   if (rpcError) {
     result.errors.push(`Failed to execute autopause function: ${rpcError.message}`)
-    console.error('[Cron] RPC error:', rpcError)
+    log.error('Auto-pause RPC failed', {
+      duration: Date.now() - startTime,
+      error: sanitizeError(rpcError)
+    })
     return result
   }
 
   if (!pausedTimers || pausedTimers.length === 0) {
+    log.info('Auto-pause completed - no timers to pause', {
+      duration: Date.now() - startTime
+    })
     return result
   }
 
@@ -93,10 +107,20 @@ export async function autopauseStaleTimers(): Promise<AutoPauseResult> {
     } catch (emailError) {
       // Log email error but don't fail the whole operation
       const errorMessage = emailError instanceof Error ? emailError.message : String(emailError)
-      console.error(`[Cron] Failed to send email for timer ${timer.timer_id}:`, emailError)
+      log.error('Failed to send auto-pause notification email', {
+        timerId: timer.timer_id,
+        error: sanitizeError(emailError)
+      })
       result.errors.push(`Failed to send email for timer ${timer.timer_id}: ${errorMessage}`)
     }
   }
+
+  log.info('Auto-pause job completed', {
+    duration: Date.now() - startTime,
+    processed: result.processed,
+    paused: result.paused,
+    emailErrors: result.errors.length
+  })
 
   return result
 }
