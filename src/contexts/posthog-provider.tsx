@@ -11,6 +11,7 @@ export function PHProvider({ children }: { children: ReactNode }) {
     if (isProduction && POSTHOG_KEY) {
       posthog.init(POSTHOG_KEY, {
         api_host: POSTHOG_HOST,
+        defaults: '2026-01-30',
         // Anonymous-only tracking - no user profiles created
         person_profiles: 'identified_only',
         // Disable auto page view capture (manual tracking required for App Router)
