@@ -46,10 +46,11 @@ Plans:
   2. All API requests log method, path, status code, and response time
   3. Unused first_project_created, first_timer_started, first_invoice_sent helpers removed from events.ts
   4. PostHog "First time event" filter decision documented in PROJECT.md or inline comments
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 06-01: TBD
+- [ ] 06-01-PLAN.md — Apply withLogging wrapper to all CRUD, business, and infrastructure API routes
+- [ ] 06-02-PLAN.md — Apply withLogging to auth routes and remove unused analytics first_* helpers
 
 ## Progress
 
