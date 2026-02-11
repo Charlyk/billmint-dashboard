@@ -3,6 +3,10 @@ import { requireAuth } from './auth.service'
 import { NotFoundError, ValidationError } from '@/lib/utils/errors'
 import type { Client, UpdateClient } from '@/types/database'
 import type { ClientWithStats, ClientListResponse } from '@/types/api'
+import { createServiceLogger } from '@/lib/logging/logger'
+import { sanitizeError } from '@/lib/logging/sanitizers'
+
+const log = createServiceLogger('client')
 
 export async function listClients(options?: {
   page?: number
@@ -23,7 +27,11 @@ export async function listClients(options?: {
   }) as { data: ClientListResponse | null; error: Error | null }
 
   if (error) {
-    console.error('[Client] list_clients RPC error:', error)
+    log.error('Failed to list clients', {
+      operation: 'list_clients',
+      userId: currentUser.id,
+      error: sanitizeError(error)
+    })
     throw new ValidationError('Failed to fetch clients')
   }
 
@@ -53,7 +61,12 @@ export async function getClientById(id: string): Promise<ClientWithStats> {
   }) as { data: ClientWithStats | null; error: Error | null }
 
   if (error) {
-    console.error('[Client] get_client_with_stats RPC error:', error)
+    log.error('Failed to get client with stats', {
+      operation: 'get_client_with_stats',
+      userId: currentUser.id,
+      clientId: id,
+      error: sanitizeError(error)
+    })
     throw new ValidationError('Failed to fetch client')
   }
 
@@ -130,7 +143,12 @@ export async function deleteClient(id: string): Promise<void> {
   })
 
   if (error) {
-    console.error('[Client] delete_client RPC error:', error)
+    log.error('Failed to delete client', {
+      operation: 'delete_client',
+      userId: currentUser.id,
+      clientId: id,
+      error: sanitizeError(error)
+    })
     throw new ValidationError('Failed to delete client')
   }
 }

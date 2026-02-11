@@ -8,6 +8,10 @@ import type {
   UnbilledTimeEntriesResponse,
   TimeEntriesQuery,
 } from '@/types/api'
+import { createServiceLogger } from '@/lib/logging/logger'
+import { sanitizeError } from '@/lib/logging/sanitizers'
+
+const log = createServiceLogger('time-entry')
 
 export async function listTimeEntries(
   options?: TimeEntriesQuery
@@ -30,7 +34,11 @@ export async function listTimeEntries(
   }) as { data: TimeEntryListResponse | null; error: Error | null }
 
   if (error) {
-    console.error('[TimeEntry] list_time_entries RPC error:', error)
+    log.error('Failed to list time entries', {
+      operation: 'list_time_entries',
+      userId: currentUser.id,
+      error: sanitizeError(error)
+    })
     throw new ValidationError('Failed to fetch time entries')
   }
 
@@ -134,7 +142,12 @@ export async function createTimeEntry(
   }) as { data: TimeEntry | null; error: Error | null }
 
   if (error) {
-    console.error('[TimeEntry] create_time_entry RPC error:', error)
+    log.error('Failed to create time entry', {
+      operation: 'create_time_entry',
+      userId: currentUser.id,
+      projectId: input.project_id,
+      error: sanitizeError(error)
+    })
     throw new ValidationError('Failed to create time entry')
   }
 
@@ -232,7 +245,12 @@ export async function getUnbilledTimeEntries(
   }) as { data: UnbilledTimeEntriesResponse | null; error: Error | null }
 
   if (error) {
-    console.error('[TimeEntry] get_unbilled_time_entries RPC error:', error)
+    log.error('Failed to get unbilled time entries', {
+      operation: 'get_unbilled_time_entries',
+      userId: currentUser.id,
+      clientId,
+      error: sanitizeError(error)
+    })
     throw new ValidationError('Failed to fetch unbilled time entries')
   }
 

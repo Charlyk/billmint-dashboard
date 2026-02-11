@@ -2,6 +2,10 @@ import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from './auth.service'
 import { ValidationError } from '@/lib/utils/errors'
 import type { TimeReport } from '@/types/api'
+import { createServiceLogger } from '@/lib/logging/logger'
+import { sanitizeError } from '@/lib/logging/sanitizers'
+
+const log = createServiceLogger('report')
 
 export async function generateTimeReport(options: {
   start_date: string
@@ -22,7 +26,15 @@ export async function generateTimeReport(options: {
   }) as { data: TimeReport | null; error: Error | null }
 
   if (error) {
-    console.error('[Report] generate_time_report RPC error:', error)
+    log.error('Failed to generate time report', {
+      operation: 'generate_time_report',
+      userId: currentUser.id,
+      startDate: options.start_date,
+      endDate: options.end_date,
+      projectId: options.project_id,
+      clientId: options.client_id,
+      error: sanitizeError(error)
+    })
     throw new ValidationError('Failed to generate report')
   }
 

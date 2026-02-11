@@ -1,6 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from './auth.service'
 import type { DashboardStats, RecentActivity, TimeEntryWithDetails, AmountByCurrency, OverdueInvoiceSummary } from '@/types/api'
+import { createServiceLogger } from '@/lib/logging/logger'
+import { sanitizeError } from '@/lib/logging/sanitizers'
+
+const log = createServiceLogger('dashboard')
 
 // Type for the Supabase function response
 interface DashboardDataResponse {
@@ -58,7 +62,11 @@ export async function getDashboardData(recentEntriesLimit: number = 10): Promise
   }) as { data: DashboardDataResponse | null; error: Error | null }
 
   if (error) {
-    console.error('[Dashboard] RPC error:', error)
+    log.error('Failed to fetch dashboard data', {
+      operation: 'get_dashboard_data',
+      userId: currentUser.id,
+      error: sanitizeError(error)
+    })
     throw new Error(`Failed to fetch dashboard data: ${error.message}`)
   }
 
