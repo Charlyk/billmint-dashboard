@@ -3,19 +3,27 @@ import { requireAuth } from './auth.service'
 import { ValidationError } from '@/lib/utils/errors'
 import type { SubscriptionResponse, CheckoutSessionResponse, PortalSessionResponse, StripeInvoicesResponse } from '@/types/api'
 import Stripe from 'stripe'
+import { createServiceLogger } from '@/lib/logging/logger'
+import { sanitizeError } from '@/lib/logging/sanitizers'
+import { getCorrelationId } from '@/lib/logging/correlation'
+
+const log = createServiceLogger('billing')
 
 // Lazy initialization of Stripe to avoid build errors
 let stripeInstance: Stripe | null = null
+let stripeKeyUsed: string | null = null
 
 function getStripe(): Stripe {
-  if (!stripeInstance) {
-    const secretKey = process.env.STRIPE_SECRET_KEY
-    if (!secretKey) {
-      throw new ValidationError('Stripe is not configured')
-    }
+  const secretKey = process.env.STRIPE_SECRET_KEY
+  if (!secretKey) {
+    throw new ValidationError('Stripe is not configured')
+  }
+  // Re-create instance if key has changed (e.g. rotation)
+  if (!stripeInstance || stripeKeyUsed !== secretKey) {
     stripeInstance = new Stripe(secretKey, {
       apiVersion: '2026-01-28.clover' as Stripe.LatestApiVersion,
     })
+    stripeKeyUsed = secretKey
   }
   return stripeInstance
 }
@@ -69,7 +77,11 @@ export async function getSubscription(): Promise<SubscriptionResponse> {
       },
     }
   } catch (error) {
-    console.error('Failed to retrieve Stripe subscription:', error)
+    log.error('Failed to retrieve Stripe subscription', {
+      operation: 'getSubscription',
+      userId: currentUser.id,
+      error: sanitizeError(error)
+    })
     return {
       tier: user.tier,
       subscription: null,
@@ -169,70 +181,127 @@ export async function handleWebhook(
   body: string,
   signature: string
 ): Promise<void> {
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!
+  const startTime = Date.now()
+  const correlationId = getCorrelationId() || crypto.randomUUID()
+
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
+  if (!webhookSecret) {
+    throw new ValidationError('Stripe webhook secret is not configured')
+  }
 
   let event: Stripe.Event
 
   try {
     event = getStripe().webhooks.constructEvent(body, signature, webhookSecret)
-  } catch {
+  } catch (err) {
+    log.error('Webhook signature validation failed', {
+      correlationId,
+      error: sanitizeError(err)
+    })
     throw new ValidationError('Invalid webhook signature')
   }
 
+  log.info('Webhook received', {
+    correlationId,
+    eventId: event.id,
+    eventType: event.type
+  })
+
   const supabase = createAdminClient()
 
-  switch (event.type) {
-    case 'checkout.session.completed': {
-      const session = event.data.object as Stripe.Checkout.Session
-      const userId = session.metadata?.user_id
-      const tier = session.metadata?.tier as 'pro' | 'business'
+  try {
+    switch (event.type) {
+      case 'checkout.session.completed': {
+        const session = event.data.object as Stripe.Checkout.Session
+        const userId = session.metadata?.user_id
+        const tier = session.metadata?.tier as 'pro' | 'business'
 
-      if (userId && tier && session.subscription) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase.rpc as any)('handle_stripe_webhook', {
-          p_event_type: 'checkout.session.completed',
-          p_user_id: userId,
-          p_tier: tier,
-          p_stripe_subscription_id: session.subscription as string,
-        })
+        if (userId && tier && session.subscription) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (supabase.rpc as any)('handle_stripe_webhook', {
+            p_event_type: 'checkout.session.completed',
+            p_user_id: userId,
+            p_tier: tier,
+            p_stripe_subscription_id: session.subscription as string,
+          })
+
+          log.info('Webhook processed', {
+            correlationId,
+            eventId: event.id,
+            eventType: event.type,
+            userId,
+            tier,
+            duration: Date.now() - startTime
+          })
+        }
+        break
       }
-      break
-    }
 
-    case 'customer.subscription.updated': {
-      const subscription = event.data.object as Stripe.Subscription
-      const customerId = subscription.customer as string
+      case 'customer.subscription.updated': {
+        const subscription = event.data.object as Stripe.Subscription
+        const customerId = subscription.customer as string
 
-      if (subscription.status === 'canceled' || subscription.status === 'unpaid') {
+        if (subscription.status === 'canceled' || subscription.status === 'unpaid') {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (supabase.rpc as any)('handle_stripe_webhook', {
+            p_event_type: 'customer.subscription.updated',
+            p_stripe_customer_id: customerId,
+          })
+
+          log.info('Webhook processed', {
+            correlationId,
+            eventId: event.id,
+            eventType: event.type,
+            customerId,
+            subscriptionStatus: subscription.status,
+            duration: Date.now() - startTime
+          })
+        }
+        break
+      }
+
+      case 'customer.subscription.deleted': {
+        const subscription = event.data.object as Stripe.Subscription
+        const customerId = subscription.customer as string
+
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await (supabase.rpc as any)('handle_stripe_webhook', {
-          p_event_type: 'customer.subscription.updated',
+          p_event_type: 'customer.subscription.deleted',
           p_stripe_customer_id: customerId,
         })
+
+        log.info('Webhook processed', {
+          correlationId,
+          eventId: event.id,
+          eventType: event.type,
+          customerId,
+          duration: Date.now() - startTime
+        })
+        break
       }
-      break
+
+      case 'invoice.payment_failed': {
+        const invoice = event.data.object as Stripe.Invoice
+        const customerId = invoice.customer as string
+
+        // Could send notification to user about failed payment
+        log.warn('Payment failed', {
+          eventId: event.id,
+          eventType: event.type,
+          customerId
+        })
+        break
+      }
     }
-
-    case 'customer.subscription.deleted': {
-      const subscription = event.data.object as Stripe.Subscription
-      const customerId = subscription.customer as string
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.rpc as any)('handle_stripe_webhook', {
-        p_event_type: 'customer.subscription.deleted',
-        p_stripe_customer_id: customerId,
-      })
-      break
-    }
-
-    case 'invoice.payment_failed': {
-      const invoice = event.data.object as Stripe.Invoice
-      const customerId = invoice.customer as string
-
-      // Could send notification to user about failed payment
-      console.log(`Payment failed for customer ${customerId}`)
-      break
-    }
+  } catch (processingError) {
+    log.error('Webhook processing failed', {
+      correlationId,
+      eventId: event.id,
+      eventType: event.type,
+      duration: Date.now() - startTime,
+      error: sanitizeError(processingError)
+    })
+    throw processingError  // Re-throw to trigger Stripe retry
   }
 }
 
@@ -269,7 +338,11 @@ export async function getInvoices(): Promise<StripeInvoicesResponse> {
 
     return { invoices }
   } catch (error) {
-    console.error('Failed to retrieve Stripe invoices:', error)
+    log.error('Failed to retrieve Stripe invoices', {
+      operation: 'getInvoices',
+      userId: currentUser.id,
+      error: sanitizeError(error)
+    })
     return { invoices: [] }
   }
 }
