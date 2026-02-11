@@ -1,4 +1,8 @@
 import { Resend } from 'resend'
+import { createServiceLogger } from '@/lib/logging/logger'
+import { sanitizeError } from '@/lib/logging/sanitizers'
+
+const log = createServiceLogger('email')
 
 // Lazy initialization to avoid issues with missing API key at module load time
 let resendInstance: Resend | null = null
@@ -12,6 +16,19 @@ function getResend(): Resend {
     resendInstance = new Resend(apiKey)
   }
   return resendInstance
+}
+
+async function sendWithRetry(
+  sendFn: () => Promise<{ error: unknown }>,
+  maxRetries = 2
+): Promise<void> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const { error } = await sendFn()
+    if (!error) return
+    if (attempt === maxRetries) throw error
+    // Exponential backoff: 500ms, 1000ms
+    await new Promise((r) => setTimeout(r, 500 * Math.pow(2, attempt)))
+  }
 }
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://billmint.io'
@@ -192,16 +209,20 @@ Questions? Just reply to this email — we read everything.
 Happy tracking!
 The BillMint team`
 
-  const { error } = await getResend().emails.send({
-    from: HELLO_EMAIL,
-    to,
-    subject: 'Welcome to BillMint 🌿',
-    html,
-    text,
-  })
-
-  if (error) {
-    console.error('Failed to send welcome email:', error)
+  try {
+    await sendWithRetry(() => getResend().emails.send({
+      from: HELLO_EMAIL,
+      to,
+      subject: 'Welcome to BillMint 🌿',
+      html,
+      text,
+    }))
+  } catch (error) {
+    log.error('Failed to send welcome email', {
+      emailType: 'welcome',
+      error: sanitizeError(error),
+      recipient: to
+    })
     throw error
   }
 }
@@ -290,7 +311,11 @@ Keep up the great work!`
   })
 
   if (error) {
-    console.error('Failed to send weekly summary email:', error)
+    log.error('Failed to send weekly summary email', {
+      emailType: 'weekly_summary',
+      error: sanitizeError(error),
+      recipient: to
+    })
     throw error
   }
 }
@@ -379,7 +404,11 @@ You can change the auto-pause duration in Settings: ${APP_URL}/settings`
   })
 
   if (error) {
-    console.error('Failed to send timer auto-paused email:', error)
+    log.error('Failed to send timer auto-paused email', {
+      emailType: 'timer_auto_paused',
+      error: sanitizeError(error),
+      recipient: to
+    })
     throw error
   }
 }
@@ -463,7 +492,11 @@ Your timer will auto-pause after ${maxHours} hours. Change this setting: ${APP_U
   })
 
   if (error) {
-    console.error('Failed to send timer reminder email:', error)
+    log.error('Failed to send timer reminder email', {
+      emailType: 'timer_reminder',
+      error: sanitizeError(error),
+      recipient: to
+    })
     throw error
   }
 }
@@ -554,7 +587,12 @@ Already paid? Mark as paid: ${APP_URL}/invoices/${invoiceId}`
   })
 
   if (error) {
-    console.error('Failed to send invoice overdue email:', error)
+    log.error('Failed to send invoice overdue email', {
+      emailType: 'invoice_overdue',
+      error: sanitizeError(error),
+      recipient: to,
+      invoiceNumber
+    })
     throw error
   }
 }
@@ -675,7 +713,11 @@ Here's to a great ${nextMonthName}!`
   })
 
   if (error) {
-    console.error('Failed to send monthly summary email:', error)
+    log.error('Failed to send monthly summary email', {
+      emailType: 'monthly_summary',
+      error: sanitizeError(error),
+      recipient: to
+    })
     throw error
   }
 }
@@ -762,7 +804,12 @@ ${fromName}`
   })
 
   if (error) {
-    console.error('Failed to send invoice email:', error)
+    log.error('Failed to send invoice email', {
+      emailType: 'invoice_sent',
+      error: sanitizeError(error),
+      recipient: to,
+      invoiceNumber
+    })
     throw error
   }
 }
@@ -853,7 +900,12 @@ ${fromName}`
   })
 
   if (error) {
-    console.error('Failed to send invoice reminder email:', error)
+    log.error('Failed to send invoice reminder email', {
+      emailType: 'invoice_reminder',
+      error: sanitizeError(error),
+      recipient: to,
+      invoiceNumber
+    })
     throw error
   }
 }
@@ -905,16 +957,20 @@ This link will expire in 1 hour. If you didn't request a password reset, you can
 
 — The BillMint team`
 
-  const { error } = await getResend().emails.send({
-    from: FROM_EMAIL,
-    to,
-    subject: 'Reset your password',
-    html,
-    text,
-  })
-
-  if (error) {
-    console.error('Failed to send password reset email:', error)
+  try {
+    await sendWithRetry(() => getResend().emails.send({
+      from: FROM_EMAIL,
+      to,
+      subject: 'Reset your password',
+      html,
+      text,
+    }))
+  } catch (error) {
+    log.error('Failed to send password reset email', {
+      emailType: 'password_reset',
+      error: sanitizeError(error),
+      recipient: to
+    })
     throw error
   }
 }
@@ -976,16 +1032,20 @@ If you didn't request this, please ignore this email or contact support immediat
 
 — The BillMint team`
 
-  const { error } = await getResend().emails.send({
-    from: FROM_EMAIL,
-    to,
-    subject: 'Confirm Account Deletion',
-    html,
-    text,
-  })
-
-  if (error) {
-    console.error('Failed to send account deletion OTP email:', error)
+  try {
+    await sendWithRetry(() => getResend().emails.send({
+      from: FROM_EMAIL,
+      to,
+      subject: 'Confirm Account Deletion',
+      html,
+      text,
+    }))
+  } catch (error) {
+    log.error('Failed to send account deletion OTP email', {
+      emailType: 'account_deletion_otp',
+      error: sanitizeError(error),
+      recipient: to
+    })
     throw error
   }
 }
@@ -1041,16 +1101,20 @@ This link will expire in 24 hours. If you didn't create an account, you can safe
 
 — The BillMint team`
 
-  const { error } = await getResend().emails.send({
-    from: FROM_EMAIL,
-    to,
-    subject: 'Verify your email address',
-    html,
-    text,
-  })
-
-  if (error) {
-    console.error('Failed to send email verification email:', error)
+  try {
+    await sendWithRetry(() => getResend().emails.send({
+      from: FROM_EMAIL,
+      to,
+      subject: 'Verify your email address',
+      html,
+      text,
+    }))
+  } catch (error) {
+    log.error('Failed to send email verification email', {
+      emailType: 'email_verification',
+      error: sanitizeError(error),
+      recipient: to
+    })
     throw error
   }
 }
