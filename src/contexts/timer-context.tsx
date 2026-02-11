@@ -13,6 +13,7 @@ import { useSWRConfig } from 'swr'
 import { timerApi, isApiError } from '@/lib/api'
 import { toastManager } from '@/components/ui/toast'
 import { formatDurationHuman } from '@/lib/utils/date'
+import { analytics } from '@/lib/analytics/events'
 import type { Project, ActiveTimer } from '@/types'
 
 // Key for onboarding stats SWR cache (must match the key in onboarding-checklist.tsx)
@@ -301,6 +302,12 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
           project: response.project,
           isBillable: serverTimer.is_billable,
         }))
+
+        // Track timer started event after successful server response
+        analytics.timerStarted({
+          project_id: serverTimer.project_id,
+          is_billable: serverTimer.is_billable,
+        })
       } catch (error: unknown) {
         // Stop ticking and revert on error
         stopTicking()
@@ -360,6 +367,15 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
 
     try {
       await timerApi.stopTimer()
+
+      // Track timer stopped event after successful stop
+      analytics.timerStopped({
+        duration_seconds: savedDuration,
+        project_id: prevTimer.projectId,
+        is_billable: prevTimer.isBillable,
+        description_length: prevTimer.description.length,
+      })
+
       // Invalidate caches so lists refresh
       mutate((key) => {
         if (typeof key === 'string') {
@@ -408,6 +424,11 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
 
     try {
       await timerApi.pauseTimer()
+
+      // Track timer paused event after successful pause
+      analytics.timerPaused({
+        duration_seconds: currentDisplayTime,
+      })
     } catch {
       // Revert on error - restart ticking
       setTimer((prev) => ({
@@ -455,6 +476,11 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
 
     try {
       await timerApi.resumeTimer()
+
+      // Track timer resumed event after successful resume
+      analytics.timerResumed({
+        duration_seconds: currentElapsed,
+      })
     } catch {
       // Stop ticking and revert on error
       stopTicking()
@@ -476,6 +502,7 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
 
     const prevTimer = { ...timer }
     const prevTimerStart = timerStartRef.current
+    const savedDisplayTime = displayTime
 
     // Stop ticking immediately
     stopTicking()
@@ -496,6 +523,12 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
 
     try {
       await timerApi.discardTimer()
+
+      // Track timer discarded event after successful discard
+      analytics.timerDiscarded({
+        duration_seconds: savedDisplayTime,
+      })
+
       toastManager.add({ type: 'info', title: 'Timer discarded' })
     } catch {
       // Revert on error - restart ticking if was running
@@ -509,7 +542,7 @@ export function TimerProvider({ children, initialData }: TimerProviderProps) {
     } finally {
       setIsSubmitting(false)
     }
-  }, [timer, isSubmitting, stopTicking, startTicking])
+  }, [timer, displayTime, isSubmitting, stopTicking, startTicking])
 
   // Debounced description update
   const setDescription = useCallback(
