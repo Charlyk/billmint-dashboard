@@ -32,10 +32,10 @@ Full details: `.planning/milestones/v1.0-ROADMAP.md`
   2. Stripe plan change webhook fires plan_changed event to PostHog
   3. Stripe subscription cancellation webhook fires subscription_cancelled event to PostHog
   4. PostHog node client only initializes in production and shuts down gracefully
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 05-01: TBD
+- [ ] 05-01-PLAN.md — Install posthog-node and track billing lifecycle events server-side
 
 #### Phase 6: Logging & Cleanup
 **Goal**: All API routes use withLogging wrapper and unused analytics code is removed
@@ -59,7 +59,7 @@ Plans:
 | 2. Service Migration | v1.0 | 3/3 | ✓ Complete | 2026-02-11 |
 | 3. Analytics Foundation | v1.0 | 1/1 | ✓ Complete | 2026-02-11 |
 | 4. Lifecycle Events | v1.0 | 3/3 | ✓ Complete | 2026-02-11 |
-| 5. Server-Side Analytics | v1.1 | 0/TBD | Not started | - |
+| 5. Server-Side Analytics | v1.1 | 0/1 | In progress | - |
 | 6. Logging & Cleanup | v1.1 | 0/TBD | Not started | - |
 
 ---
