@@ -4,6 +4,10 @@ import { UnauthorizedError, ValidationError, ConflictError } from '@/lib/utils/e
 import { sendPasswordResetEmail, sendWelcomeEmail, sendEmailVerificationEmail } from '@/lib/services/email.service'
 import type { User } from '@/types/database'
 import type { AuthResponse, SessionResponse } from '@/types/api'
+import { createServiceLogger } from '@/lib/logging/logger'
+import { sanitizeError } from '@/lib/logging/sanitizers'
+
+const log = createServiceLogger('auth')
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://billmint.io'
 
@@ -81,9 +85,15 @@ export async function signup(
       .eq('user_id', data.user.id)
   }
 
-  // Send verification email (don't block on failure)
-  sendVerificationEmail(data.user.id, email, fullName).catch((error) => {
-    console.error('Failed to send verification email:', error)
+  // Send verification email (don't block on failure, user can resend later)
+  const userId = data.user.id
+  sendVerificationEmail(userId, email, fullName).catch((error) => {
+    log.error('Failed to send verification email', {
+      operation: 'send_verification_email',
+      userId,
+      emailType: 'verification',
+      error: sanitizeError(error),
+    })
   })
 
   return {
@@ -128,7 +138,10 @@ export async function logout(): Promise<void> {
   const { error } = await supabase.auth.signOut()
 
   if (error) {
-    console.error('Logout error:', error)
+    log.error('Logout error', {
+      operation: 'logout',
+      error: sanitizeError(error),
+    })
   }
 }
 
@@ -216,7 +229,10 @@ export async function resetPassword(email: string): Promise<void> {
     } as never)
 
   if (insertError) {
-    console.error('Failed to create reset token:', insertError)
+    log.error('Failed to create reset token', {
+      operation: 'create_reset_token',
+      error: sanitizeError(insertError),
+    })
     // Don't reveal error to user
     return
   }
@@ -226,7 +242,11 @@ export async function resetPassword(email: string): Promise<void> {
   try {
     await sendPasswordResetEmail({ to: email, resetUrl })
   } catch (error) {
-    console.error('Failed to send reset email:', error)
+    log.error('Failed to send reset email', {
+      operation: 'send_reset_email',
+      emailType: 'password_reset',
+      error: sanitizeError(error),
+    })
     // Don't reveal error to user
   }
 }
@@ -344,7 +364,11 @@ export async function sendVerificationEmail(userId: string, email: string, name:
     } as never)
 
   if (insertError) {
-    console.error('Failed to create verification token:', insertError)
+    log.error('Failed to create verification token', {
+      operation: 'create_verification_token',
+      userId,
+      error: sanitizeError(insertError),
+    })
     throw new Error('Failed to create verification token')
   }
 
@@ -402,7 +426,12 @@ export async function verifyEmail(token: string): Promise<{ success: boolean; me
       to: userData.email,
       name: userData.full_name || 'there',
     }).catch((err) => {
-      console.error('Failed to send welcome email:', err)
+      log.error('Failed to send welcome email', {
+        operation: 'send_welcome_email',
+        userId: data.user_id,
+        emailType: 'welcome',
+        error: sanitizeError(err),
+      })
     })
   }
 
@@ -420,7 +449,11 @@ export async function resendVerificationEmail(userId: string): Promise<{ success
     .single() as { data: { email: string; full_name: string | null } | null; error: unknown }
 
   if (userError) {
-    console.error('Failed to fetch user for resend verification:', userError)
+    log.error('Failed to fetch user for resend verification', {
+      operation: 'resend_verification_fetch_user',
+      userId,
+      error: sanitizeError(userError),
+    })
     return { success: false, message: 'User not found' }
   }
 

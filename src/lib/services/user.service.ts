@@ -6,6 +6,10 @@ import { sendAccountDeletionOtpEmail } from '@/lib/services/email.service'
 import { updateCustomerEmail } from '@/lib/services/billing.service'
 import type { User, UserSettings, UpdateUser, UpdateUserSettings } from '@/types/database'
 import type { UserWithSettings } from '@/types/api'
+import { createServiceLogger } from '@/lib/logging/logger'
+import { sanitizeError } from '@/lib/logging/sanitizers'
+
+const log = createServiceLogger('user')
 
 export async function getProfile(): Promise<UserWithSettings> {
   const currentUser = await requireAuth()
@@ -17,7 +21,11 @@ export async function getProfile(): Promise<UserWithSettings> {
   }) as { data: UserWithSettings | null; error: Error | null }
 
   if (error) {
-    console.error('[User] get_user_profile RPC error:', error)
+    log.error('RPC error getting user profile', {
+      operation: 'get_user_profile',
+      userId: currentUser.id,
+      error: sanitizeError(error),
+    })
     throw new ValidationError('Failed to fetch profile')
   }
 
@@ -59,7 +67,11 @@ export async function getSettings(): Promise<UserSettings> {
   }) as { data: UserSettings | null; error: Error | null }
 
   if (error) {
-    console.error('[User] get_user_settings RPC error:', error)
+    log.error('RPC error getting user settings', {
+      operation: 'get_user_settings',
+      userId: currentUser.id,
+      error: sanitizeError(error),
+    })
     throw new ValidationError('Failed to fetch settings')
   }
 
@@ -91,7 +103,11 @@ export async function updateSettings(
   }) as { data: UserSettings | null; error: Error | null }
 
   if (error) {
-    console.error('[User] upsert_user_settings RPC error:', error)
+    log.error('RPC error upserting user settings', {
+      operation: 'upsert_user_settings',
+      userId: currentUser.id,
+      error: sanitizeError(error),
+    })
     throw new ValidationError('Failed to update settings')
   }
 
@@ -117,7 +133,11 @@ export async function updateBillingDefaults(
   }) as { data: UserSettings | null; error: Error | null }
 
   if (error) {
-    console.error('[User] update_billing_defaults RPC error:', error)
+    log.error('RPC error updating billing defaults', {
+      operation: 'update_billing_defaults',
+      userId: currentUser.id,
+      error: sanitizeError(error),
+    })
     throw new ValidationError('Failed to update billing defaults')
   }
 
@@ -130,7 +150,12 @@ export async function updateBillingDefaults(
     try {
       await updateCustomerEmail(currentUser.stripe_customer_id, data.billing_email || currentUser.email)
     } catch (stripeError) {
-      console.error('[User] Failed to update Stripe customer email:', stripeError)
+      log.error('Failed to update Stripe customer email', {
+        operation: 'update_stripe_customer_email',
+        userId: currentUser.id,
+        stripeCustomerId: currentUser.stripe_customer_id,
+        error: sanitizeError(stripeError),
+      })
     }
   }
 
@@ -153,7 +178,11 @@ export async function updateAppSettings(
   }) as { data: UserSettings | null; error: Error | null }
 
   if (error) {
-    console.error('[User] update_app_settings RPC error:', error)
+    log.error('RPC error updating app settings', {
+      operation: 'update_app_settings',
+      userId: currentUser.id,
+      error: sanitizeError(error),
+    })
     throw new ValidationError('Failed to update app settings')
   }
 
@@ -174,7 +203,11 @@ export async function dismissOnboarding(): Promise<UserSettings> {
   }) as { data: UserSettings | null; error: Error | null }
 
   if (error) {
-    console.error('[User] dismiss_onboarding RPC error:', error)
+    log.error('RPC error dismissing onboarding', {
+      operation: 'dismiss_onboarding',
+      userId: currentUser.id,
+      error: sanitizeError(error),
+    })
     throw new ValidationError('Failed to dismiss onboarding')
   }
 
@@ -210,7 +243,11 @@ export async function requestAccountDeletion(): Promise<void> {
     } as never)
 
   if (insertError) {
-    console.error('[User] Failed to create deletion OTP:', insertError)
+    log.error('Failed to create deletion OTP', {
+      operation: 'create_deletion_otp',
+      userId: currentUser.id,
+      error: sanitizeError(insertError),
+    })
     throw new ValidationError('Failed to send verification code')
   }
 
@@ -218,7 +255,11 @@ export async function requestAccountDeletion(): Promise<void> {
   try {
     await sendAccountDeletionOtpEmail({ to: currentUser.email, otpCode })
   } catch (error) {
-    console.error('[User] Failed to send deletion OTP email:', error)
+    log.error('Failed to send deletion OTP email', {
+      operation: 'send_deletion_otp_email',
+      userId: currentUser.id,
+      error: sanitizeError(error),
+    })
     throw new ValidationError('Failed to send verification code')
   }
 }
@@ -272,7 +313,11 @@ export async function confirmAccountDeletion(otpCode: string): Promise<void> {
   })
 
   if (error) {
-    console.error('[User] delete_user_account RPC error:', error)
+    log.error('RPC error deleting user account', {
+      operation: 'delete_user_account',
+      userId: currentUser.id,
+      error: sanitizeError(error),
+    })
     throw new ValidationError('Failed to delete account')
   }
 
@@ -280,7 +325,11 @@ export async function confirmAccountDeletion(otpCode: string): Promise<void> {
   const { error: authDeleteError } = await adminClient.auth.admin.deleteUser(currentUser.id)
 
   if (authDeleteError) {
-    console.error('[User] Failed to delete auth user:', authDeleteError)
+    log.error('Failed to delete auth user', {
+      operation: 'delete_auth_user',
+      userId: currentUser.id,
+      error: sanitizeError(authDeleteError),
+    })
     // Don't throw here - the user data is already deleted, auth record will be orphaned but harmless
   }
 
