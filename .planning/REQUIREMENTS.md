@@ -9,11 +9,11 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Logging Foundation
 
-- [ ] **LOG-01**: All backend logs use structured JSON format with consistent schema (level, message, service, timestamp, context)
-- [ ] **LOG-02**: Logging is active in production only — development falls back to console
-- [ ] **LOG-03**: Every API request generates a correlation ID propagated through all downstream logs
-- [ ] **LOG-04**: All API routes log request method, path, status code, and response time
-- [ ] **LOG-05**: All errors include stack traces, error classification, and relevant context
+- [x] **LOG-01**: All backend logs use structured JSON format with consistent schema (level, message, service, timestamp, context)
+- [x] **LOG-02**: Logging is active in production only — development falls back to console
+- [x] **LOG-03**: Every API request generates a correlation ID propagated through all downstream logs
+- [x] **LOG-04**: All API routes log request method, path, status code, and response time
+- [x] **LOG-05**: All errors include stack traces, error classification, and relevant context
 
 ### Console Migration
 
@@ -76,11 +76,11 @@ Deferred to future release. Tracked but not in current roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| LOG-01 | Phase 1 | Pending |
-| LOG-02 | Phase 1 | Pending |
-| LOG-03 | Phase 1 | Pending |
-| LOG-04 | Phase 1 | Pending |
-| LOG-05 | Phase 1 | Pending |
+| LOG-01 | Phase 1 | Done |
+| LOG-02 | Phase 1 | Done |
+| LOG-03 | Phase 1 | Done |
+| LOG-04 | Phase 1 | Done |
+| LOG-05 | Phase 1 | Done |
 | MIG-01 | Phase 2 | Pending |
 | MIG-02 | Phase 2 | Pending |
 | MIG-03 | Phase 2 | Pending |
@@ -104,4 +104,4 @@ Deferred to future release. Tracked but not in current roadmap.
 
 ---
 *Requirements defined: 2026-02-11*
-*Last updated: 2026-02-11 after initial definition*
+*Last updated: 2026-02-11 — Phase 1 requirements complete*
