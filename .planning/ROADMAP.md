@@ -13,7 +13,7 @@ This roadmap transforms BillMint from console-based debugging into production-gr
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Logging Foundation** - Production-only structured logging infrastructure with trace correlation
-- [ ] **Phase 2: Service Migration** - Replace console calls with Axiom logger across all backend services
+- [x] **Phase 2: Service Migration** - Replace console calls with Axiom logger across all backend services
 - [ ] **Phase 3: Analytics Foundation** - PostHog integration with anonymous page view and event tracking
 - [ ] **Phase 4: Lifecycle Events** - Comprehensive product analytics for timer, invoice, and billing workflows
 
@@ -49,9 +49,9 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — Migrate invoice.service.ts (16 calls) and email.service.ts (11 calls)
-- [ ] 02-02-PLAN.md — Migrate user, auth, timer, project, and logo services (32 calls)
-- [ ] 02-03-PLAN.md — Remaining services, webhook lifecycle logging, cron execution logging
+- [x] 02-01-PLAN.md — Migrate invoice.service.ts (16 calls) and email.service.ts (11 calls)
+- [x] 02-02-PLAN.md — Migrate user, auth, timer, project, and logo services (32 calls)
+- [x] 02-03-PLAN.md — Remaining services, webhook lifecycle logging, cron execution logging
 
 ### Phase 3: Analytics Foundation
 **Goal**: PostHog anonymous analytics with automatic page view tracking active in production
@@ -90,10 +90,10 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Logging Foundation | 2/2 | ✓ Complete | 2026-02-11 |
-| 2. Service Migration | 0/3 | Not started | - |
+| 2. Service Migration | 3/3 | ✓ Complete | 2026-02-11 |
 | 3. Analytics Foundation | 0/TBD | Not started | - |
 | 4. Lifecycle Events | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-02-11*
-*Last updated: 2026-02-11 — Phase 1 complete*
+*Last updated: 2026-02-11 — Phase 2 complete*

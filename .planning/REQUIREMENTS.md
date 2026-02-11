@@ -17,15 +17,15 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Console Migration
 
-- [ ] **MIG-01**: All console.error calls in service files are replaced with structured Axiom logger
-- [ ] **MIG-02**: All console.log calls in service files are replaced with structured Axiom logger
-- [ ] **MIG-03**: Logger utility provides service-scoped convenience methods (e.g., logger.forService('billing'))
+- [x] **MIG-01**: All console.error calls in service files are replaced with structured Axiom logger
+- [x] **MIG-02**: All console.log calls in service files are replaced with structured Axiom logger
+- [x] **MIG-03**: Logger utility provides service-scoped convenience methods (e.g., logger.forService('billing'))
 
 ### Webhook & Cron Observability
 
-- [ ] **WH-01**: Stripe webhook events log full lifecycle: received, validated, processed, response sent
-- [ ] **WH-02**: Webhook logging is async (fire-and-forget) to avoid Stripe timeout issues
-- [ ] **CRON-01**: Cron jobs (timer auto-pause, email summaries) log execution start, duration, success/failure, and items processed
+- [x] **WH-01**: Stripe webhook events log full lifecycle: received, validated, processed, response sent
+- [x] **WH-02**: Webhook logging is async (fire-and-forget) to avoid Stripe timeout issues
+- [x] **CRON-01**: Cron jobs (timer auto-pause, email summaries) log execution start, duration, success/failure, and items processed
 
 ### Analytics Foundation
 
