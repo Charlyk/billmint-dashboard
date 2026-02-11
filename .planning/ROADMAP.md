@@ -62,10 +62,10 @@ Plans:
   2. Page views are tracked automatically on all route changes (App Router navigation)
   3. PostHog activates in production only — completely disabled in development environment
   4. Zero PII (email, name, user ID) is sent to PostHog in any event or property
-**Plans**: TBD
+**Plans:** 1 plan
 
 Plans:
-- [ ] 03-01: TBD (will be created during plan-phase)
+- [ ] 03-01-PLAN.md — PostHog provider, pageview tracker, and layout integration with anonymous-only production config
 
 ### Phase 4: Lifecycle Events
 **Goal**: Complete product visibility through comprehensive lifecycle event tracking for core user workflows
