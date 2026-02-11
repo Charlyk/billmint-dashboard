@@ -57,20 +57,20 @@ Deferred to future release. Tracked but not in current roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SSA-01 | — | Pending |
-| SSA-02 | — | Pending |
-| SSA-03 | — | Pending |
-| SSA-04 | — | Pending |
-| LOG-06 | — | Pending |
-| LOG-07 | — | Pending |
-| CLN-01 | — | Pending |
-| CLN-02 | — | Pending |
+| SSA-01 | Phase 5 | Pending |
+| SSA-02 | Phase 5 | Pending |
+| SSA-03 | Phase 5 | Pending |
+| SSA-04 | Phase 5 | Pending |
+| LOG-06 | Phase 6 | Pending |
+| LOG-07 | Phase 6 | Pending |
+| CLN-01 | Phase 6 | Pending |
+| CLN-02 | Phase 6 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 8 total
-- Mapped to phases: 0
-- Unmapped: 8
+- Mapped to phases: 8/8 (100%)
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-11*
-*Last updated: 2026-02-11 after initial definition*
+*Last updated: 2026-02-11 — v1.1 roadmap created, 100% coverage*
