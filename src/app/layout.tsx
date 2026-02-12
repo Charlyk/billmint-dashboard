@@ -24,15 +24,28 @@ export const metadata: Metadata = {
     default: "BillMint - Simple Time Tracking & Invoicing for Freelancers",
   },
   description:
-    "Track time, create invoices, and get paid faster. Simple time tracking and invoicing for freelancers and small teams. Start free.",
+    "BillMint is free time tracking software with invoicing built in. Track billable hours, create professional invoices, and get paid faster. The best time tracking and billing software for freelancers, consultants, and small teams.",
   keywords: [
-    "time tracking",
-    "invoicing",
-    "freelancer",
+    "time tracking software",
+    "time tracking software app",
+    "freelancer time tracking",
+    "time tracking billing software",
+    "time tracking software for billable hours",
+    "time tracking and billing software for consultants",
+    "time tracking software with invoicing",
+    "freelance time tracking free",
+    "invoicing software",
     "invoice generator",
-    "time tracker",
-    "billing",
     "freelance tools",
+    "time tracker",
+    "billing software",
+    "best time tracking software",
+    "time tracking software online",
+    "task time tracking software",
+    "freelancer time tracking software",
+    "time tracking for freelance work",
+    "time tracking software for projects",
+    "free time tracking software",
   ],
   alternates: {
     canonical: "/",
@@ -49,7 +62,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "BillMint - Simple Time Tracking & Invoicing",
     description:
-      "Track time, create invoices, and get paid faster. Start free.",
+      "Free time tracking software with invoicing. Track billable hours, create invoices, and get paid faster. Built for freelancers and consultants.",
     url: "https://billmint.io",
     siteName: "BillMint",
     type: "website",
@@ -58,7 +71,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "BillMint - Simple Time Tracking & Invoicing",
     description:
-      "Track time, create invoices, and get paid faster. Start free.",
+      "Free time tracking software with invoicing. Track billable hours, create invoices, and get paid faster. Built for freelancers and consultants.",
   },
 };
 
