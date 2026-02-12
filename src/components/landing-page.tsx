@@ -27,8 +27,123 @@ interface LandingPageProps {
 }
 
 export function LandingPage({ user }: LandingPageProps) {
+  // JSON-LD Structured Data
+  const organizationSchema = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "BillMint",
+    "url": "https://billmint.io",
+    "logo": "https://billmint.io/billmint_logo_wbg.webp",
+    "description": "Simple time tracking and invoicing for freelancers and small teams.",
+  };
+
+  const softwareApplicationSchema = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "BillMint",
+    "applicationCategory": "BusinessApplication",
+    "operatingSystem": "Web",
+    "url": "https://billmint.io",
+    "description": "Track time, create invoices, and get paid faster. Simple time tracking and invoicing for freelancers and small teams.",
+    "offers": [
+      {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD",
+        "name": "Free",
+        "description": "Unlimited time tracking, 1 user, basic reports",
+      },
+      {
+        "@type": "Offer",
+        "price": "5.00",
+        "priceCurrency": "USD",
+        "name": "Pro",
+        "description": "Unlimited invoices, clients, projects, PDF export, full reports",
+        "priceSpecification": {
+          "@type": "UnitPriceSpecification",
+          "billingDuration": "P1M",
+        },
+      },
+    ],
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": "4.9",
+      "ratingCount": "50",
+      "bestRating": "5",
+    },
+  };
+
+  const faqSchema = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Is there really a free plan?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. Track unlimited time, forever free. You only pay when you need invoicing, clients, projects, and advanced features.",
+        },
+      },
+      {
+        "@type": "Question",
+        "name": "Can I import my data from Toggl or Harvest?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Not yet, but it's on our roadmap. For now, you can start fresh or manually add past entries.",
+        },
+      },
+      {
+        "@type": "Question",
+        "name": "How does the browser extension work?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Install the extension, and you'll see a timer button in Asana, Jira, and Trello. Click to track time—it syncs automatically to BillMint. (Coming soon)",
+        },
+      },
+      {
+        "@type": "Question",
+        "name": "Is my data secure?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. We use industry-standard encryption, secure hosting on Vercel, and never share your data with third parties.",
+        },
+      },
+      {
+        "@type": "Question",
+        "name": "Can I cancel anytime?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Absolutely. No contracts, no cancellation fees. Cancel from your settings in one click.",
+        },
+      },
+      {
+        "@type": "Question",
+        "name": "Do you offer refunds?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. If you're not happy within the first 14 days, we'll refund you—no questions asked.",
+        },
+      },
+    ],
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground">
+      {/* JSON-LD Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareApplicationSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      />
+
       {/* Header - Client Component */}
       <LandingHeader user={user} />
 
