@@ -88,8 +88,47 @@ const categories = [
 ];
 
 export default function HelpCenterPage() {
+  const faqSchema = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": faqs.map((faq) => ({
+      "@type": "Question",
+      "name": faq.question,
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": faq.answer,
+      },
+    })),
+  };
+
+  const webPageSchema = {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "name": "Help Center - BillMint",
+    "description": "Get help with BillMint time tracking software. Find answers about tracking billable hours, creating invoices, and managing clients.",
+    "url": "https://billmint.io/help-center",
+    "isPartOf": {
+      "@type": "WebSite",
+      "name": "BillMint",
+      "url": "https://billmint.io",
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "BillMint",
+      "url": "https://billmint.io",
+    },
+  };
+
   return (
     <div className="mx-auto max-w-3xl px-6 py-16">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(webPageSchema) }}
+      />
       <Link
         href="/"
         className="text-sm text-muted-foreground hover:text-foreground"

@@ -1,8 +1,31 @@
 import Link from "next/link";
 
 export default function TermsOfServicePage() {
+  const webPageSchema = {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "name": "Terms of Service - BillMint",
+    "description": "Terms and conditions for using BillMint time tracking and invoicing platform.",
+    "url": "https://billmint.io/terms",
+    "isPartOf": {
+      "@type": "WebSite",
+      "name": "BillMint",
+      "url": "https://billmint.io",
+    },
+    "dateModified": "2026-02-12",
+    "publisher": {
+      "@type": "Organization",
+      "name": "BillMint",
+      "url": "https://billmint.io",
+    },
+  };
+
   return (
     <div className="mx-auto max-w-3xl px-6 py-16">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(webPageSchema) }}
+      />
       <Link
         href="/"
         className="text-sm text-muted-foreground hover:text-foreground"
