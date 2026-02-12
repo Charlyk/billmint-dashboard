@@ -270,8 +270,8 @@ This checklist covers everything needed before launching BillMint to real users.
 - [ ] **[MUST]** Test timezone handling
 
 ### Edge Cases
-- [ ] **[MUST]** Timer running when closing browser
-- [ ] **[MUST]** Multiple tabs open
+- [x] **[MUST]** Timer running when closing browser
+- [x] **[MUST]** Multiple tabs open
 - [ ] **[MUST]** Session expires while using app
 - [ ] **[MUST]** Network disconnects mid-action
 
