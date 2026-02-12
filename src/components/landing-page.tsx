@@ -18,6 +18,7 @@ import {
   AccordionPanel,
 } from "@/components/ui/accordion";
 import { LandingHeader } from "@/components/landing-header";
+import { DemoPreview } from "@/components/demo-preview";
 import { ThemeToggle } from "@/components/theme-toggle";
 import type { User } from "@/types";
 
@@ -71,13 +72,7 @@ export function LandingPage({ user }: LandingPageProps) {
           <div className="mt-16 sm:mt-20">
             <div className="relative mx-auto max-w-4xl">
               <div className="rounded-2xl border bg-card p-2 shadow-2xl">
-                <div className="rounded-xl bg-muted/50 aspect-video flex items-center justify-center">
-                  <div className="text-center text-muted-foreground">
-                    <Clock className="mx-auto size-16 mb-4 opacity-50" />
-                    <p className="text-lg font-medium">App Dashboard Preview</p>
-                    <p className="text-sm">Timer running, tracking your work</p>
-                  </div>
-                </div>
+                <DemoPreview />
               </div>
               {/* Floating decorative elements */}
               <div className="absolute -top-4 -right-4 size-24 rounded-full bg-teal-500/10 blur-2xl" />
