@@ -1,0 +1,29 @@
+# BillMint
+
+> Simple time tracking and invoicing for freelancers and small teams.
+
+BillMint is a web-based time tracking software with invoicing built in. Freelancers, consultants, and small teams use it to track billable hours, create professional invoices, and get paid faster.
+
+## Key Features
+
+- Time tracking with one-click timer or manual entry
+- Professional invoice creation with customizable templates
+- Client and project management
+- Recurring invoices (weekly, monthly, quarterly, yearly)
+- Multi-currency support (USD, EUR, GBP, RON)
+- Billable hours to invoice conversion
+- PDF invoice export
+- Time reports and analytics
+
+## Pricing
+
+- Free plan: Unlimited time tracking, 1 user, basic reports
+- Pro plan: $5/month - Unlimited invoices, clients, projects, PDF export, full reports
+
+## Links
+
+- Website: https://billmint.io
+- Sign Up: https://billmint.io/signup
+- Help Center: https://billmint.io/help-center
+- Privacy Policy: https://billmint.io/privacy
+- Terms of Service: https://billmint.io/terms

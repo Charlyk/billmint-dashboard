@@ -1,0 +1,103 @@
+# BillMint
+
+> Simple time tracking and invoicing for freelancers and small teams.
+
+BillMint is a web-based time tracking software with invoicing built in. Freelancers, consultants, and small teams use it to track billable hours, create professional invoices, and get paid faster.
+
+## Key Features
+
+### Time Tracking
+Track time with a one-click timer from your dashboard, or manually log hours against any project. All tracked time can be automatically converted into invoice line items, making billing effortless.
+
+### Professional Invoice Creation
+Create beautiful, professional invoices with customizable templates. Upload your logo, adjust colors, and edit footer text to match your brand. Send invoices directly to clients via email.
+
+### Client and Project Management
+Organize your work by clients and projects. Store client contact information, billing details, and track which projects belong to which clients. Create projects to categorize time entries and invoices.
+
+### Recurring Invoices
+Set up invoices to automatically generate and send on a schedule. Choose from weekly, monthly, quarterly, or yearly frequencies. Perfect for retainer clients and subscription services.
+
+### Multi-Currency Support
+Work with clients around the world using support for major currencies including USD, EUR, GBP, and RON. Set a default currency in settings and override it per client or per invoice as needed.
+
+### Billable Hours Conversion
+Automatically convert tracked time entries into invoice line items. Your hourly rate is applied automatically, and you can review and adjust before sending.
+
+### PDF Invoice Export
+Export professional invoices as PDF files for offline storage or printing. PDFs include all invoice details, line items, and your custom branding.
+
+### Time Reports and Analytics
+Generate detailed time reports to understand how you spend your time. Filter by project, client, or date range. Track billable vs non-billable hours to optimize your productivity.
+
+## Use Cases
+
+BillMint is ideal for:
+
+- **Freelance developers** tracking billable hours across client projects and generating invoices for completed work
+- **Freelance designers** managing project time and invoicing clients for design services
+- **Consultants** tracking time and billing for professional services and advisory work
+- **Virtual assistants** logging hours for multiple clients and creating invoices for administrative support
+- **Small agencies** managing team time tracking and client invoicing in one centralized platform
+- **Accountants** tracking billable hours for client work and tax preparation services
+- **Lawyers and legal professionals** tracking case time and billing clients for legal services
+- **Any solo professional** who needs simple time tracking with invoicing built in
+
+## How It Works
+
+### 1. Track Time
+Start a timer from your dashboard or manually log hours against a project. Categorize time as billable or non-billable. Add notes to describe what you worked on.
+
+### 2. Create Invoice
+Click "New Invoice", select a client, and add line items. Convert tracked time into line items automatically, or add custom line items manually. Customize the invoice template with your branding.
+
+### 3. Get Paid
+Send the invoice directly to your client via email. They receive a professional PDF invoice. Track invoice status (draft, sent, paid) and follow up with payment reminders.
+
+## Technical Details
+
+BillMint is a modern web application that works in any browser. No software download required. Your data is encrypted at rest and in transit using industry-standard security practices. Authentication is handled securely, and payment processing is PCI-DSS compliant through Stripe.
+
+## Pricing
+
+- **Free plan**: Unlimited time tracking, 1 user, basic reports. Perfect for getting started.
+- **Pro plan**: $5/month - Unlimited invoices, clients, projects, PDF export, full reports, recurring invoices, multi-currency support. 14-day money-back guarantee.
+
+## Comparison to Alternatives
+
+BillMint is an alternative to Toggl, Harvest, and Clockify for freelancers who also need invoicing built-in. Unlike standalone time trackers, BillMint combines time tracking software with invoicing in one tool. You don't need to pay for separate apps or manually transfer data between systems.
+
+While Toggl excels at pure time tracking and Harvest offers robust project management, BillMint focuses on the essential freelancer workflow: track time, create invoice, get paid. It's simpler and more affordable than enterprise tools, with pricing designed for solo professionals and small teams.
+
+## Frequently Asked Questions
+
+**How do I create my first invoice?**
+Navigate to the Dashboard, click "New Invoice", select a client, add your line items, and hit "Send". Your client will receive the invoice via email.
+
+**How does time tracking work?**
+Start a timer from the Dashboard or manually log hours against a project. Tracked time can be converted into invoice line items automatically.
+
+**Can I customize my invoice template?**
+Yes. Go to Settings > Invoice and you can upload your logo, adjust colors, and edit the footer text that appears on every invoice.
+
+**How do I add a new client?**
+Go to the Clients page from the sidebar and click "Add Client". Fill in their name, email, and billing details. You can also create a client directly when drafting a new invoice.
+
+**Can I send recurring invoices?**
+Yes. When creating an invoice, enable the "Recurring" option and set the frequency (weekly, monthly, quarterly, or yearly). BillMint will automatically generate and send invoices on schedule.
+
+**What currencies are supported?**
+BillMint currently supports major currencies including USD, EUR, GBP, and RON. You can set a default currency in Settings and override it per client or per invoice.
+
+## Links
+
+- Website: https://billmint.io
+- Sign Up: https://billmint.io/signup
+- Help Center: https://billmint.io/help-center
+- Privacy Policy: https://billmint.io/privacy
+- Terms of Service: https://billmint.io/terms
+- Support: support@billmint.com
+
+---
+
+Built for freelancers, by freelancers. Start tracking time and creating invoices today.
