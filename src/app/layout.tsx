@@ -18,9 +18,34 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "BillMint - Simple Time Tracking & Invoicing for Freelancers",
+  metadataBase: new URL("https://billmint.io"),
+  title: {
+    template: "%s | BillMint",
+    default: "BillMint - Simple Time Tracking & Invoicing for Freelancers",
+  },
   description:
     "Track time, create invoices, and get paid faster. Simple time tracking and invoicing for freelancers and small teams. Start free.",
+  keywords: [
+    "time tracking",
+    "invoicing",
+    "freelancer",
+    "invoice generator",
+    "time tracker",
+    "billing",
+    "freelance tools",
+  ],
+  alternates: {
+    canonical: "/",
+  },
+  icons: {
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
+  manifest: "/site.webmanifest",
   openGraph: {
     title: "BillMint - Simple Time Tracking & Invoicing",
     description:
