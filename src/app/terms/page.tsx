@@ -18,6 +18,7 @@ export default function TermsOfServicePage() {
       "name": "BillMint",
       "url": "https://billmint.io",
     },
+    "image": "https://billmint.io/billmint_og.png",
   };
 
   return (

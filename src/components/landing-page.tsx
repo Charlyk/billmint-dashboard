@@ -35,6 +35,7 @@ export function LandingPage({ user }: LandingPageProps) {
     "url": "https://billmint.io",
     "logo": "https://billmint.io/billmint_logo_wbg.webp",
     "description": "Simple time tracking and invoicing for freelancers and small teams.",
+    "image": "https://billmint.io/billmint_og.png",
   };
 
   const softwareApplicationSchema = {
@@ -45,6 +46,7 @@ export function LandingPage({ user }: LandingPageProps) {
     "operatingSystem": "Web",
     "url": "https://billmint.io",
     "description": "Track time, create invoices, and get paid faster. Simple time tracking and invoicing for freelancers and small teams.",
+    "screenshot": "https://billmint.io/billmint_og.png",
     "offers": [
       {
         "@type": "Offer",
