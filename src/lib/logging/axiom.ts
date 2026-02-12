@@ -9,7 +9,7 @@ import { Axiom } from '@axiomhq/js';
  * Production environment check.
  * Uses VERCEL_ENV for proper Vercel environment detection.
  */
-export const isProduction = process.env.VERCEL_ENV === 'production';
+export const isProduction = process.env.ANALYTICS_ENV === 'production';
 
 /**
  * Axiom dataset name.

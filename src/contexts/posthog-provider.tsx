@@ -8,20 +8,22 @@ import { isProduction, POSTHOG_KEY, POSTHOG_HOST } from '@/lib/analytics/posthog
 export function PHProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Only initialize PostHog in production with valid key
+    console.log('Initializing PostHog...', isProduction, POSTHOG_KEY);
     if (isProduction && POSTHOG_KEY) {
+      console.log('Initializing PostHog...');
       posthog.init(POSTHOG_KEY, {
         api_host: POSTHOG_HOST,
         defaults: '2026-01-30',
-        // Anonymous-only tracking - no user profiles created
-        person_profiles: 'identified_only',
-        // Disable auto page view capture (manual tracking required for App Router)
-        capture_pageview: false,
-        // Track when users leave pages
-        capture_pageleave: true,
-        // Privacy: disable session recordings
-        disable_session_recording: true,
-        // Prevent hydration issues from injected scripts
-        disable_external_dependency_loading: true,
+        // // Anonymous-only tracking - no user profiles created
+        // person_profiles: 'identified_only',
+        // // Disable auto page view capture (manual tracking required for App Router)
+        // capture_pageview: false,
+        // // Track when users leave pages
+        // capture_pageleave: true,
+        // // Privacy: disable session recordings
+        // disable_session_recording: true,
+        // // Prevent hydration issues from injected scripts
+        // disable_external_dependency_loading: true,
       });
     }
   }, []);

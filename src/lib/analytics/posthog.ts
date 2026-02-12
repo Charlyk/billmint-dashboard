@@ -7,7 +7,7 @@
  * Production environment check.
  * Uses VERCEL_ENV for proper Vercel environment detection.
  */
-export const isProduction = process.env.VERCEL_ENV === 'production';
+export const isProduction = process.env.NEXT_PUBLIC_ANALYTICS_ENV === 'production';
 
 /**
  * PostHog API key.
