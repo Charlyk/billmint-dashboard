@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { Providers } from "@/contexts/providers";
 import { PHProvider } from "@/contexts/posthog-provider";
 import { PostHogPageView } from "@/components/analytics/posthog-pageview";
+import { CookieConsentBanner } from "@/components/cookie-consent-banner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -68,6 +69,7 @@ export default function RootLayout({
           </Suspense>
           <Providers>{children}</Providers>
         </PHProvider>
+        <CookieConsentBanner />
       </body>
     </html>
   );
