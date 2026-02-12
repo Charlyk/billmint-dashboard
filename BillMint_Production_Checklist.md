@@ -222,7 +222,7 @@ This checklist covers everything needed before launching BillMint to real users.
 ### Pages
 - [x] **[MUST]** Privacy Policy page — Comprehensive, updated Feb 12 2026 with cookies, PostHog, GDPR sections
 - [x] **[MUST]** Terms of Service page — Comprehensive, updated Feb 12 2026 with 16 sections
-- [ ] **[NICE]** Cookie banner (if needed for your market)
+- [x] **[NICE]** Cookie banner (if needed for your market)
 
 ### Data
 - [x] **[MUST]** Users can export their data — CSV export via Settings and Reports page
