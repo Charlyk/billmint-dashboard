@@ -66,12 +66,22 @@ export const metadata: Metadata = {
     url: "https://billmint.io",
     siteName: "BillMint",
     type: "website",
+    images: [
+      {
+        url: "/billmint_og.png",
+        width: 1200,
+        height: 630,
+        alt: "BillMint - Simple Time Tracking & Invoicing for Freelancers",
+        type: "image/png",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "BillMint - Simple Time Tracking & Invoicing",
     description:
       "Free time tracking software with invoicing. Track billable hours, create invoices, and get paid faster. Built for freelancers and consultants.",
+    images: ["/billmint_og.png"],
   },
 };
 
