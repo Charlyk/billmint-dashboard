@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-11)
 Phase: 6 of 6 (all complete)
 Plan: All plans complete
 Status: v1.1 milestone shipped
-Last activity: 2026-02-11 — v1.1 Observability Hardening archived
+Last activity: 2026-02-12 - Completed quick task 1: Add cookie consent banner with analytics opt-in/out and PostHog cookie blocking
 
 Progress: [██████████] 100% (v1.0 + v1.1 complete)
 
@@ -38,6 +38,12 @@ None.
 
 None.
 
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 1 | Add cookie consent banner with analytics opt-in/out and PostHog cookie blocking | 2026-02-12 | 53a114a | [1-add-cookie-consent-banner-with-analytics](./quick/1-add-cookie-consent-banner-with-analytics/) |
+
 ## Session Continuity
 
 Last session: 2026-02-11
@@ -49,4 +55,4 @@ Resume file: None
 **Next action:** Start next milestone with `/gsd:new-milestone`
 
 *State initialized: 2026-02-11*
-*Last updated: 2026-02-11 — v1.1 milestone archived*
+*Last updated: 2026-02-12 — Quick task 1 completed*
