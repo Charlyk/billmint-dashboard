@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { getActiveTimer } from "@/lib/services/timer.service";
 import { requireAuth } from "@/lib/services/auth.service";
 import { getSettings } from "@/lib/services/user.service";
@@ -9,6 +10,17 @@ import type { User } from "@/types";
 
 // Dashboard requires authentication, so always render dynamically
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: {
+    template: "%s | BillMint Dashboard",
+    default: "Dashboard",
+  },
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 async function getServerData() {
   // This runs on the server - user is guaranteed to exist due to middleware
